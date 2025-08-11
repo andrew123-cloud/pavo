@@ -19,7 +19,7 @@ export default function PavoInteriorsHome() {
     <div className="flex flex-col">
       <section className="relative h-[60vh] min-h-[400px] w-full bg-primary/20">
         <Image
-          src="https://placehold.co/1920x1080"
+          src="https://placehold.co/1920x1080.png"
           alt="Elegant living room designed by Pavo Interiors"
           layout="fill"
           objectFit="cover"

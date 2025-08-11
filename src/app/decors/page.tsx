@@ -30,7 +30,7 @@ export default function PavoDecorsHome() {
           </div>
           <div className="relative h-80 w-full overflow-hidden rounded-lg shadow-xl md:h-full">
             <Image
-              src="https://placehold.co/800x600"
+              src="https://placehold.co/800x600.png"
               alt="A stylishly arranged collection of home decor items"
               layout="fill"
               objectFit="cover"

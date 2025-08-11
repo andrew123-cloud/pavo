@@ -5,21 +5,21 @@ export const portfolioItems: PortfolioItem[] = [
     id: '1',
     title: 'Modern Oasis',
     location: 'Masaki, Dar es Salaam',
-    imageUrl: 'https://placehold.co/600x400',
+    imageUrl: 'https://placehold.co/600x400.png',
     aiHint: 'modern living room'
   },
   {
     id: '2',
     title: 'Coastal Charm',
     location: 'Nungwi, Zanzibar',
-    imageUrl: 'https://placehold.co/600x400',
+    imageUrl: 'https://placehold.co/600x400.png',
     aiHint: 'coastal interior'
   },
   {
     id: '3',
     title: 'Urban Retreat',
     location: 'Oyster Bay, Dar es Salaam',
-    imageUrl: 'https://placehold.co/600x400',
+    imageUrl: 'https://placehold.co/600x400.png',
     aiHint: 'urban apartment'
   },
 ];
@@ -31,7 +31,7 @@ export const testimonials: Testimonial[] = [
     projectType: 'Full Home Styling',
     quote:
       'Pavo Interiors transformed our house into a home. Every detail was perfect, and the team was an absolute pleasure to work with. Highly recommended!',
-    avatarUrl: 'https://placehold.co/100x100',
+    avatarUrl: 'https://placehold.co/100x100.png',
   },
   {
     id: '2',
@@ -39,7 +39,7 @@ export const testimonials: Testimonial[] = [
     projectType: 'Living Room Consultation',
     quote:
       "The virtual design service was so convenient. They understood my vision perfectly and gave me a plan that was easy to follow. I'm thrilled with the results.",
-    avatarUrl: 'https://placehold.co/100x100',
+    avatarUrl: 'https://placehold.co/100x100.png',
   },
   {
     id: '3',
@@ -47,7 +47,7 @@ export const testimonials: Testimonial[] = [
     projectType: 'Commercial Space Design',
     quote:
       'Our new office space is both beautiful and functional, thanks to Pavo. It has completely boosted our team\'s morale and productivity.',
-    avatarUrl: 'https://placehold.co/100x100',
+    avatarUrl: 'https://placehold.co/100x100.png',
   },
 ];
 
@@ -57,7 +57,7 @@ export const decorProducts: Product[] = [
     name: 'Terracotta Vase',
     price: 75000,
     category: 'Vases',
-    imageUrl: 'https://placehold.co/400x400',
+    imageUrl: 'https://placehold.co/400x400.png',
     aiHint: 'terracotta vase'
   },
   {
@@ -65,7 +65,7 @@ export const decorProducts: Product[] = [
     name: 'Linen Throw Pillow',
     price: 55000,
     category: 'Pillows',
-    imageUrl: 'https://placehold.co/400x400',
+    imageUrl: 'https://placehold.co/400x400.png',
     aiHint: 'linen pillow'
   },
   {
@@ -73,7 +73,7 @@ export const decorProducts: Product[] = [
     name: 'Handwoven Wall Hanging',
     price: 120000,
     category: 'Wall Art',
-    imageUrl: 'https://placehold.co/400x400',
+    imageUrl: 'https://placehold.co/400x400.png',
     aiHint: 'wall hanging'
   },
   {
@@ -81,7 +81,7 @@ export const decorProducts: Product[] = [
     name: 'Acacia Wood Bowl',
     price: 90000,
     category: 'Tableware',
-    imageUrl: 'https://placehold.co/400x400',
+    imageUrl: 'https://placehold.co/400x400.png',
     aiHint: 'wood bowl'
   },
 ];
@@ -93,7 +93,7 @@ export const rentalProperties: Property[] = [
     location: 'Zanzibar, Tanzania',
     pricePerNight: 450000,
     rating: 4.9,
-    imageUrl: 'https://placehold.co/600x400',
+    imageUrl: 'https://placehold.co/600x400.png',
     aiHint: 'beachfront villa'
   },
   {
@@ -102,7 +102,7 @@ export const rentalProperties: Property[] = [
     location: 'Arusha, Tanzania',
     pricePerNight: 250000,
     rating: 4.8,
-    imageUrl: 'https://placehold.co/600x400',
+    imageUrl: 'https://placehold.co/600x400.png',
     aiHint: 'garden apartment'
   },
   {
@@ -111,7 +111,7 @@ export const rentalProperties: Property[] = [
     location: 'Dar es Salaam, Tanzania',
     pricePerNight: 350000,
     rating: 4.7,
-    imageUrl: 'https://placehold.co/600x400',
+    imageUrl: 'https://placehold.co/600x400.png',
     aiHint: 'city penthouse'
   },
 ];

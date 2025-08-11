@@ -26,12 +26,12 @@ export default function PavoHomesHome() {
     <div className="flex flex-col">
       <section className="relative h-[70vh] min-h-[500px] w-full">
         <Image
-          src="https://placehold.co/1920x1080"
+          src="https://placehold.co/1920x1080.png"
           alt="A beautiful and aesthetic rental home in Tanzania"
           layout="fill"
           objectFit="cover"
           className="opacity-40"
-          data-ai-hint="beautiful tanzania landscape"
+          data-ai-hint="tanzania landscape"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-background via-background/50 to-transparent" />
         <div className="container relative z-10 mx-auto flex h-full flex-col items-center justify-end px-4 pb-16 text-center">
