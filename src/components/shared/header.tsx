@@ -38,8 +38,10 @@ export default function Header() {
     <Link
       href={href}
       className={cn(
-        'transition-colors hover:text-primary',
-        activeSite === href ? 'text-primary font-bold' : 'text-foreground/60'
+        'relative text-lg font-medium transition-colors hover:text-primary',
+        activeSite === href ? 'text-primary' : 'text-foreground/60',
+        'after:absolute after:bottom-[-2px] after:left-0 after:h-[2px] after:w-0 after:bg-primary after:transition-all after:duration-300',
+        activeSite === href ? 'after:w-full' : 'hover:after:w-full'
       )}
       onClick={() => setIsMenuOpen(false)}
     >
@@ -48,10 +50,10 @@ export default function Header() {
   );
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container mx-auto flex h-16 items-center justify-between px-4">
+    <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/80 backdrop-blur-lg supports-[backdrop-filter]:bg-background/60">
+      <div className="container mx-auto flex h-20 items-center justify-between px-4">
         <PavoLogo />
-        <nav className="hidden items-center space-x-6 md:flex">
+        <nav className="hidden items-center space-x-8 md:flex">
           {navLinks.map((link) => (
             <NavLink key={link.href} href={link.href}>
               {link.label}

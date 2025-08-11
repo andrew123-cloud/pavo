@@ -15,11 +15,10 @@ const PinterestIcon = (props: React.SVGProps<SVGSVGElement>) => (
   </svg>
 );
 
-
 export default function Footer() {
   return (
-    <footer className="bg-primary/10">
-      <div className="container mx-auto px-4 py-12">
+    <footer className="bg-secondary/50">
+      <div className="container mx-auto px-4 py-16">
         <div className="grid gap-12 lg:grid-cols-12">
           <div className="lg:col-span-4">
             <PavoLogo />
@@ -31,72 +30,72 @@ export default function Footer() {
               <Link
                 href="#"
                 aria-label="Facebook"
-                className="text-muted-foreground hover:text-primary"
+                className="text-muted-foreground transition-colors hover:text-primary"
               >
                 <Facebook className="h-6 w-6" />
               </Link>
               <Link
                 href="#"
                 aria-label="Instagram"
-                className="text-muted-foreground hover:text-primary"
+                className="text-muted-foreground transition-colors hover:text-primary"
               >
                 <Instagram className="h-6 w-6" />
               </Link>
               <Link
                 href="#"
                 aria-label="Pinterest"
-                className="text-muted-foreground hover:text-primary"
+                className="text-muted-foreground transition-colors hover:text-primary"
               >
                 <PinterestIcon className="h-6 w-6" />
               </Link>
             </div>
           </div>
           <div className="lg:col-span-2">
-            <h3 className="font-headline font-semibold text-foreground">
+            <h3 className="font-headline font-semibold text-foreground text-lg">
               Sites
             </h3>
-            <ul className="mt-4 space-y-2">
+            <ul className="mt-4 space-y-3">
               <li>
-                <Link href="/" className="text-muted-foreground hover:text-primary">
+                <Link href="/" className="text-muted-foreground transition-colors hover:text-primary">
                   Interiors
                 </Link>
               </li>
               <li>
-                <Link href="/decors" className="text-muted-foreground hover:text-primary">
+                <Link href="/decors" className="text-muted-foreground transition-colors hover:text-primary">
                   Decors
                 </Link>
               </li>
               <li>
-                <Link href="/homes" className="text-muted-foreground hover:text-primary">
+                <Link href="/homes" className="text-muted-foreground transition-colors hover:text-primary">
                   Homes
                 </Link>
               </li>
             </ul>
           </div>
           <div className="lg:col-span-2">
-            <h3 className="font-headline font-semibold text-foreground">
+            <h3 className="font-headline font-semibold text-foreground text-lg">
               Company
             </h3>
-            <ul className="mt-4 space-y-2">
+            <ul className="mt-4 space-y-3">
               <li>
-                <Link href="#" className="text-muted-foreground hover:text-primary">
+                <Link href="#" className="text-muted-foreground transition-colors hover:text-primary">
                   About Us
                 </Link>
               </li>
               <li>
-                <Link href="#" className="text-muted-foreground hover:text-primary">
+                <Link href="#" className="text-muted-foreground transition-colors hover:text-primary">
                   Blog
                 </Link>
               </li>
               <li>
-                <Link href="#" className="text-muted-foreground hover:text-primary">
+                <Link href="#" className="text-muted-foreground transition-colors hover:text-primary">
                   Contact
                 </Link>
               </li>
             </ul>
           </div>
           <div className="lg:col-span-4">
-            <h3 className="font-headline font-semibold text-foreground">
+            <h3 className="font-headline font-semibold text-foreground text-lg">
               Subscribe to our newsletter
             </h3>
             <p className="mt-2 text-muted-foreground">
@@ -107,12 +106,13 @@ export default function Footer() {
                 type="email"
                 placeholder="Enter your email"
                 aria-label="Email for newsletter"
+                className="bg-background/50 h-12"
               />
-              <Button type="submit">Subscribe</Button>
+              <Button type="submit" size="lg">Subscribe</Button>
             </form>
           </div>
         </div>
-        <div className="mt-12 border-t border-primary/20 pt-8 text-center text-sm text-muted-foreground">
+        <div className="mt-16 border-t border-border pt-8 text-center text-sm text-muted-foreground">
           <p>&copy; {new Date().getFullYear()} Pavo Suite. All Rights Reserved.</p>
         </div>
       </div>

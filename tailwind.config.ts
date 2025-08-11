@@ -1,4 +1,5 @@
 import type { Config } from 'tailwindcss';
+const { fontFamily } = require('tailwindcss/defaultTheme');
 
 export default {
   darkMode: ['class'],
@@ -8,11 +9,18 @@ export default {
     './src/app/**/*.{js,ts,jsx,tsx,mdx}',
   ],
   theme: {
+    container: {
+      center: true,
+      padding: '2rem',
+      screens: {
+        '2xl': '1400px',
+      },
+    },
     extend: {
       fontFamily: {
-        body: ["'Alegreya'", 'serif'],
-        headline: ["'Alegreya'", 'serif'],
-        code: ['monospace'],
+        sans: ['var(--font-sans)', ...fontFamily.sans],
+        serif: ['var(--font-serif)', ...fontFamily.serif],
+        headline: ['var(--font-serif)', ...fontFamily.serif],
       },
       colors: {
         background: 'hsl(var(--background))',
