@@ -9,7 +9,8 @@ import { Button } from '@/components/ui/button';
 import PavoLogo from '../pavo-logo';
 
 const navLinks = [
-  { href: '/', label: 'Interiors' },
+  { href: '/', label: 'Home' },
+  { href: '/interiors', label: 'Interiors' },
   { href: '/decors', label: 'Decors' },
   { href: '/homes', label: 'Homes' },
   { href: '/recommendations', label: 'AI Helper' },
@@ -20,6 +21,7 @@ export default function Header() {
   const pathname = usePathname();
 
   const getActiveSite = (path: string) => {
+    if (path.startsWith('/interiors')) return '/interiors';
     if (path.startsWith('/decors')) return '/decors';
     if (path.startsWith('/homes')) return '/homes';
     if (path.startsWith('/recommendations')) return '/recommendations';
@@ -39,8 +41,8 @@ export default function Header() {
       href={href}
       className={cn(
         'relative text-lg font-medium transition-colors hover:text-primary',
-        activeSite === href ? 'text-primary' : 'text-foreground/60',
-        'after:absolute after:bottom-[-2px] after:left-0 after:h-[2px] after:w-0 after:bg-primary after:transition-all after:duration-300',
+        activeSite === href ? 'text-primary' : 'text-foreground/70',
+        'after:absolute after:bottom-[-4px] after:left-0 after:h-[2px] after:w-0 after:bg-primary after:transition-all after:duration-300',
         activeSite === href ? 'after:w-full' : 'hover:after:w-full'
       )}
       onClick={() => setIsMenuOpen(false)}
