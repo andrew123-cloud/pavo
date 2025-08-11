@@ -1,10 +1,7 @@
 "use client";
 
 import { useFormState, useFormStatus } from "react-dom";
-import {
-  getPersonalizedRecommendations,
-  recommendationsSchema,
-} from "./actions";
+import { getPersonalizedRecommendations } from "./actions";
 import { Button } from "@/components/ui/button";
 import {
   Card,

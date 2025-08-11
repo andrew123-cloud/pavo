@@ -1,15 +1,8 @@
 "use server";
 
-import { z } from "zod";
 import { personalizedRecommendations } from "@/ai/flows/personalized-recommendations";
 import type { PersonalizedRecommendationsOutput } from "@/ai/flows/personalized-recommendations";
-
-export const recommendationsSchema = z.object({
-  preferences: z.string().min(10, {
-    message: "Please describe your preferences in at least 10 characters.",
-  }),
-  browsingHistory: z.string().optional(),
-});
+import { recommendationsSchema } from "./schema";
 
 export type State = {
   message?: string | null;
