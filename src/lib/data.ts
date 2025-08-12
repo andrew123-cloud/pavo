@@ -57,7 +57,7 @@ export const decorProducts: Product[] = [
     name: 'Terracotta Vase',
     price: 75000,
     category: 'Vases',
-    imageUrl: 'https://images.unsplash.com/photo-1576022313647-a4724a354f5c?q=80&w=400&auto=format&fit=crop',
+    imageUrl: '/photos/terracotta-vase.jpg',
     aiHint: 'terracotta vase'
   },
   {
@@ -65,7 +65,7 @@ export const decorProducts: Product[] = [
     name: 'Linen Throw Pillow',
     price: 55000,
     category: 'Pillows',
-    imageUrl: 'https://images.unsplash.com/photo-1617104679261-6d758d6b8a8b?q=80&w=400&auto=format&fit=crop',
+    imageUrl: '/photos/linen-pillow.jpg',
     aiHint: 'linen pillow'
   },
   {
@@ -73,7 +73,7 @@ export const decorProducts: Product[] = [
     name: 'Handwoven Wall Hanging',
     price: 120000,
     category: 'Wall Art',
-    imageUrl: 'https://images.unsplash.com/photo-1594892485549-74320986008a?q=80&w=400&auto=format&fit=crop',
+    imageUrl: '/photos/wall-hanging.jpg',
     aiHint: 'wall hanging'
   },
   {
@@ -81,7 +81,7 @@ export const decorProducts: Product[] = [
     name: 'Acacia Wood Bowl',
     price: 90000,
     category: 'Tableware',
-    imageUrl: 'https://images.unsplash.com/photo-1621209384244-a3c08947475a?q=80&w=400&auto=format&fit=crop',
+    imageUrl: '/photos/wood-bowl.jpg',
     aiHint: 'wood bowl'
   },
 ];
