@@ -17,8 +17,8 @@ let ipnIdCache: string | null = null;
 
 
 export const getAuthToken = async () => {
-  // Proactively refresh the token if it's within 30 seconds of expiring
-  if (tokenCache.token && Date.now() < tokenCache.expires_at - 30000) {
+  // Proactively refresh the token if it's within 60 seconds of expiring
+  if (tokenCache.token && Date.now() < tokenCache.expires_at - 60000) {
     return tokenCache.token;
   }
 
@@ -29,7 +29,7 @@ export const getAuthToken = async () => {
   
   try {
     const response = await axios.post(
-      `${PESAPAL_BASE_URL}/api/Auth/RequestToken`,
+      `${PESAPAL_BASE_URL}/Auth/RequestToken`,
       {
         consumer_key: PESAPAL_CONSUMER_KEY,
         consumer_secret: PESAPAL_CONSUMER_SECRET,
@@ -69,7 +69,7 @@ export const registerIpnUrl = async (): Promise<string> => {
 
   try {
     const response = await axios.post(
-      `${PESAPAL_BASE_URL}/api/URLSetup/RegisterIPN`,
+      `${PESAPAL_BASE_URL}/URLSetup/RegisterIPN`,
       {
         url: ipnUrl,
         ipn_notification_type: 'GET',
@@ -117,7 +117,7 @@ export const submitOrder = async (orderData: { amount: number, billing_address: 
 
   try {
     const response = await axios.post(
-      `${PESAPAL_BASE_URL}/api/Transactions/SubmitOrderRequest`,
+      `${PESAPAL_BASE_URL}/Transactions/SubmitOrderRequest`,
       payload,
       {
         headers: {
@@ -142,7 +142,7 @@ export const getTransactionStatus = async (orderTrackingId: string) => {
   const token = await getAuthToken();
   try {
     const response = await axios.get(
-      `${PESAPAL_BASE_URL}/api/Transactions/GetTransactionStatus?orderTrackingId=${orderTrackingId}`,
+      `${PESAPAL_BASE_URL}/Transactions/GetTransactionStatus?orderTrackingId=${orderTrackingId}`,
       {
         headers: {
           'Content-Type': 'application/json',
