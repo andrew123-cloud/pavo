@@ -14,31 +14,40 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import type { PortfolioItem } from '@/lib/types';
 import { usePavoData } from '@/context/data-context';
+import { Textarea } from '@/components/ui/textarea';
 
 export default function InteriorsAdmin() {
   const { portfolioItems, addPortfolioItem, updatePortfolioItem, deletePortfolioItem } = usePavoData();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<PortfolioItem | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [beforeImagePreview, setBeforeImagePreview] = useState<string | null>(null);
+
 
   const openForm = (item?: PortfolioItem) => {
     setEditingItem(item || null);
     setImagePreview(item?.imageUrl || null);
+    setBeforeImagePreview(item?.beforeImageUrl || null);
     setIsFormOpen(true);
   };
 
   const closeForm = () => {
     setEditingItem(null);
     setImagePreview(null);
+    setBeforeImagePreview(null);
     setIsFormOpen(false);
   };
 
-  const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>, type: 'after' | 'before') => {
     if (event.target.files && event.target.files[0]) {
       const file = event.target.files[0];
       const reader = new FileReader();
       reader.onloadend = () => {
-        setImagePreview(reader.result as string);
+        if (type === 'after') {
+            setImagePreview(reader.result as string);
+        } else {
+            setBeforeImagePreview(reader.result as string);
+        }
       };
       reader.readAsDataURL(file);
     }
@@ -51,7 +60,9 @@ export default function InteriorsAdmin() {
       id: editingItem ? editingItem.id : String(Date.now()),
       title: formData.get('title') as string,
       location: formData.get('location') as string,
+      description: formData.get('description') as string,
       imageUrl: imagePreview || editingItem?.imageUrl || 'https://placehold.co/600x400.png',
+      beforeImageUrl: beforeImagePreview || editingItem?.beforeImageUrl || 'https://placehold.co/600x400.png',
       aiHint: editingItem?.aiHint || formData.get('title')?.toString().toLowerCase().split(' ').slice(0,2).join(' ') || "new interior"
     };
 
@@ -120,7 +131,6 @@ export default function InteriorsAdmin() {
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent align="end">
                                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                        <DropdownMenuItem onClick={() => alert('Viewing details for ' + item.title)}>View Details</DropdownMenuItem>
                                         <DropdownMenuItem onClick={() => openForm(item)}>Edit</DropdownMenuItem>
                                         <AlertDialog>
                                             <AlertDialogTrigger asChild>
@@ -155,7 +165,7 @@ export default function InteriorsAdmin() {
         </Card>
 
         <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-            <DialogContent className="sm:max-w-[425px]">
+            <DialogContent className="sm:max-w-2xl">
                  <form onSubmit={handleSubmit}>
                     <DialogHeader>
                         <DialogTitle>{editingItem ? 'Edit Portfolio Item' : 'Add New Portfolio Item'}</DialogTitle>
@@ -176,17 +186,37 @@ export default function InteriorsAdmin() {
                             </Label>
                             <Input id="location" name="location" defaultValue={editingItem?.location} className="col-span-3" />
                         </div>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="image" className="text-right">
-                                Image
+                        <div className="grid grid-cols-4 items-start gap-4">
+                            <Label htmlFor="description" className="text-right pt-2">
+                                Description
                             </Label>
-                            <Input id="image" name="image" type="file" accept="image/*" onChange={handleImageChange} className="col-span-3" />
+                            <Textarea id="description" name="description" defaultValue={editingItem?.description} className="col-span-3" rows={4} />
+                        </div>
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="beforeImage" className="text-right">
+                                Before Image
+                            </Label>
+                            <Input id="beforeImage" name="beforeImage" type="file" accept="image/*" onChange={(e) => handleImageChange(e, 'before')} className="col-span-3" />
+                        </div>
+                         {beforeImagePreview && (
+                            <div className="grid grid-cols-4 items-start gap-4">
+                                <Label className="text-right pt-2">Preview</Label>
+                                <div className="col-span-3">
+                                     <Image src={beforeImagePreview} alt="Before image preview" width={100} height={100} className="rounded-md object-cover"/>
+                                </div>
+                            </div>
+                        )}
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="afterImage" className="text-right">
+                                After Image
+                            </Label>
+                            <Input id="afterImage" name="afterImage" type="file" accept="image/*" onChange={(e) => handleImageChange(e, 'after')} className="col-span-3" />
                         </div>
                          {imagePreview && (
                             <div className="grid grid-cols-4 items-start gap-4">
                                 <Label className="text-right pt-2">Preview</Label>
                                 <div className="col-span-3">
-                                     <Image src={imagePreview} alt="Image preview" width={100} height={100} className="rounded-md object-cover"/>
+                                     <Image src={imagePreview} alt="After image preview" width={100} height={100} className="rounded-md object-cover"/>
                                 </div>
                             </div>
                         )}

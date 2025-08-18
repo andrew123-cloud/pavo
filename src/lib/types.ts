@@ -4,6 +4,8 @@ export interface PortfolioItem {
   location: string;
   imageUrl: string;
   aiHint: string;
+  beforeImageUrl: string;
+  description: string;
 }
 
 export interface Testimonial {

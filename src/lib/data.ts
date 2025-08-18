@@ -6,21 +6,27 @@ export const portfolioItems: PortfolioItem[] = [
     title: 'Modern Oasis',
     location: 'Masaki, Dar es Salaam',
     imageUrl: 'https://images.unsplash.com/photo-1615875605825-5eb9bb5c3926?q=80&w=2154&auto=format&fit=crop',
-    aiHint: 'modern living room'
+    beforeImageUrl: 'https://images.unsplash.com/photo-1554995207-c18c203602cb?q=80&w=2940&auto=format&fit=crop',
+    aiHint: 'modern living room',
+    description: 'We transformed a dated, cluttered living room into a bright, airy, and modern oasis. By using a neutral color palette, maximizing natural light, and selecting minimalist furniture, we created a space that is both stylish and functional, perfect for relaxation and entertaining guests.'
   },
   {
     id: '2',
     title: 'Coastal Charm',
     location: 'Nungwi, Zanzibar',
     imageUrl: 'https://images.unsplash.com/photo-1594401951338-79b8c19b3879?q=80&w=2680&auto=format&fit=crop',
-    aiHint: 'coastal interior'
+    beforeImageUrl: 'https://images.unsplash.com/photo-1560185007-cde42694a457?q=80&w=2834&auto=format&fit=crop',
+    aiHint: 'coastal interior',
+    description: 'This project involved a complete overhaul of a beachfront property to infuse it with coastal charm. We used light woods, shades of blue and white, and natural textures to create a serene and welcoming atmosphere that reflects the beauty of its Zanzibar location.'
   },
   {
     id: '3',
     title: 'Urban Retreat',
     location: 'Oyster Bay, Dar es Salaam',
     imageUrl: 'https://images.unsplash.com/photo-1540518614846-7eded433c457?q=80&w=2940&auto=format&fit=crop',
-    aiHint: 'urban apartment'
+    beforeImageUrl: 'https://images.unsplash.com/photo-1585694939999-19c869151543?q=80&w=2940&auto=format&fit=crop',
+    aiHint: 'urban apartment',
+    description: 'The goal for this city apartment was to create a cozy and luxurious urban retreat. We incorporated plush fabrics, sophisticated lighting, and a rich color scheme to turn a standard apartment into a high-end sanctuary, providing a perfect escape from the bustling city life.'
   },
 ];
 

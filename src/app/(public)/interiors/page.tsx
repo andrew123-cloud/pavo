@@ -1,5 +1,6 @@
 // src/app/(public)/interiors/page.tsx
 'use client';
+import { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import {
@@ -8,6 +9,7 @@ import {
   MessageSquareQuote,
   PencilRuler,
   Home,
+  X,
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -16,9 +18,19 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { testimonials } from '@/lib/data';
 import { usePavoData } from '@/context/data-context';
+import type { PortfolioItem } from '@/lib/types';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogClose,
+} from '@/components/ui/dialog';
 
 export default function PavoInteriorsHome() {
   const { portfolioItems } = usePavoData();
+  const [selectedProject, setSelectedProject] = useState<PortfolioItem | null>(null);
 
   return (
     <div className="flex flex-col dark bg-background text-foreground">
@@ -126,38 +138,68 @@ export default function PavoInteriorsHome() {
               for our clients.
             </p>
           </div>
-          <div className="mt-16 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mt-16 grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
             {portfolioItems.map((item) => (
-              <Link
-                href="#"
+              <Card
                 key={item.id}
-                className="group relative block overflow-hidden rounded-lg"
+                className="group relative flex flex-col overflow-hidden rounded-lg bg-background border-0 shadow-lg transition-all duration-300 hover:shadow-2xl hover:-translate-y-2"
               >
-                <Image
-                  src={item.imageUrl}
-                  alt={item.title}
-                  width={600}
-                  height={400}
-                  className="h-full w-full object-cover transition-transform duration-500 ease-in-out group-hover:scale-105"
-                  data-ai-hint={item.aiHint}
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
-                <div className="absolute bottom-0 left-0 p-6">
-                  <h3 className="font-headline text-2xl font-bold text-white">
-                    {item.title}
-                  </h3>
-                  <p className="text-white/80">{item.location}</p>
+                <div className="relative h-80 w-full overflow-hidden">
+                  <Image
+                    src={item.imageUrl}
+                    alt={item.title}
+                    fill
+                    className="h-full w-full object-cover transition-transform duration-500 ease-in-out group-hover:scale-105"
+                    data-ai-hint={item.aiHint}
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
+                  <div className="absolute bottom-0 left-0 p-6">
+                    <h3 className="font-headline text-2xl font-bold text-white">
+                      {item.title}
+                    </h3>
+                    <p className="text-white/80">{item.location}</p>
+                  </div>
                 </div>
-              </Link>
+                 <CardFooter className="p-4 mt-auto bg-background">
+                    <Button variant="outline" className="w-full" onClick={() => setSelectedProject(item)}>
+                        View Project
+                    </Button>
+                 </CardFooter>
+              </Card>
             ))}
-          </div>
-          <div className="mt-12 text-center">
-            <Button variant="outline" size="lg">
-              View Full Portfolio
-            </Button>
           </div>
         </div>
       </section>
+      
+      {selectedProject && (
+        <Dialog open={!!selectedProject} onOpenChange={() => setSelectedProject(null)}>
+            <DialogContent className="max-w-4xl">
+                 <DialogHeader>
+                    <DialogTitle className="font-headline text-3xl">{selectedProject.title}</DialogTitle>
+                    <DialogDescription>{selectedProject.location}</DialogDescription>
+                 </DialogHeader>
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+                    <div>
+                        <h3 className="font-semibold text-lg mb-2">Before</h3>
+                        <div className="relative h-80 w-full rounded-lg overflow-hidden">
+                            <Image src={selectedProject.beforeImageUrl} alt={`Before view of ${selectedProject.title}`} layout="fill" objectFit="cover" data-ai-hint="cluttered room"/>
+                        </div>
+                    </div>
+                     <div>
+                        <h3 className="font-semibold text-lg mb-2">After</h3>
+                        <div className="relative h-80 w-full rounded-lg overflow-hidden">
+                            <Image src={selectedProject.imageUrl} alt={`After view of ${selectedProject.title}`} layout="fill" objectFit="cover" data-ai-hint={selectedProject.aiHint}/>
+                        </div>
+                    </div>
+                 </div>
+                <div className="mt-4">
+                    <h3 className="font-semibold text-lg mb-2">About The Project</h3>
+                    <p className="text-muted-foreground">{selectedProject.description}</p>
+                </div>
+            </DialogContent>
+        </Dialog>
+      )}
+
 
       <section id="testimonials" className="py-20 md:py-32">
         <div className="container mx-auto px-4">
