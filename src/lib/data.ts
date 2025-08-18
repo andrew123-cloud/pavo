@@ -58,7 +58,8 @@ export const decorProducts: Product[] = [
     price: 75000,
     category: 'Vases',
     imageUrl: '/photos/terracotta-vase.jpg',
-    aiHint: 'terracotta vase'
+    aiHint: 'terracotta vase',
+    stock: 12,
   },
   {
     id: '2',
@@ -66,7 +67,8 @@ export const decorProducts: Product[] = [
     price: 55000,
     category: 'Pillows',
     imageUrl: '/photos/linen-pillow.jpg',
-    aiHint: 'linen pillow'
+    aiHint: 'linen pillow',
+    stock: 3,
   },
   {
     id: '3',
@@ -74,7 +76,8 @@ export const decorProducts: Product[] = [
     price: 120000,
     category: 'Wall Art',
     imageUrl: '/photos/wall-hanging.jpg',
-    aiHint: 'wall hanging'
+    aiHint: 'wall hanging',
+    stock: 8,
   },
   {
     id: '4',
@@ -82,7 +85,8 @@ export const decorProducts: Product[] = [
     price: 90000,
     category: 'Tableware',
     imageUrl: '/photos/wood-bowl.jpg',
-    aiHint: 'wood bowl'
+    aiHint: 'wood bowl',
+    stock: 0,
   },
 ];
 

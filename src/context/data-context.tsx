@@ -9,6 +9,10 @@ import {
   rentalProperties as initialRentalProperties 
 } from '@/lib/data';
 
+interface CartItem extends Product {
+  quantity: number;
+}
+
 interface DataContextType extends PavoData {
   addPortfolioItem: (item: PortfolioItem) => void;
   updatePortfolioItem: (item: PortfolioItem) => void;
@@ -19,6 +23,13 @@ interface DataContextType extends PavoData {
   addRentalProperty: (property: Property) => void;
   updateRentalProperty: (property: Property) => void;
   deleteRentalProperty: (id: string) => void;
+  cart: CartItem[];
+  addToCart: (product: Product) => void;
+  updateCartQuantity: (productId: string, quantity: number) => void;
+  removeFromCart: (productId: string) => void;
+  clearCart: () => void;
+  cartTotal: number;
+  cartCount: number;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -31,6 +42,7 @@ const initialData: PavoData = {
 
 export function DataProvider({ children }: { children: ReactNode }) {
   const [data, setData] = useState<PavoData>(initialData);
+  const [cart, setCart] = useState<CartItem[]>([]);
 
   const addPortfolioItem = (item: PortfolioItem) => {
     setData(prevData => ({ ...prevData, portfolioItems: [...prevData.portfolioItems, item] }));
@@ -86,6 +98,41 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }));
   };
 
+  const addToCart = (product: Product) => {
+    setCart(prevCart => {
+      const existingItem = prevCart.find(item => item.id === product.id);
+      if (existingItem) {
+        return prevCart.map(item =>
+          item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
+        );
+      }
+      return [...prevCart, { ...product, quantity: 1 }];
+    });
+  };
+
+  const updateCartQuantity = (productId: string, quantity: number) => {
+    setCart(prevCart => {
+      if (quantity <= 0) {
+        return prevCart.filter(item => item.id !== productId);
+      }
+      return prevCart.map(item =>
+        item.id === productId ? { ...item, quantity } : item
+      );
+    });
+  };
+
+  const removeFromCart = (productId: string) => {
+    setCart(prevCart => prevCart.filter(item => item.id !== productId));
+  };
+  
+  const clearCart = () => {
+    setCart([]);
+  }
+
+  const cartTotal = cart.reduce((total, item) => total + item.price * item.quantity, 0);
+  const cartCount = cart.reduce((count, item) => count + item.quantity, 0);
+
+
   return (
     <DataContext.Provider value={{ 
       ...data, 
@@ -98,6 +145,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
       addRentalProperty,
       updateRentalProperty,
       deleteRentalProperty,
+      cart,
+      addToCart,
+      updateCartQuantity,
+      removeFromCart,
+      clearCart,
+      cartTotal,
+      cartCount
     }}>
       {children}
     </DataContext.Provider>

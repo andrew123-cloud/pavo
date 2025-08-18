@@ -21,6 +21,7 @@ export interface Product {
   category: string;
   imageUrl: string;
   aiHint: string;
+  stock: number;
 }
 
 export interface Property {

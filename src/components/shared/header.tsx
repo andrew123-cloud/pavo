@@ -3,10 +3,11 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Menu, X } from 'lucide-react';
+import { Menu, X, ShoppingCart } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import PavoLogo from '../pavo-logo';
+import { usePavoData } from '@/context/data-context';
 
 const navLinks = [
   { href: '/', label: 'Home' },
@@ -19,12 +20,14 @@ const navLinks = [
 export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const pathname = usePathname();
+  const { cartCount } = usePavoData();
 
   const getActiveSite = (path: string) => {
     if (path.startsWith('/interiors')) return '/interiors';
     if (path.startsWith('/decors')) return '/decors';
     if (path.startsWith('/homes')) return '/homes';
     if (path.startsWith('/recommendations')) return '/recommendations';
+    if (path.startsWith('/cart')) return '/cart';
     if (path === '/') return '/';
     return '';
   };
@@ -63,15 +66,28 @@ export default function Header() {
             </NavLink>
           ))}
         </nav>
-        <div className="md:hidden">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setIsMenuOpen(!isMenuOpen)}
-            aria-label="Toggle menu"
-          >
-            {isMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+        <div className="flex items-center gap-4">
+          <Button asChild variant="ghost" size="icon" className="relative">
+            <Link href="/cart">
+              <ShoppingCart className="h-6 w-6" />
+              {cartCount > 0 && (
+                <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground">
+                  {cartCount}
+                </span>
+              )}
+              <span className="sr-only">Shopping Cart</span>
+            </Link>
           </Button>
+          <div className="md:hidden">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setIsMenuOpen(!isMenuOpen)}
+              aria-label="Toggle menu"
+            >
+              {isMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+            </Button>
+          </div>
         </div>
       </div>
       {isMenuOpen && (

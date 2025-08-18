@@ -7,10 +7,20 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { usePavoData } from '@/context/data-context';
+import { useToast } from '@/hooks/use-toast';
 
 export default function PavoDecorsHome() {
-  const { decorProducts } = usePavoData();
+  const { decorProducts, addToCart } = usePavoData();
+  const { toast } = useToast();
   const categories = ['Pillows', 'Curtains', 'Vases', 'Wall Art', 'Tableware'];
+
+  const handleAddToCart = (product: (typeof decorProducts)[0]) => {
+    addToCart(product);
+    toast({
+      title: "Added to Cart",
+      description: `${product.name} has been added to your cart.`,
+    });
+  }
 
   return (
     <div className="flex flex-col dark bg-background text-foreground">
@@ -74,10 +84,10 @@ export default function PavoDecorsHome() {
             {decorProducts.map((product) => (
               <Card
                 key={product.id}
-                className="overflow-hidden transition-all duration-300 ease-in-out hover:shadow-2xl hover:-translate-y-2 bg-transparent border-0"
+                className="overflow-hidden transition-all duration-300 ease-in-out hover:shadow-2xl hover:-translate-y-2 bg-transparent border-0 flex flex-col"
               >
-                <CardContent className="p-0">
-                  <Link href="#" className="group">
+                <CardContent className="p-0 flex-grow">
+                  <div className="group">
                     <div className="relative h-96 w-full overflow-hidden rounded-lg">
                       <Image
                         src={product.imageUrl}
@@ -87,6 +97,11 @@ export default function PavoDecorsHome() {
                         className="transition-transform duration-500 ease-in-out group-hover:scale-105"
                         data-ai-hint={product.aiHint}
                       />
+                      {product.stock > 0 ? (
+                         <Badge className="absolute left-3 top-3 bg-primary/80 text-primary-foreground backdrop-blur-sm">In Stock</Badge>
+                      ): (
+                         <Badge variant="destructive" className="absolute left-3 top-3">Out of Stock</Badge>
+                      )}
                     </div>
                     <div className="p-4 text-center">
                       <h3 className="mt-2 font-headline font-semibold text-xl text-foreground">
@@ -96,10 +111,10 @@ export default function PavoDecorsHome() {
                         {product.price.toLocaleString()} TZS
                       </p>
                     </div>
-                  </Link>
+                  </div>
                 </CardContent>
                 <CardFooter className="flex justify-center p-4 pt-0">
-                  <Button variant="secondary" size="lg" className="w-full">
+                  <Button variant="secondary" size="lg" className="w-full" disabled={product.stock === 0} onClick={() => handleAddToCart(product)}>
                     Add to Cart
                   </Button>
                 </CardFooter>

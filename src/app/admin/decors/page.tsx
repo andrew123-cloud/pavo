@@ -13,7 +13,6 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import type { Product } from '@/lib/types';
 import { usePavoData } from '@/context/data-context';
 
@@ -54,6 +53,7 @@ export default function DecorsAdmin() {
       name: formData.get('name') as string,
       category: formData.get('category') as string,
       price: Number(formData.get('price')),
+      stock: Number(formData.get('stock')),
       imageUrl: imagePreview || editingProduct?.imageUrl || 'https://placehold.co/600x400.png',
       aiHint: editingProduct?.aiHint || formData.get('name')?.toString().toLowerCase().split(' ').slice(0,2).join(' ') || 'new decor',
     };
@@ -84,7 +84,7 @@ export default function DecorsAdmin() {
         <Card className="mt-4">
             <CardHeader>
                 <CardTitle>Products</CardTitle>
-                <CardDescription>Manage your decor products.</CardDescription>
+                <CardDescription>Manage your decor products and inventory.</CardDescription>
             </CardHeader>
             <CardContent>
                 <Table>
@@ -94,6 +94,7 @@ export default function DecorsAdmin() {
                             <TableHead>Name</TableHead>
                             <TableHead>Category</TableHead>
                             <TableHead>Price</TableHead>
+                            <TableHead>Stock</TableHead>
                             <TableHead>
                                 <span className="sr-only">Actions</span>
                             </TableHead>
@@ -117,6 +118,15 @@ export default function DecorsAdmin() {
                                     <Badge variant="outline">{product.category}</Badge>
                                 </TableCell>
                                 <TableCell>{product.price.toLocaleString()} TZS</TableCell>
+                                <TableCell>
+                                    {product.stock === 0 ? (
+                                        <Badge variant="destructive">Out of Stock</Badge>
+                                    ) : product.stock < 5 ? (
+                                        <Badge variant="secondary">Low Stock ({product.stock})</Badge>
+                                    ) : (
+                                        product.stock
+                                    )}
+                                </TableCell>
                                 <TableCell>
                                     <DropdownMenu>
                                         <DropdownMenuTrigger asChild>
@@ -182,6 +192,10 @@ export default function DecorsAdmin() {
                         <div className="grid grid-cols-4 items-center gap-4">
                             <Label htmlFor="price" className="text-right">Price (TZS)</Label>
                             <Input id="price" name="price" type="number" defaultValue={editingProduct?.price} className="col-span-3" />
+                        </div>
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="stock" className="text-right">Stock</Label>
+                            <Input id="stock" name="stock" type="number" defaultValue={editingProduct?.stock} className="col-span-3" />
                         </div>
                         <div className="grid grid-cols-4 items-center gap-4">
                             <Label htmlFor="image" className="text-right">Image</Label>
