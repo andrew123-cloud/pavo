@@ -179,13 +179,15 @@ export default function PavoInteriorsHome() {
                     <DialogDescription>{selectedProject.location}</DialogDescription>
                  </DialogHeader>
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
-                    <div>
-                        <h3 className="font-semibold text-lg mb-2">Before</h3>
-                        <div className="relative h-80 w-full rounded-lg overflow-hidden">
-                            <Image src={selectedProject.beforeImageUrl} alt={`Before view of ${selectedProject.title}`} layout="fill" objectFit="cover" data-ai-hint="cluttered room"/>
-                        </div>
-                    </div>
-                     <div>
+                    {selectedProject.beforeImageUrl && (
+                      <div>
+                          <h3 className="font-semibold text-lg mb-2">Before</h3>
+                          <div className="relative h-80 w-full rounded-lg overflow-hidden">
+                              <Image src={selectedProject.beforeImageUrl} alt={`Before view of ${selectedProject.title}`} layout="fill" objectFit="cover" data-ai-hint="cluttered room"/>
+                          </div>
+                      </div>
+                    )}
+                     <div className={!selectedProject.beforeImageUrl ? 'md:col-span-2' : ''}>
                         <h3 className="font-semibold text-lg mb-2">After</h3>
                         <div className="relative h-80 w-full rounded-lg overflow-hidden">
                             <Image src={selectedProject.imageUrl} alt={`After view of ${selectedProject.title}`} layout="fill" objectFit="cover" data-ai-hint={selectedProject.aiHint}/>
