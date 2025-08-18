@@ -1,3 +1,4 @@
+
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -65,6 +66,7 @@ export default function DecorsAdmin() {
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent align="end">
                                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                        <DropdownMenuItem>View Details</DropdownMenuItem>
                                         <DropdownMenuItem>Edit</DropdownMenuItem>
                                         <DropdownMenuItem>Delete</DropdownMenuItem>
                                         </DropdownMenuContent>
