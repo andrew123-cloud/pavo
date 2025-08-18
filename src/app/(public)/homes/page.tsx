@@ -23,7 +23,7 @@ export default function PavoHomesHome() {
   ];
 
   return (
-    <div className="flex flex-col bg-background text-foreground">
+    <div className="flex flex-col dark bg-background text-foreground">
       <section className="relative h-[80vh] min-h-[500px] w-full">
         <Image
           src="https://images.unsplash.com/photo-1512917774080-9991f1c4c750?q=80&w=2940&auto=format&fit=crop"

@@ -14,17 +14,7 @@ import {
   User,
   LogOut,
 } from 'lucide-react';
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarHeader,
-  SidebarMenu,
-  SidebarMenuItem,
-  SidebarTrigger,
-  SidebarFooter,
-  SidebarInset,
-  useSidebar,
-} from '@/components/ui/sidebar';
+
 import { usePathname, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import {
@@ -171,7 +161,7 @@ function AdminLayout({ children }: { children: React.ReactNode }) {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                <DropdownMenuLabel>{user?.name || 'My Account'}</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem>Settings</DropdownMenuItem>
                 <DropdownMenuItem>Support</DropdownMenuItem>

@@ -10,10 +10,10 @@ export default function PavoDecorsHome() {
   const categories = ['Pillows', 'Curtains', 'Vases', 'Wall Art', 'Tableware'];
 
   return (
-    <div className="flex flex-col bg-background text-foreground">
+    <div className="flex flex-col dark bg-background text-foreground">
       <section className="relative h-[80vh] min-h-[500px] w-full">
         <Image
-          src="https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?q=80&w=2900&auto=format&fit=crop"
+          src="https://images.unsplash.com/photo-1540932239986-30128078f3c5?q=80&w=2832&auto=format&fit=crop"
           alt="A stylishly arranged collection of home decor items"
           layout="fill"
           objectFit="cover"

@@ -5,7 +5,7 @@ import {
   Brush,
   MessageSquareQuote,
   PencilRuler,
-  Building,
+  Home,
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -16,14 +16,13 @@ import { portfolioItems, testimonials } from '@/lib/data';
 
 export default function PavoInteriorsHome() {
   return (
-    <div className="flex flex-col bg-background text-foreground">
+    <div className="flex flex-col dark bg-background text-foreground">
       <section className="relative h-[80vh] min-h-[500px] w-full">
         <Image
           src="https://images.unsplash.com/photo-1586023492125-27b2c045efd7?q=80&w=2158&auto=format&fit=crop"
           alt="Elegant living room designed by Pavo Interiors"
-          layout="fill"
-          objectFit="cover"
-          className="opacity-30"
+          fill
+          className="object-cover opacity-30"
           data-ai-hint="elegant living room"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-background via-background/80 to-transparent" />
@@ -78,7 +77,7 @@ export default function PavoInteriorsHome() {
             <Card className="text-center bg-transparent border-0 shadow-none">
               <CardHeader>
                 <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-secondary text-foreground">
-                  <Building className="h-10 w-10" />
+                  <Home className="h-10 w-10" />
                 </div>
                 <CardTitle className="mt-6 font-headline text-2xl">
                   Full Home Styling

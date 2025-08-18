@@ -20,11 +20,6 @@ export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const pathname = usePathname();
 
-  // Do not render header on admin routes
-  if (pathname.startsWith('/admin')) {
-    return null;
-  }
-
   const getActiveSite = (path: string) => {
     if (path.startsWith('/interiors')) return '/interiors';
     if (path.startsWith('/decors')) return '/decors';

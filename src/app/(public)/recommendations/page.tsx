@@ -1,6 +1,7 @@
 // src/app/recommendations/page.tsx
 'use client';
 
+import React from 'react';
 import { useActionState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { getPersonalizedRecommendations } from './actions';
@@ -42,7 +43,7 @@ export default function RecommendationsPage() {
   );
 
   return (
-    <div className="bg-background text-foreground min-h-screen">
+    <div className="dark bg-background text-foreground min-h-screen">
       <div className="container mx-auto max-w-5xl px-4 py-20 md:py-32">
         <div className="text-center">
           <h1 className="font-headline text-5xl font-bold tracking-tight text-foreground md:text-6xl">

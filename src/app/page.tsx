@@ -46,14 +46,13 @@ export default function PavoSuiteHome() {
   ];
 
   return (
-    <div className="flex flex-col bg-background text-foreground">
+    <div className="flex flex-col dark bg-background text-foreground">
       <section className="relative h-[90vh] min-h-[600px] w-full">
         <Image
           src="https://images.unsplash.com/photo-1542327897-414ecb669423?q=80&w=2828&auto=format&fit=crop"
           alt="An elegant and confident woman, representing the Pavo brand founder."
-          layout="fill"
-          objectFit="cover"
-          className="opacity-20"
+          fill
+          className="object-cover opacity-20"
           data-ai-hint="elegant confident woman"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-background via-background/70 to-transparent" />
@@ -105,7 +104,7 @@ export default function PavoSuiteHome() {
                 <div className="p-6 pt-0">
                   <Button asChild variant="outline">
                     <Link href={brand.href}>
-                      {brand.cta} <ArrowRight className="ml-2" />
+                      {brand.cta} <ArrowRight className="ml-2 h-4 w-4" />
                     </Link>
                   </Button>
                 </div>
@@ -123,9 +122,8 @@ export default function PavoSuiteHome() {
                 <Image
                   src="https://images.unsplash.com/photo-1599577180430-5a527c699b84?q=80&w=2670&auto=format&fit=crop"
                   alt="Portrait of Palvin Atugonza, founder of Pavo"
-                  layout="fill"
-                  objectFit="cover"
-                  className="transition-transform duration-500 hover:scale-105"
+                  fill
+                  className="object-cover transition-transform duration-500 hover:scale-105"
                   data-ai-hint="tanzanian entrepreneur portrait"
                 />
               </div>
