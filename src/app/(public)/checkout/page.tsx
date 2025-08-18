@@ -6,27 +6,61 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription }
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import { CreditCard, Lock } from 'lucide-react';
+import { CreditCard, Loader2, Lock } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
+import { useState } from 'react';
+import axios from 'axios';
 
 export default function CheckoutPage() {
   const { cart, cartTotal, clearCart } = usePavoData();
   const router = useRouter();
   const { toast } = useToast();
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleCheckout = (e: React.FormEvent) => {
+  const handleCheckout = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    // In a real app, this would process payment.
-    toast({
-        title: "Order Placed!",
-        description: "Thank you for your purchase. Your order is being processed.",
-    });
-    const orderId = Math.random().toString(36).substr(2, 9);
-    clearCart();
-    router.push(`/order-confirmation?orderId=${orderId}`);
+    setIsLoading(true);
+
+    const formData = new FormData(e.currentTarget);
+    const billing_address = {
+        first_name: formData.get('firstName'),
+        last_name: formData.get('lastName'),
+        email_address: formData.get('email'),
+        phone_number: formData.get('phone'),
+    };
+
+    try {
+        const response = await axios.post('/api/pesapal/submit-order', {
+            amount: cartTotal + 5000,
+            billing_address,
+            description: "Payment for Pavo Decors order"
+        });
+
+        if (response.data.error) {
+            toast({
+                variant: 'destructive',
+                title: "Payment Error",
+                description: response.data.error.message || 'Failed to initiate payment.',
+            });
+            setIsLoading(false);
+            return;
+        }
+
+        // Redirect to Pesapal's payment page
+        router.push(response.data.redirect_url);
+
+    } catch (error: any) {
+        console.error(error);
+        toast({
+            variant: 'destructive',
+            title: "Error",
+            description: error.response?.data?.error || "An unexpected error occurred. Please try again.",
+        });
+        setIsLoading(false);
+    }
   };
 
   if (cart.length === 0) {
@@ -49,72 +83,39 @@ export default function CheckoutPage() {
             Checkout
           </h1>
           <p className="mt-4 max-w-2xl mx-auto text-lg text-muted-foreground">
-            Complete your purchase securely.
+            Complete your purchase securely with Pesapal.
           </p>
         </div>
         <form onSubmit={handleCheckout} className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className="lg:col-span-2">
                 <div className="space-y-8">
-                     <Card className="bg-secondary/30 border-0">
+                     <Card className="bg-black/30 border-white/10">
                         <CardHeader>
-                            <CardTitle className="font-headline text-2xl">Shipping Information</CardTitle>
+                            <CardTitle className="font-headline text-2xl">Billing Information</CardTitle>
                         </CardHeader>
                         <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <Label htmlFor="firstName">First Name</Label>
-                                <Input id="firstName" placeholder="Palvin" required/>
+                                <Input id="firstName" name="firstName" placeholder="Palvin" required/>
                             </div>
                             <div className="space-y-2">
                                 <Label htmlFor="lastName">Last Name</Label>
-                                <Input id="lastName" placeholder="Atugonza" required/>
-                            </div>
-                             <div className="md:col-span-2 space-y-2">
-                                <Label htmlFor="address">Address</Label>
-                                <Input id="address" placeholder="123 Pavo Street" required/>
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="city">City</Label>
-                                <Input id="city" placeholder="Dar es Salaam" required/>
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="country">Country</Label>
-                                <Input id="country" placeholder="Tanzania" required/>
+                                <Input id="lastName" name="lastName" placeholder="Atugonza" required/>
                             </div>
                              <div className="md:col-span-2 space-y-2">
                                 <Label htmlFor="email">Email</Label>
-                                <Input id="email" type="email" placeholder="palvin@pavo.com" required/>
+                                <Input id="email" name="email" type="email" placeholder="palvin@pavo.com" required/>
                             </div>
-                        </CardContent>
-                    </Card>
-                     <Card className="bg-secondary/30 border-0">
-                        <CardHeader>
-                            <CardTitle className="font-headline text-2xl">Payment Details</CardTitle>
-                            <CardDescription>All transactions are secure and encrypted.</CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                             <div className="space-y-2">
-                                <Label htmlFor="card-number">Card Number</Label>
-                                <div className="relative">
-                                    <Input id="card-number" placeholder="**** **** **** 1234" required/>
-                                    <CreditCard className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                                </div>
-                            </div>
-                             <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-2">
-                                    <Label htmlFor="expiry-date">Expiry Date</Label>
-                                    <Input id="expiry-date" placeholder="MM/YY" required/>
-                                </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="cvc">CVC</Label>
-                                    <Input id="cvc" placeholder="123" required/>
-                                </div>
+                            <div className="md:col-span-2 space-y-2">
+                                <Label htmlFor="phone">Phone Number</Label>
+                                <Input id="phone" name="phone" placeholder="e.g. 0712345678" required/>
                             </div>
                         </CardContent>
                     </Card>
                 </div>
             </div>
             <div className="lg:col-span-1">
-                <Card className="bg-secondary/30 border-0 sticky top-28">
+                <Card className="bg-black/30 border-white/10 sticky top-28">
                     <CardHeader>
                         <CardTitle className="font-headline text-2xl">Your Order</CardTitle>
                     </CardHeader>
@@ -151,11 +152,15 @@ export default function CheckoutPage() {
                         </div>
                     </CardContent>
                     <CardFooter className="flex-col gap-4">
-                        <Button type="submit" size="lg" className="w-full">
-                            <Lock className="mr-2 h-4 w-4" /> Pay {(cartTotal + 5000).toLocaleString()} TZS
+                        <Button type="submit" size="lg" className="w-full" disabled={isLoading}>
+                            {isLoading ? (
+                                <><Loader2 className="mr-2 h-4 w-4 animate-spin"/> Processing...</>
+                            ) : (
+                                <><Lock className="mr-2 h-4 w-4" /> Pay {(cartTotal + 5000).toLocaleString()} TZS</>
+                            )}
                         </Button>
                         <p className="text-xs text-muted-foreground text-center">
-                            By placing your order, you agree to the Terms of Service and Privacy Policy.
+                           You will be redirected to Pesapal to complete your payment.
                         </p>
                     </CardFooter>
                 </Card>

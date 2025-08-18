@@ -2,7 +2,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
-import type { PavoData, PortfolioItem, Product, Property } from '@/lib/types';
+import type { PavoData, PortfolioItem, Product, Property, Order } from '@/lib/types';
 import { 
   portfolioItems as initialPortfolioItems, 
   decorProducts as initialDecorProducts, 
@@ -23,6 +23,8 @@ interface DataContextType extends PavoData {
   addRentalProperty: (property: Property) => void;
   updateRentalProperty: (property: Property) => void;
   deleteRentalProperty: (id: string) => void;
+  addOrder: (order: Order) => void;
+  updateOrder: (order: Order) => void;
   cart: CartItem[];
   addToCart: (product: Product) => void;
   updateCartQuantity: (productId: string, quantity: number) => void;
@@ -38,6 +40,7 @@ const initialData: PavoData = {
   portfolioItems: initialPortfolioItems,
   decorProducts: initialDecorProducts,
   rentalProperties: initialRentalProperties,
+  orders: [],
 };
 
 export function DataProvider({ children }: { children: ReactNode }) {
@@ -129,6 +132,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
       rentalProperties: prevData.rentalProperties.filter(p => p.id !== id),
     }));
   };
+  
+  const addOrder = (order: Order) => {
+    setData(prevData => ({ ...prevData, orders: [...(prevData.orders || []), order] }));
+  };
+  
+  const updateOrder = (updatedOrder: Order) => {
+      setData(prevData => ({
+        ...prevData,
+        orders: (prevData.orders || []).map(o => o.id === updatedOrder.id ? updatedOrder : o)
+      }));
+  }
 
   const addToCart = (product: Product) => {
     setCart(prevCart => {
@@ -180,6 +194,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       addRentalProperty,
       updateRentalProperty,
       deleteRentalProperty,
+      addOrder,
+      updateOrder,
       cart,
       addToCart,
       updateCartQuantity,

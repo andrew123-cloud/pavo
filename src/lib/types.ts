@@ -4,7 +4,7 @@ export interface PortfolioItem {
   location: string;
   imageUrl: string;
   aiHint: string;
-  beforeImageUrl: string;
+  beforeImageUrl?: string;
   description: string;
 }
 
@@ -36,8 +36,24 @@ export interface Property {
   aiHint: string;
 }
 
+export interface Order {
+    id: string; // Our internal order ID
+    pesapal_order_tracking_id: string;
+    status_code: number;
+    payment_method: string;
+    payment_account: string;
+    merchant_reference: string;
+    confirmation_code: string;
+    amount: number;
+    currency: string;
+    created_at: string;
+    customer_name: string;
+    items: { name: string, quantity: number, price: number }[];
+}
+
 export interface PavoData {
   portfolioItems: PortfolioItem[];
   decorProducts: Product[];
   rentalProperties: Property[];
+  orders: Order[];
 }
