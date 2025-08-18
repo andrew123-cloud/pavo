@@ -15,69 +15,50 @@ h6 {
   font-family: 'Playfair Display', serif;
 }
 
-
 @layer base {
   :root {
-    --background: 20 14% 98%;
-    --foreground: 24 10% 10%;
-    --card: 20 14% 98%;
-    --card-foreground: 24 10% 10%;
-    --popover: 20 14% 98%;
-    --popover-foreground: 24 10% 10%;
-    --primary: 142 76% 36%;
-    --primary-foreground: 356 72% 98%;
-    --secondary: 24 6% 90%;
-    --secondary-foreground: 24 10% 10%;
-    --muted: 24 6% 90%;
-    --muted-foreground: 24 6% 45%;
-    --accent: 24 6% 90%;
-    --accent-foreground: 24 10% 10%;
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 356 72% 98%;
-    --border: 24 6% 85%;
-    --input: 24 6% 85%;
-    --ring: 142 76% 36%;
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
+    --card: 240 10% 3.9%;
+    --card-foreground: 0 0% 98%;
+    --popover: 240 10% 3.9%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 262.1 83.3% 57.8%;
+    --primary-foreground: 210 20% 98%;
+    --secondary: 240 3.7% 15.9%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 240 3.7% 15.9%;
+    --muted-foreground: 240 5% 64.9%;
+    --accent: 240 3.7% 15.9%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 85.7% 97.3%;
+    --border: 240 3.7% 15.9%;
+    --input: 240 3.7% 15.9%;
+    --ring: 262.1 83.3% 57.8%;
     --radius: 0.5rem;
-
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
   }
 
   .dark {
-    --background: 24 10% 10%;
-    --foreground: 20 14% 98%;
-    --card: 24 10% 10%;
-    --card-foreground: 20 14% 98%;
-    --popover: 24 10% 10%;
-    --popover-foreground: 20 14% 98%;
-    --primary: 142 76% 36%;
-    --primary-foreground: 356 72% 98%;
-    --secondary: 24 4% 16%;
-    --secondary-foreground: 20 14% 98%;
-    --muted: 24 4% 16%;
-    --muted-foreground: 24 4% 65%;
-    --accent: 24 4% 16%;
-    --accent-foreground: 20 14% 98%;
-    --destructive: 0 63% 31%;
-    --destructive-foreground: 20 14% 98%;
-    --border: 24 4% 16%;
-    --input: 24 4% 16%;
-    --ring: 142 76% 36%;
-
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
+    --card: 240 10% 3.9%;
+    --card-foreground: 0 0% 98%;
+    --popover: 240 10% 3.9%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 262.1 83.3% 57.8%;
+    --primary-foreground: 210 20% 98%;
+    --secondary: 240 3.7% 15.9%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 240 3.7% 15.9%;
+    --muted-foreground: 240 5% 64.9%;
+    --accent: 240 3.7% 15.9%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 3.7% 15.9%;
+    --input: 240 3.7% 15.9%;
+    --ring: 262.1 83.3% 57.8%;
   }
 }
 
@@ -91,36 +72,74 @@ h6 {
 }
 
 @layer utilities {
-  .animated-blob {
-    @apply absolute rounded-full opacity-30 mix-blend-hard-light filter blur-3xl;
-    animation: move 25s infinite alternate;
+  .perspective-1000 {
+    perspective: 1000px;
   }
-  
-  .animated-bg-zoom {
-    animation: zoom 40s infinite;
+  .preserve-3d {
+    transform-style: preserve-3d;
+  }
+  .backface-hidden {
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
   }
 
-  @keyframes move {
-    from {
-      transform: translate(-100px, -50px) rotate(-90deg);
-      border-radius: 24% 76% 35% 65% / 27% 36% 64% 73%;
-    }
-
-    to {
-      transform: translate(100px, 100px) rotate(-10deg);
-      border-radius: 76% 24% 33% 67% / 68% 55% 45% 32%;
-    }
+  .shape {
+    @apply absolute rounded-2xl backface-hidden;
+    animation: float 20s infinite ease-in-out;
   }
-  
-   @keyframes zoom {
-    0% {
-      transform: scale(1);
-    }
-    50% {
-      transform: scale(1.1);
-    }
-    100% {
-      transform: scale(1);
-    }
+  .shape-1 {
+    width: 200px;
+    height: 200px;
+    top: 15%;
+    left: 15%;
+    background: linear-gradient(45deg, hsl(var(--primary)), #da62c4);
+    animation-duration: 22s;
+    animation-delay: -5s;
+    transform: rotate3d(1, 1, 0, 0deg);
+  }
+  .shape-2 {
+    width: 150px;
+    height: 150px;
+    top: 25%;
+    right: 20%;
+    background: linear-gradient(45deg, #4f46e5, #a855f7);
+    animation-duration: 25s;
+    animation-delay: -2s;
+    transform: rotate3d(1, 0, 1, 0deg);
+  }
+  .shape-3 {
+    width: 100px;
+    height: 100px;
+    bottom: 20%;
+    left: 30%;
+    background: linear-gradient(45deg, #ec4899, #f97316);
+    animation-duration: 18s;
+    animation-delay: -10s;
+     transform: rotate3d(0, 1, 1, 0deg);
+  }
+   .shape-4 {
+    width: 250px;
+    height: 250px;
+    bottom: 15%;
+    right: 10%;
+    background: linear-gradient(45deg, #8b5cf6, #d946ef);
+    animation-duration: 28s;
+    animation-delay: -7s;
+     transform: rotate3d(1, 1, 1, 0deg);
+  }
+}
+
+@keyframes float {
+  0% {
+    transform: translateY(0px) rotate3d(1, 1, 0, 0deg);
+    opacity: 0.2;
+  }
+  50% {
+    transform: translateY(-80px) rotate3d(1, 1, 0, 180deg);
+    opacity: 0.6;
+  }
+  100% {
+    transform: translateY(0px) rotate3d(1, 1, 0, 360deg);
+    opacity: 0.2;
   }
 }
