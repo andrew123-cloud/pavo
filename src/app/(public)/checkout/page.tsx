@@ -6,19 +6,29 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription }
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import { CreditCard, Loader2, Lock } from 'lucide-react';
+import { CreditCard, Loader2, Lock, Smartphone } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { useState } from 'react';
 import axios from 'axios';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+
+const paymentMethods = [
+    { id: 'mpesa', name: 'M-Pesa', image: 'https://placehold.co/100x60.png?text=M-Pesa' },
+    { id: 'airtel', name: 'Airtel Money', image: 'https://placehold.co/100x60.png?text=Airtel+Money' },
+    { id: 'tigo', name: 'Tigo Pesa', image: 'https://placehold.co/100x60.png?text=Tigo+Pesa' },
+    { id: 'halopesa', name: 'HaloPesa', image: 'https://placehold.co/100x60.png?text=HaloPesa' },
+];
+
 
 export default function CheckoutPage() {
   const { cart, cartTotal, clearCart } = usePavoData();
   const router = useRouter();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState(paymentMethods[0].name);
 
   const handleCheckout = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -31,15 +41,16 @@ export default function CheckoutPage() {
         email_address: formData.get('email'),
         phone_number: formData.get('phone'),
     };
+    
+    const paymentMethod = formData.get('paymentMethod');
 
     try {
         const response = await axios.post('/api/pesapal/submit-order', {
             amount: cartTotal + 5000,
             billing_address,
-            description: "Payment for Pavo Decors order"
+            description: `Payment for Pavo Decors order via ${paymentMethod}`
         });
 
-        // Use response.data for axios responses
         if (response.data && response.data.error) {
             toast({
                 variant: 'destructive',
@@ -50,7 +61,6 @@ export default function CheckoutPage() {
             return;
         }
 
-        // Redirect to Pesapal's payment page
         if (response.data && response.data.redirect_url) {
              router.push(response.data.redirect_url);
         } else {
@@ -113,9 +123,26 @@ export default function CheckoutPage() {
                                 <Input id="email" name="email" type="email" placeholder="palvin@pavo.com" required/>
                             </div>
                             <div className="md:col-span-2 space-y-2">
-                                <Label htmlFor="phone">Phone Number</Label>
+                                <Label htmlFor="phone">Phone Number (for payment)</Label>
                                 <Input id="phone" name="phone" placeholder="e.g. 0712345678" required/>
                             </div>
+                        </CardContent>
+                    </Card>
+                     <Card className="bg-black/30 border-white/10">
+                        <CardHeader>
+                            <CardTitle className="font-headline text-2xl">Payment Method</CardTitle>
+                            <CardDescription>Select your preferred mobile money provider.</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                           <RadioGroup name="paymentMethod" defaultValue={selectedPaymentMethod} onValueChange={setSelectedPaymentMethod} className="grid grid-cols-2 gap-4">
+                                {paymentMethods.map((method) => (
+                                    <Label key={method.id} htmlFor={method.id} className="flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer">
+                                        <RadioGroupItem value={method.name} id={method.id} className="sr-only"/>
+                                        <Image src={method.image} alt={method.name} width={80} height={40} data-ai-hint="payment logo" />
+                                        <span className="mt-2 font-medium">{method.name}</span>
+                                    </Label>
+                                ))}
+                           </RadioGroup>
                         </CardContent>
                     </Card>
                 </div>
@@ -162,7 +189,7 @@ export default function CheckoutPage() {
                             {isLoading ? (
                                 <><Loader2 className="mr-2 h-4 w-4 animate-spin"/> Processing...</>
                             ) : (
-                                <><Lock className="mr-2 h-4 w-4" /> Pay {(cartTotal + 5000).toLocaleString()} TZS</>
+                                <><Lock className="mr-2 h-4 w-4" /> Pay with {selectedPaymentMethod}</>
                             )}
                         </Button>
                         <p className="text-xs text-muted-foreground text-center">
