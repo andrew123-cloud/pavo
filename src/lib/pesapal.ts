@@ -17,7 +17,8 @@ let ipnIdCache: string | null = null;
 
 
 export const getAuthToken = async () => {
-  if (tokenCache.token && Date.now() < tokenCache.expires_at) {
+  // Proactively refresh the token if it's within 30 seconds of expiring
+  if (tokenCache.token && Date.now() < tokenCache.expires_at - 30000) {
     return tokenCache.token;
   }
 
@@ -82,9 +83,17 @@ export const registerIpnUrl = async (): Promise<string> => {
       }
     );
     
-    ipnIdCache = response.data.ipn_id;
-    console.log("Pesapal IPN Registered successfully:", response.data);
-    return response.data.ipn_id;
+    // Pesapal can return an array of URLs. We should find the one we just registered.
+    const registeredIpn = response.data.find((ipn: any) => ipn.url === ipnUrl);
+    
+    if (!registeredIpn || !registeredIpn.ipn_id) {
+        console.error("IPN ID not found in Pesapal's response", response.data);
+        throw new Error("Failed to retrieve IPN ID from Pesapal.");
+    }
+    
+    ipnIdCache = registeredIpn.ipn_id;
+    console.log("Pesapal IPN Registered successfully:", registeredIpn);
+    return registeredIpn.ipn_id;
   } catch (error: any) {
     console.error('Pesapal IPN Registration Error:', error.response?.data || error.message);
     throw new Error('Failed to register IPN URL with Pesapal');
@@ -127,6 +136,8 @@ export const submitOrder = async (orderData: { amount: number, billing_address: 
     console.error('Pesapal Submit Order Error:', error.response?.data || error.message);
     if (error.response) {
       console.error("Error data:", error.response.data);
+      // Re-throw Pesapal's specific error message if available
+      throw new Error(error.response.data?.error?.message || 'Failed to submit order to Pesapal');
     }
     throw new Error('Failed to submit order to Pesapal');
   }
