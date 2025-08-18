@@ -1,5 +1,6 @@
 // src/app/(public)/cart/page.tsx
 'use client';
+import React from 'react';
 import { usePavoData } from '@/context/data-context';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
