@@ -3,6 +3,7 @@
 import { useAuth } from '@/context/auth-context';
 import { useRouter, usePathname } from 'next/navigation';
 import { useEffect } from 'react';
+import { Loader2 } from 'lucide-react';
 
 export function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -10,17 +11,29 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
   useEffect(() => {
-    if (!loading && !user) {
+    if (!loading && !user && pathname !== '/admin/login') {
       router.push('/admin/login');
     }
-  }, [user, loading, router]);
+  }, [user, loading, router, pathname]);
 
-  if (loading || (!user && pathname.startsWith('/admin'))) {
+  if (loading) {
     return (
-        <div className="flex items-center justify-center h-screen">
-            <div className="text-lg">Loading...</div>
+        <div className="flex items-center justify-center h-screen bg-background">
+            <div className="flex flex-col items-center gap-4">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <p className="text-lg text-muted-foreground">Loading Admin...</p>
+            </div>
         </div>
     )
+  }
+  
+  if (!user && pathname !== '/admin/login') {
+    return null;
+  }
+  
+  if(user && pathname === '/admin/login') {
+      router.push('/admin/dashboard');
+      return null;
   }
 
   return <>{children}</>;
