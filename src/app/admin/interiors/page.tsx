@@ -1,4 +1,4 @@
-
+// src/app/admin/interiors/page.tsx
 'use client';
 
 import React, { useState } from 'react';
@@ -7,26 +7,41 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { MoreHorizontal, PlusCircle } from "lucide-react";
 import Image from "next/image";
-import { portfolioItems as initialPortfolioItems } from "@/lib/data";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogClose } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import type { PortfolioItem } from '@/lib/types';
+import { usePavoData } from '@/context/data-context';
 
 export default function InteriorsAdmin() {
-  const [portfolioItems, setPortfolioItems] = useState(initialPortfolioItems);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const { portfolioItems, addPortfolioItem, updatePortfolioItem, deletePortfolioItem } = usePavoData();
+  const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<PortfolioItem | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
 
-  const openDialog = (item?: PortfolioItem) => {
+  const openForm = (item?: PortfolioItem) => {
     setEditingItem(item || null);
-    setIsDialogOpen(true);
+    setImagePreview(item?.imageUrl || null);
+    setIsFormOpen(true);
   };
 
-  const closeDialog = () => {
+  const closeForm = () => {
     setEditingItem(null);
-    setIsDialogOpen(false);
+    setImagePreview(null);
+    setIsFormOpen(false);
+  };
+
+  const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files && event.target.files[0]) {
+      const file = event.target.files[0];
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
@@ -36,29 +51,28 @@ export default function InteriorsAdmin() {
       id: editingItem ? editingItem.id : String(Date.now()),
       title: formData.get('title') as string,
       location: formData.get('location') as string,
-      imageUrl: editingItem?.imageUrl || 'https://placehold.co/600x400.png', // Placeholder for new items
+      imageUrl: imagePreview || editingItem?.imageUrl || 'https://placehold.co/600x400.png',
       aiHint: editingItem?.aiHint || formData.get('title')?.toString().toLowerCase().split(' ').slice(0,2).join(' ') || "new interior"
     };
 
     if (editingItem) {
-      setPortfolioItems(portfolioItems.map(item => item.id === newItem.id ? newItem : item));
+      updatePortfolioItem(newItem);
     } else {
-      setPortfolioItems([...portfolioItems, newItem]);
+      addPortfolioItem(newItem);
     }
-    closeDialog();
+    closeForm();
   };
 
   const handleDelete = (id: string) => {
-    setPortfolioItems(portfolioItems.filter(item => item.id !== id));
+    deletePortfolioItem(id);
   };
-
 
   return (
     <div>
         <div className="flex items-center">
             <h1 className="font-headline text-3xl font-bold">Interiors Portfolio</h1>
             <div className="ml-auto flex items-center gap-2">
-                <Button size="sm" variant="outline" onClick={() => openDialog()}>
+                <Button size="sm" variant="outline" onClick={() => openForm()}>
                     <PlusCircle className="h-4 w-4 mr-2"/>
                     Add Portfolio Item
                 </Button>
@@ -106,9 +120,25 @@ export default function InteriorsAdmin() {
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent align="end">
                                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                        <DropdownMenuItem>View Details</DropdownMenuItem>
-                                        <DropdownMenuItem onClick={() => openDialog(item)}>Edit</DropdownMenuItem>
-                                        <DropdownMenuItem onClick={() => handleDelete(item.id)}>Delete</DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => alert('Viewing details for ' + item.title)}>View Details</DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => openForm(item)}>Edit</DropdownMenuItem>
+                                        <AlertDialog>
+                                            <AlertDialogTrigger asChild>
+                                                <DropdownMenuItem onSelect={(e) => e.preventDefault()}>Delete</DropdownMenuItem>
+                                            </AlertDialogTrigger>
+                                            <AlertDialogContent>
+                                                <AlertDialogHeader>
+                                                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                                                <AlertDialogDescription>
+                                                    This action cannot be undone. This will permanently delete the portfolio item.
+                                                </AlertDialogDescription>
+                                                </AlertDialogHeader>
+                                                <AlertDialogFooter>
+                                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                <AlertDialogAction onClick={() => handleDelete(item.id)}>Continue</AlertDialogAction>
+                                                </AlertDialogFooter>
+                                            </AlertDialogContent>
+                                        </AlertDialog>
                                         </DropdownMenuContent>
                                     </DropdownMenu>
                                 </TableCell>
@@ -124,7 +154,7 @@ export default function InteriorsAdmin() {
             </CardFooter>
         </Card>
 
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
             <DialogContent className="sm:max-w-[425px]">
                  <form onSubmit={handleSubmit}>
                     <DialogHeader>
@@ -146,10 +176,24 @@ export default function InteriorsAdmin() {
                             </Label>
                             <Input id="location" name="location" defaultValue={editingItem?.location} className="col-span-3" />
                         </div>
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="image" className="text-right">
+                                Image
+                            </Label>
+                            <Input id="image" name="image" type="file" accept="image/*" onChange={handleImageChange} className="col-span-3" />
+                        </div>
+                         {imagePreview && (
+                            <div className="grid grid-cols-4 items-start gap-4">
+                                <Label className="text-right pt-2">Preview</Label>
+                                <div className="col-span-3">
+                                     <Image src={imagePreview} alt="Image preview" width={100} height={100} className="rounded-md object-cover"/>
+                                </div>
+                            </div>
+                        )}
                     </div>
                     <DialogFooter>
                         <DialogClose asChild>
-                            <Button type="button" variant="secondary">Cancel</Button>
+                            <Button type="button" variant="secondary" onClick={closeForm}>Cancel</Button>
                         </DialogClose>
                         <Button type="submit">{editingItem ? 'Save Changes' : 'Add Item'}</Button>
                     </DialogFooter>

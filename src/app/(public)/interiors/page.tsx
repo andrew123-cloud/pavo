@@ -1,3 +1,5 @@
+// src/app/(public)/interiors/page.tsx
+'use client';
 import Image from 'next/image';
 import Link from 'next/link';
 import {
@@ -12,9 +14,12 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { portfolioItems, testimonials } from '@/lib/data';
+import { testimonials } from '@/lib/data';
+import { usePavoData } from '@/context/data-context';
 
 export default function PavoInteriorsHome() {
+  const { portfolioItems } = usePavoData();
+
   return (
     <div className="flex flex-col dark bg-background text-foreground">
       <section className="relative h-[80vh] min-h-[500px] w-full">

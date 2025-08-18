@@ -4,6 +4,7 @@ import { Toaster } from '@/components/ui/toaster';
 import { Inter, Playfair_Display } from 'next/font/google';
 import { cn } from '@/lib/utils';
 import { AuthProvider } from '@/context/auth-context';
+import { DataProvider } from '@/context/data-context';
 
 const fontSans = Inter({
   subsets: ['latin'],
@@ -39,8 +40,10 @@ export default function RootLayout({
         )}
       >
         <AuthProvider>
-          {children}
-          <Toaster />
+          <DataProvider>
+            {children}
+            <Toaster />
+          </DataProvider>
         </AuthProvider>
       </body>
     </html>

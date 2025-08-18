@@ -1,3 +1,5 @@
+// src/app/(public)/homes/page.tsx
+'use client';
 import Image from 'next/image';
 import Link from 'next/link';
 import {
@@ -13,9 +15,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { rentalProperties } from '@/lib/data';
+import { usePavoData } from '@/context/data-context';
 
 export default function PavoHomesHome() {
+  const { rentalProperties } = usePavoData();
   const homeTypes = [
     { name: 'Beachfront', icon: <Waves className="h-10 w-10" /> },
     { name: 'Safari Lodges', icon: <TreePine className="h-10 w-10" /> },

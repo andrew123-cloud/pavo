@@ -32,3 +32,9 @@ export interface Property {
   imageUrl: string;
   aiHint: string;
 }
+
+export interface PavoData {
+  portfolioItems: PortfolioItem[];
+  decorProducts: Product[];
+  rentalProperties: Property[];
+}

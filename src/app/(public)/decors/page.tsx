@@ -1,12 +1,15 @@
+// src/app/(public)/decors/page.tsx
+'use client';
 import Image from 'next/image';
 import Link from 'next/link';
 import { ArrowRight, ShoppingBag, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { decorProducts } from '@/lib/data';
+import { usePavoData } from '@/context/data-context';
 
 export default function PavoDecorsHome() {
+  const { decorProducts } = usePavoData();
   const categories = ['Pillows', 'Curtains', 'Vases', 'Wall Art', 'Tableware'];
 
   return (
