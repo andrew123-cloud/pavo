@@ -16,7 +16,8 @@ export async function POST(request: Request) {
     // It will have 'order_tracking_id', 'merchant_reference', and 'redirect_url'.
     // The error structure from them is { "error": { "code": "...", "message": "...", "error_data": null } }
     if (response.error) {
-        return NextResponse.json({ error: response.error.message || 'An error occurred' }, { status: Number(response.error.code) || 500 });
+        console.error("[PESAPAL_API_ERROR]", response.error);
+        return NextResponse.json({ error: response.error.message || 'An error occurred during payment submission.' }, { status: Number(response.error.code) || 500 });
     }
 
     return NextResponse.json(response);

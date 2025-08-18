@@ -39,25 +39,31 @@ export default function CheckoutPage() {
             description: "Payment for Pavo Decors order"
         });
 
-        if (response.data.error) {
+        // Use response.data for axios responses
+        if (response.data && response.data.error) {
             toast({
                 variant: 'destructive',
                 title: "Payment Error",
-                description: response.data.error.message || 'Failed to initiate payment.',
+                description: response.data.error || 'Failed to initiate payment.',
             });
             setIsLoading(false);
             return;
         }
 
         // Redirect to Pesapal's payment page
-        router.push(response.data.redirect_url);
+        if (response.data && response.data.redirect_url) {
+             router.push(response.data.redirect_url);
+        } else {
+             throw new Error("Missing redirect URL from Pesapal.");
+        }
 
     } catch (error: any) {
-        console.error(error);
+        console.error("Checkout Error:", error);
+        const errorMessage = error.response?.data?.error || error.message || "An unexpected error occurred. Please try again.";
         toast({
             variant: 'destructive',
             title: "Error",
-            description: error.response?.data?.error || "An unexpected error occurred. Please try again.",
+            description: errorMessage,
         });
         setIsLoading(false);
     }
