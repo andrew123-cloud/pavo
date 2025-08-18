@@ -3,9 +3,9 @@ import Link from 'next/link';
 import {
   ArrowRight,
   Brush,
-  Home,
   MessageSquareQuote,
   PencilRuler,
+  Building,
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -16,14 +16,14 @@ import { portfolioItems, testimonials } from '@/lib/data';
 
 export default function PavoInteriorsHome() {
   return (
-    <div className="flex flex-col dark bg-background text-foreground">
+    <div className="flex flex-col bg-background text-foreground">
       <section className="relative h-[80vh] min-h-[500px] w-full">
         <Image
-          src="https://images.unsplash.com/photo-1618220179428-22790b461013?q=80&w=3027&auto=format&fit=crop"
+          src="https://images.unsplash.com/photo-1586023492125-27b2c045efd7?q=80&w=2158&auto=format&fit=crop"
           alt="Elegant living room designed by Pavo Interiors"
           layout="fill"
           objectFit="cover"
-          className="opacity-20"
+          className="opacity-30"
           data-ai-hint="elegant living room"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-background via-background/80 to-transparent" />
@@ -78,7 +78,7 @@ export default function PavoInteriorsHome() {
             <Card className="text-center bg-transparent border-0 shadow-none">
               <CardHeader>
                 <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-secondary text-foreground">
-                  <Home className="h-10 w-10" />
+                  <Building className="h-10 w-10" />
                 </div>
                 <CardTitle className="mt-6 font-headline text-2xl">
                   Full Home Styling
@@ -111,7 +111,7 @@ export default function PavoInteriorsHome() {
         </div>
       </section>
 
-      <section id="portfolio" className="bg-secondary/30 py-20 md:py-32">
+      <section id="portfolio" className="bg-secondary/50 py-20 md:py-32">
         <div className="container mx-auto px-4">
           <div className="text-center">
             <h2 className="font-headline text-4xl font-bold tracking-tight text-foreground md:text-5xl">
@@ -137,7 +137,7 @@ export default function PavoInteriorsHome() {
                   className="h-full w-full object-cover transition-transform duration-500 ease-in-out group-hover:scale-105"
                   data-ai-hint={item.aiHint}
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
                 <div className="absolute bottom-0 left-0 p-6">
                   <h3 className="font-headline text-2xl font-bold text-white">
                     {item.title}
@@ -164,7 +164,7 @@ export default function PavoInteriorsHome() {
           </div>
           <div className="mt-16 grid gap-8 md:grid-cols-2 lg:grid-cols-3">
             {testimonials.map((testimonial) => (
-              <Card key={testimonial.id} className="bg-secondary/30 border-0">
+              <Card key={testimonial.id} className="bg-secondary/50 border-0">
                 <CardHeader>
                   <MessageSquareQuote className="h-10 w-10 text-primary" />
                 </CardHeader>
@@ -198,7 +198,7 @@ export default function PavoInteriorsHome() {
         </div>
       </section>
 
-      <section id="blog-cta" className="bg-secondary/30 py-20 md:py-32">
+      <section id="blog-cta" className="bg-secondary/50 py-20 md:py-32">
         <div className="container mx-auto px-4">
           <div className="mx-auto max-w-4xl text-center">
             <h2 className="font-headline text-4xl font-bold tracking-tight text-foreground md:text-5xl">

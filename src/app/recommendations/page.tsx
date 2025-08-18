@@ -1,9 +1,10 @@
-"use client";
+// src/app/recommendations/page.tsx
+'use client';
 
-import { useActionState } from "react";
-import { useFormStatus } from "react-dom";
-import { getPersonalizedRecommendations } from "./actions";
-import { Button } from "@/components/ui/button";
+import { useActionState } from 'react';
+import { useFormStatus } from 'react-dom';
+import { getPersonalizedRecommendations } from './actions';
+import { Button } from '@/components/ui/button';
 import {
   Card,
   CardContent,
@@ -11,11 +12,11 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
-import { Lightbulb, Loader2, ShoppingBasket, AlertCircle } from "lucide-react";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+} from '@/components/ui/card';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { Lightbulb, Loader2, ShoppingBasket, AlertCircle } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -27,7 +28,7 @@ function SubmitButton() {
           Generating...
         </>
       ) : (
-        "Get Recommendations"
+        'Get Recommendations'
       )}
     </Button>
   );
@@ -41,7 +42,7 @@ export default function RecommendationsPage() {
   );
 
   return (
-    <div className="dark bg-background text-foreground min-h-screen">
+    <div className="bg-background text-foreground min-h-screen">
       <div className="container mx-auto max-w-5xl px-4 py-20 md:py-32">
         <div className="text-center">
           <h1 className="font-headline text-5xl font-bold tracking-tight text-foreground md:text-6xl">

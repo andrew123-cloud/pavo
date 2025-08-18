@@ -2,27 +2,23 @@ import Image from 'next/image';
 import Link from 'next/link';
 import {
   ArrowRight,
-  Brush,
+  Award,
+  Briefcase,
   Feather,
-  Home,
+  GraduationCap,
   Hotel,
   Palette,
   Sparkles,
-  Award,
-  Briefcase,
-  GraduationCap,
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 export default function PavoSuiteHome() {
   const pavoBrands = [
@@ -50,10 +46,10 @@ export default function PavoSuiteHome() {
   ];
 
   return (
-    <div className="flex flex-col dark bg-background text-foreground">
+    <div className="flex flex-col bg-background text-foreground">
       <section className="relative h-[90vh] min-h-[600px] w-full">
         <Image
-          src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=2864&auto=format&fit=crop"
+          src="https://images.unsplash.com/photo-1542327897-414ecb669423?q=80&w=2828&auto=format&fit=crop"
           alt="An elegant and confident woman, representing the Pavo brand founder."
           layout="fill"
           objectFit="cover"
@@ -93,7 +89,7 @@ export default function PavoSuiteHome() {
             {pavoBrands.map((brand) => (
               <Card
                 key={brand.name}
-                className="group transform text-center transition-all duration-300 ease-in-out hover:-translate-y-2 hover:shadow-2xl bg-secondary/30 border-0 flex flex-col"
+                className="group transform text-center transition-all duration-300 ease-in-out hover:-translate-y-2 hover:shadow-2xl bg-secondary/50 border-0 flex flex-col"
               >
                 <CardHeader className="items-center">
                   <div className="flex h-20 w-20 items-center justify-center rounded-full bg-secondary text-foreground transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
@@ -119,7 +115,7 @@ export default function PavoSuiteHome() {
         </div>
       </section>
 
-      <section id="about" className="bg-secondary/30 py-20 md:py-32">
+      <section id="about" className="bg-secondary/50 py-20 md:py-32">
         <div className="container mx-auto px-4">
           <div className="grid items-center gap-12 md:grid-cols-12">
             <div className="md:col-span-5">
