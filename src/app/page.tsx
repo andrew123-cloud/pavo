@@ -47,14 +47,18 @@ export default function PavoSuiteHome() {
 
   return (
     <div className="flex flex-col dark bg-background text-foreground">
-      <section className="relative h-[90vh] min-h-[600px] w-full">
-        <Image
-          src="https://images.unsplash.com/photo-1542327897-414ecb669423?q=80&w=2828&auto=format&fit=crop"
-          alt="An elegant and confident woman, representing the Pavo brand founder."
-          fill
-          className="object-cover opacity-20"
-          data-ai-hint="elegant confident woman"
-        />
+      <section className="relative h-[90vh] min-h-[600px] w-full overflow-hidden">
+         <div className="absolute inset-0">
+          <Image
+            src="https://images.unsplash.com/photo-1542327897-414ecb669423?q=80&w=2828&auto=format&fit=crop"
+            alt="An elegant and confident woman, representing the Pavo brand founder."
+            fill
+            className="object-cover opacity-20 animated-bg-zoom"
+            data-ai-hint="elegant confident woman"
+          />
+           <div className="animated-blob h-[400px] w-[400px] bg-primary/50 top-0 left-1/4 animation-delay-2000"></div>
+           <div className="animated-blob h-[500px] w-[500px] bg-secondary/50 bottom-0 right-1/4 animation-delay-4000"></div>
+        </div>
         <div className="absolute inset-0 bg-gradient-to-t from-background via-background/70 to-transparent" />
         <div className="container relative z-10 mx-auto flex h-full flex-col items-center justify-center px-4 text-center">
           <Feather className="h-16 w-16 text-primary" />
@@ -64,6 +68,7 @@ export default function PavoSuiteHome() {
           <p className="mt-6 max-w-3xl text-lg text-foreground/80 md:text-xl">
             A family of brands dedicated to inspired living. We craft spaces,
             curate decor, and create unforgettable memories, all guided by a
+
             passion for beauty and excellence.
           </p>
           <Button asChild size="lg" className="mt-8">

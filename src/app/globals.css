@@ -89,3 +89,38 @@ h6 {
     @apply bg-background text-foreground;
   }
 }
+
+@layer utilities {
+  .animated-blob {
+    @apply absolute rounded-full opacity-30 mix-blend-hard-light filter blur-3xl;
+    animation: move 25s infinite alternate;
+  }
+  
+  .animated-bg-zoom {
+    animation: zoom 40s infinite;
+  }
+
+  @keyframes move {
+    from {
+      transform: translate(-100px, -50px) rotate(-90deg);
+      border-radius: 24% 76% 35% 65% / 27% 36% 64% 73%;
+    }
+
+    to {
+      transform: translate(100px, 100px) rotate(-10deg);
+      border-radius: 76% 24% 33% 67% / 68% 55% 45% 32%;
+    }
+  }
+  
+   @keyframes zoom {
+    0% {
+      transform: scale(1);
+    }
+    50% {
+      transform: scale(1.1);
+    }
+    100% {
+      transform: scale(1);
+    }
+  }
+}
