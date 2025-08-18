@@ -1,10 +1,9 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
-import Header from '@/components/shared/header';
-import Footer from '@/components/shared/footer';
 import { Inter, Playfair_Display } from 'next/font/google';
 import { cn } from '@/lib/utils';
+import { AuthProvider } from '@/context/auth-context';
 
 const fontSans = Inter({
   subsets: ['latin'],
@@ -39,12 +38,10 @@ export default function RootLayout({
           fontSerif.variable
         )}
       >
-        <div className="flex min-h-screen flex-col">
-          <Header />
-          <main className="flex-1">{children}</main>
-          <Footer />
-        </div>
-        <Toaster />
+        <AuthProvider>
+          {children}
+          <Toaster />
+        </AuthProvider>
       </body>
     </html>
   );

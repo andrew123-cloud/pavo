@@ -17,7 +17,7 @@ const PinterestIcon = (props: React.SVGProps<SVGSVGElement>) => (
 
 export default function Footer() {
   return (
-    <footer className="bg-secondary/30">
+    <footer className="bg-secondary/50">
       <div className="container mx-auto px-4 py-16">
         <div className="grid gap-12 lg:grid-cols-12">
           <div className="lg:col-span-4">
@@ -90,6 +90,11 @@ export default function Footer() {
               <li>
                 <Link href="#" className="text-muted-foreground transition-colors hover:text-primary">
                   Contact
+                </Link>
+              </li>
+               <li>
+                <Link href="/admin/login" className="text-muted-foreground transition-colors hover:text-primary">
+                  Admin
                 </Link>
               </li>
             </ul>

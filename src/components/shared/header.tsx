@@ -20,12 +20,18 @@ export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const pathname = usePathname();
 
+  // Do not render header on admin routes
+  if (pathname.startsWith('/admin')) {
+    return null;
+  }
+
   const getActiveSite = (path: string) => {
     if (path.startsWith('/interiors')) return '/interiors';
     if (path.startsWith('/decors')) return '/decors';
     if (path.startsWith('/homes')) return '/homes';
     if (path.startsWith('/recommendations')) return '/recommendations';
-    return '/';
+    if (path === '/') return '/';
+    return '';
   };
 
   const activeSite = getActiveSite(pathname);
@@ -52,7 +58,7 @@ export default function Header() {
   );
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/80 backdrop-blur-lg supports-[backdrop-filter]:bg-background/60">
+    <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container mx-auto flex h-20 items-center justify-between px-4">
         <PavoLogo />
         <nav className="hidden items-center space-x-8 md:flex">
