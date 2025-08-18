@@ -12,12 +12,16 @@ export async function POST(request: Request) {
 
     const response = await submitOrder({ amount, billing_address, description });
 
+    // Pesapal's successful response doesn't have an 'error' key at the top level.
+    // It will have 'order_tracking_id', 'merchant_reference', and 'redirect_url'.
+    // The error structure from them is { "error": { "code": "...", "message": "...", "error_data": null } }
     if (response.error) {
         return NextResponse.json({ error: response.error.message || 'An error occurred' }, { status: Number(response.error.code) || 500 });
     }
 
     return NextResponse.json(response);
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+     console.error("[PESAPAL_SUBMIT_ORDER_ERROR]", error);
+    return NextResponse.json({ error: "Internal Server Error", details: error.message }, { status: 500 });
   }
 }

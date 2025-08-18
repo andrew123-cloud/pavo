@@ -5,6 +5,7 @@ import { v4 as uuidv4 } from 'uuid';
 const PESAPAL_BASE_URL = process.env.PESAPAL_BASE_URL;
 const PESAPAL_CONSUMER_KEY = process.env.PESAPAL_CONSUMER_KEY;
 const PESAPAL_CONSUMER_SECRET = process.env.PESAPAL_CONSUMER_SECRET;
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL;
 
 // Simple in-memory cache for the token
 let tokenCache = {
@@ -49,7 +50,6 @@ export const getAuthToken = async () => {
 
 export const registerIpnUrl = async () => {
   const token = await getAuthToken();
-  const APP_URL = process.env.NEXT_PUBLIC_APP_URL;
   
   if (!APP_URL) {
     throw new Error("NEXT_PUBLIC_APP_URL is not set in .env file");
@@ -90,7 +90,6 @@ export const getIpnId = () => {
 export const submitOrder = async (orderData: { amount: number, billing_address: any, description: string }) => {
   const token = await getAuthToken();
   const notificationId = getIpnId();
-  const APP_URL = process.env.NEXT_PUBLIC_APP_URL;
 
   if (!notificationId) {
     // Try to register it if not already registered
@@ -126,6 +125,12 @@ export const submitOrder = async (orderData: { amount: number, billing_address: 
     return response.data;
   } catch (error: any) {
     console.error('Pesapal Submit Order Error:', error.response?.data || error.message);
+    // More detailed error logging
+    if (error.response) {
+      console.error("Error data:", error.response.data);
+      console.error("Error status:", error.response.status);
+      console.error("Error headers:", error.response.headers);
+    }
     throw new Error('Failed to submit order to Pesapal');
   }
 };
@@ -151,6 +156,8 @@ export const getTransactionStatus = async (orderTrackingId: string) => {
 };
 
 // Auto-register IPN on server start
-if (process.env.NODE_ENV === 'development') {
-    setTimeout(registerIpnUrl, 1000); // Delay to ensure env vars are loaded
+if (process.env.NODE_ENV !== 'production') {
+    setTimeout(() => {
+        registerIpnUrl().catch(console.error);
+    }, 2000); // Delay to ensure env vars are loaded
 }
