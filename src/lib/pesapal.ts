@@ -7,20 +7,25 @@ const PESAPAL_CONSUMER_KEY = process.env.PESAPAL_CONSUMER_KEY;
 const PESAPAL_CONSUMER_SECRET = process.env.PESAPAL_CONSUMER_SECRET;
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL;
 
-// Simple in-memory cache for the token
+// Simple in-memory cache for the token and IPN ID
 let tokenCache = {
   token: null as string | null,
   expires_at: 0,
 };
 
-// In-memory store for IPN ID
-let ipnId: string | null = null;
+let ipnIdCache: string | null = null;
+
 
 export const getAuthToken = async () => {
   if (tokenCache.token && Date.now() < tokenCache.expires_at) {
     return tokenCache.token;
   }
 
+  if (!PESAPAL_CONSUMER_KEY || !PESAPAL_CONSUMER_SECRET || !PESAPAL_BASE_URL) {
+      console.error("Pesapal environment variables are not set.");
+      throw new Error("Pesapal environment variables are not configured properly.");
+  }
+  
   try {
     const response = await axios.post(
       `${PESAPAL_BASE_URL}/api/Auth/RequestToken`,
@@ -48,7 +53,11 @@ export const getAuthToken = async () => {
   }
 };
 
-export const registerIpnUrl = async () => {
+export const registerIpnUrl = async (): Promise<string> => {
+   if (ipnIdCache) {
+    return ipnIdCache;
+  }
+  
   const token = await getAuthToken();
   
   if (!APP_URL) {
@@ -73,41 +82,32 @@ export const registerIpnUrl = async () => {
       }
     );
     
-    // Store the IPN ID
-    ipnId = response.data.ipn_id;
+    ipnIdCache = response.data.ipn_id;
     console.log("Pesapal IPN Registered successfully:", response.data);
-    return response.data;
+    return response.data.ipn_id;
   } catch (error: any) {
     console.error('Pesapal IPN Registration Error:', error.response?.data || error.message);
     throw new Error('Failed to register IPN URL with Pesapal');
   }
 };
 
-export const getIpnId = () => {
-    return ipnId;
-};
 
 export const submitOrder = async (orderData: { amount: number, billing_address: any, description: string }) => {
   const token = await getAuthToken();
-  const notificationId = getIpnId();
+  // Ensure IPN is registered before submitting order
+  const notificationId = await registerIpnUrl(); 
 
-  if (!notificationId) {
-    // Try to register it if not already registered
-    await registerIpnUrl();
-    const newIpnId = getIpnId();
-    if (!newIpnId) {
-        throw new Error("Failed to get Pesapal IPN Notification ID.");
-    }
-  }
-  
   const payload = {
     id: uuidv4(),
     currency: 'TZS',
     amount: orderData.amount,
     description: orderData.description,
     callback_url: `${APP_URL}/pesapal/callback`,
-    notification_id: getIpnId(),
-    billing_address: orderData.billing_address,
+    notification_id: notificationId,
+    billing_address: {
+      ...orderData.billing_address,
+      country_code: 'TZ' // Pesapal requires a country code
+    },
   };
 
   try {
@@ -125,11 +125,8 @@ export const submitOrder = async (orderData: { amount: number, billing_address: 
     return response.data;
   } catch (error: any) {
     console.error('Pesapal Submit Order Error:', error.response?.data || error.message);
-    // More detailed error logging
     if (error.response) {
       console.error("Error data:", error.response.data);
-      console.error("Error status:", error.response.status);
-      console.error("Error headers:", error.response.headers);
     }
     throw new Error('Failed to submit order to Pesapal');
   }
@@ -154,10 +151,3 @@ export const getTransactionStatus = async (orderTrackingId: string) => {
     throw new Error('Failed to get transaction status from Pesapal');
   }
 };
-
-// Auto-register IPN on server start
-if (process.env.NODE_ENV !== 'production') {
-    setTimeout(() => {
-        registerIpnUrl().catch(console.error);
-    }, 2000); // Delay to ensure env vars are loaded
-}
