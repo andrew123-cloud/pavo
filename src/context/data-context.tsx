@@ -1,7 +1,7 @@
 // src/context/data-context.tsx
 'use client';
 
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import type { PavoData, PortfolioItem, Product, Property } from '@/lib/types';
 import { 
   portfolioItems as initialPortfolioItems, 
@@ -41,8 +41,40 @@ const initialData: PavoData = {
 };
 
 export function DataProvider({ children }: { children: ReactNode }) {
+  const [isLoaded, setIsLoaded] = useState(false);
   const [data, setData] = useState<PavoData>(initialData);
   const [cart, setCart] = useState<CartItem[]>([]);
+
+  // Load state from localStorage on initial render
+  useEffect(() => {
+    try {
+      const storedData = localStorage.getItem('pavo-data');
+      if (storedData) {
+        setData(JSON.parse(storedData));
+      }
+      const storedCart = localStorage.getItem('pavo-cart');
+      if (storedCart) {
+        setCart(JSON.parse(storedCart));
+      }
+    } catch (error) {
+      console.error("Failed to parse data from localStorage", error);
+    }
+    setIsLoaded(true);
+  }, []);
+
+  // Save state to localStorage whenever it changes
+  useEffect(() => {
+    if (isLoaded) {
+      localStorage.setItem('pavo-data', JSON.stringify(data));
+    }
+  }, [data, isLoaded]);
+
+  useEffect(() => {
+    if (isLoaded) {
+        localStorage.setItem('pavo-cart', JSON.stringify(cart));
+    }
+  }, [cart, isLoaded]);
+
 
   const addPortfolioItem = (item: PortfolioItem) => {
     setData(prevData => ({ ...prevData, portfolioItems: [...prevData.portfolioItems, item] }));
@@ -132,6 +164,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const cartTotal = cart.reduce((total, item) => total + item.price * item.quantity, 0);
   const cartCount = cart.reduce((count, item) => count + item.quantity, 0);
 
+  if (!isLoaded) {
+    return null; // or a loading spinner
+  }
 
   return (
     <DataContext.Provider value={{ 
