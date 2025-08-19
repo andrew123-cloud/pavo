@@ -15,6 +15,18 @@ let tokenCache = {
 
 let ipnIdCache: string | null = null;
 
+const getErrorMessage = (error: any) => {
+    if (axios.isAxiosError(error)) {
+        const pesapalError = error.response?.data?.error;
+        if (pesapalError && pesapalError.message) {
+            return pesapalError.message;
+        }
+        return error.response?.data?.message || error.message;
+    }
+    return error.message || 'An unknown error occurred';
+};
+
+
 export const getAuthToken = async (): Promise<string> => {
   // Proactively refresh the token if it's within 60 seconds of expiring
   if (tokenCache.token && Date.now() < tokenCache.expires_at - 60000) {
@@ -27,6 +39,7 @@ export const getAuthToken = async (): Promise<string> => {
   }
 
   try {
+    console.log("Requesting new Pesapal auth token...");
     const response = await axios.post(
       `${PESAPAL_BASE_URL}/api/Auth/RequestToken`,
       {
@@ -41,66 +54,89 @@ export const getAuthToken = async (): Promise<string> => {
       }
     );
 
-    const { token, expiryDate } = response.data;
-    if (!token) {
-      console.error("Pesapal Auth Error: Token not found in response", response.data);
-      throw new Error("Token not found in Pesapal auth response");
+    const { token, expiryDate, error } = response.data;
+    if (error || !token) {
+      console.error("Pesapal Auth Error:", response.data);
+      throw new Error(error?.message || "Token not found in Pesapal auth response");
     }
 
+    console.log("Successfully fetched new Pesapal auth token.");
     tokenCache = {
       token,
       expires_at: new Date(expiryDate).getTime(),
     };
     return token;
   } catch (error: any) {
-    console.error('Pesapal Auth Error:', error.response?.data || error.message);
-    const errorMessage = error.response?.data?.error?.message || error.response?.data?.message || 'Failed to authenticate with Pesapal';
-    throw new Error(errorMessage);
+    console.error('Pesapal Auth Request Failed:', getErrorMessage(error));
+    throw new Error(getErrorMessage(error));
   }
 };
 
+export const getRegisteredIpns = async (token: string): Promise<any[]> => {
+    try {
+        const response = await axios.get(`${PESAPAL_BASE_URL}/api/URLSetup/GetIpnList`, {
+            headers: {
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json',
+                Accept: 'application/json',
+            },
+        });
+        return response.data;
+    } catch (error: any) {
+        console.error('Failed to get registered IPNs:', getErrorMessage(error));
+        throw new Error(`Failed to get registered IPNs: ${getErrorMessage(error)}`);
+    }
+};
+
 export const registerIpnUrl = async (): Promise<string> => {
-  if (ipnIdCache) {
-    return ipnIdCache;
-  }
-
-  const token = await getAuthToken();
-
-  if (!APP_URL) {
-    throw new Error("NEXT_PUBLIC_APP_URL is not set in .env file");
-  }
-
-  const ipnUrl = `${APP_URL}/api/pesapal/ipn`;
-
-  try {
-    const response = await axios.post(
-      `${PESAPAL_BASE_URL}/api/URLSetup/RegisterIPN`,
-      {
-        url: ipnUrl,
-        ipn_notification_type: 'GET',
-      },
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-      }
-    );
-
-    if (response.data.error || !response.data.ipn_id) {
-      console.error("Pesapal IPN Registration Error:", response.data);
-      throw new Error(response.data.error?.message || "Failed to retrieve IPN ID from Pesapal.");
+    if (ipnIdCache) {
+        console.log("Using cached IPN ID:", ipnIdCache);
+        return ipnIdCache;
     }
 
-    ipnIdCache = response.data.ipn_id;
-    console.log("Pesapal IPN Registered successfully:", response.data);
-    return response.data.ipn_id;
-  } catch (error: any) {
-    console.error('Pesapal IPN Registration Error:', error.response?.data || error.message);
-    const errorMessage = error.response?.data?.error?.message || error.response?.data?.message || 'Failed to register IPN URL with Pesapal';
-    throw new Error(errorMessage);
-  }
+    const token = await getAuthToken();
+    
+    if (!APP_URL) {
+        throw new Error("NEXT_PUBLIC_APP_URL is not set in .env file");
+    }
+    const ipnUrl = `${APP_URL}/api/pesapal/ipn`;
+
+    try {
+        console.log("Checking for existing IPN registrations...");
+        const existingIpns = await getRegisteredIpns(token);
+        const existingIpn = existingIpns.find(ipn => ipn.url === ipnUrl);
+
+        if (existingIpn && existingIpn.ipn_id) {
+            console.log("Found existing IPN registration:", existingIpn.ipn_id);
+            ipnIdCache = existingIpn.ipn_id;
+            return ipnIdCache!;
+        }
+
+        console.log(`Registering new IPN URL: ${ipnUrl}`);
+        const response = await axios.post(
+            `${PESAPAL_BASE_URL}/api/URLSetup/RegisterIPN`,
+            { url: ipnUrl, ipn_notification_type: 'GET' },
+            {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                    Accept: 'application/json',
+                },
+            }
+        );
+
+        if (response.data.error || !response.data.ipn_id) {
+            throw new Error(response.data.error?.message || "Failed to retrieve IPN ID from Pesapal.");
+        }
+
+        ipnIdCache = response.data.ipn_id;
+        console.log("Pesapal IPN Registered successfully:", ipnIdCache);
+        return ipnIdCache!;
+
+    } catch (error: any) {
+        console.error('Pesapal IPN Registration Failed:', getErrorMessage(error));
+        throw new Error(`Pesapal IPN Registration Failed: ${getErrorMessage(error)}`);
+    }
 };
 
 
@@ -117,11 +153,12 @@ export const submitOrder = async (orderData: { amount: number, billing_address: 
     notification_id: notificationId,
     billing_address: {
       ...orderData.billing_address,
-      country_code: 'TZ' // Pesapal requires a country code
+      country_code: 'TZ'
     },
   };
 
   try {
+    console.log("Submitting order to Pesapal with payload:", JSON.stringify(payload, null, 2));
     const response = await axios.post(
       `${PESAPAL_BASE_URL}/api/Transactions/SubmitOrderRequest`,
       payload,
@@ -133,20 +170,17 @@ export const submitOrder = async (orderData: { amount: number, billing_address: 
         },
       }
     );
-
-    // Pesapal's successful response doesn't have an 'error' key at the top level.
-    // It will have 'order_tracking_id', 'merchant_reference', and 'redirect_url'.
-    // The error structure from them is { "error": { "code": "...", "message": "...", "error_data": null } }
+    
     if (response.data.error) {
-        console.error("[PESAPAL_API_ERROR]", response.data.error);
+        console.error("[PESAPAL_API_ERROR] Submit Order:", response.data.error);
         throw new Error(response.data.error.message || 'An error occurred during payment submission.');
     }
 
+    console.log("Pesapal submit order response:", response.data);
     return response.data;
   } catch (error: any) {
-    console.error('Pesapal Submit Order Request Failed:', error.response?.data || error.message);
-    const errorMessage = error.response?.data?.error?.message || 'Failed to submit order to Pesapal';
-    throw new Error(errorMessage);
+    console.error('Pesapal Submit Order Request Failed:', getErrorMessage(error));
+    throw new Error(getErrorMessage(error));
   }
 };
 
@@ -172,8 +206,7 @@ export const getTransactionStatus = async (orderTrackingId: string) => {
     return response.data;
   } catch (error: any)
   {
-    console.error('Pesapal Get Transaction Status Request Failed:', error.response?.data || error.message);
-    const errorMessage = error.response?.data?.error?.message || error.response?.data?.message || 'Failed to get transaction status from Pesapal';
-    throw new Error(errorMessage);
+    console.error('Pesapal Get Transaction Status Request Failed:', getErrorMessage(error));
+    throw new Error(getErrorMessage(error));
   }
 };
