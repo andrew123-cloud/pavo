@@ -1,3 +1,4 @@
+
 // src/context/data-context.tsx
 'use client';
 
@@ -54,7 +55,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
     try {
       const storedData = localStorage.getItem('pavo-data');
       if (storedData) {
-        setData(JSON.parse(storedData));
+        // Ensure orders array exists
+        const parsedData = JSON.parse(storedData);
+        if (!parsedData.orders) {
+          parsedData.orders = [];
+        }
+        setData(parsedData);
       }
       const storedCart = localStorage.getItem('pavo-cart');
       if (storedCart) {
