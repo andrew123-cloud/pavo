@@ -23,8 +23,8 @@ export const getAuthToken = async () => {
   }
 
   if (!PESAPAL_CONSUMER_KEY || !PESAPAL_CONSUMER_SECRET || !PESAPAL_BASE_URL) {
-      console.error("Pesapal environment variables are not set.");
-      throw new Error("Pesapal environment variables are not configured properly.");
+      console.error("Pesapal environment variables are not configured properly.");
+      throw new Error("Server configuration error: Pesapal credentials are not set.");
   }
   
   try {
