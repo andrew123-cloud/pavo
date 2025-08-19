@@ -13,7 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 function CallbackContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
-    const { addOrder, clearCart } = usePavoData();
+    const { addOrder, clearCart, cart, decreaseStock } = usePavoData();
     const { toast } = useToast();
     const [message, setMessage] = useState('Confirming your payment, please wait...');
 
@@ -48,13 +48,22 @@ function CallbackContent() {
                     currency: status.currency,
                     created_at: status.created_date,
                     customer_name: status.billing_address?.first_name || 'Valued Customer',
-                    items: [], // In a real app, you'd populate this from the original order
+                    items: cart.map(item => ({
+                        id: item.id,
+                        name: item.name,
+                        quantity: item.quantity,
+                        price: item.price
+                    })),
                 };
                 
                 addOrder(newOrder);
 
                 if (status.status_code === 1) { // COMPLETED
                     setMessage('Payment successful! Redirecting...');
+                    // Decrease stock for each item in the cart
+                    cart.forEach(item => {
+                        decreaseStock(item.id, item.quantity);
+                    });
                     clearCart();
                 } else {
                     setMessage('Payment was not successful. Redirecting...');
@@ -80,7 +89,7 @@ function CallbackContent() {
 
         return () => clearTimeout(timer);
 
-    }, [orderTrackingId, addOrder, clearCart, router, toast]);
+    }, [orderTrackingId, addOrder, clearCart, router, toast, cart, decreaseStock]);
 
     return (
         <div className="dark bg-background text-foreground min-h-screen flex items-center justify-center">

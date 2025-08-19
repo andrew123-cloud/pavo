@@ -13,6 +13,7 @@ import {
   Search,
   User,
   LogOut,
+  ShoppingBag,
 } from 'lucide-react';
 
 import { usePathname, useRouter } from 'next/navigation';
@@ -61,6 +62,17 @@ function AdminLayout({ children }: { children: React.ReactNode }) {
                 >
                   <Home className="h-4 w-4" />
                   Dashboard
+                </Link>
+                <Link
+                  href="/admin/orders"
+                  className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-all hover:text-primary ${
+                    pathname.startsWith('/admin/orders')
+                      ? 'bg-muted text-primary'
+                      : 'text-muted-foreground'
+                  }`}
+                >
+                  <ShoppingBag className="h-4 w-4" />
+                  Orders
                 </Link>
                 <Link
                   href="/admin/interiors"
@@ -121,6 +133,13 @@ function AdminLayout({ children }: { children: React.ReactNode }) {
                   >
                     <Home className="h-5 w-5" />
                     Dashboard
+                  </Link>
+                   <Link
+                    href="/admin/orders"
+                    className="mx-[-0.65rem] flex items-center gap-4 rounded-xl px-3 py-2 text-muted-foreground hover:text-foreground"
+                  >
+                    <ShoppingBag className="h-5 w-5" />
+                    Orders
                   </Link>
                   <Link
                     href="/admin/interiors"

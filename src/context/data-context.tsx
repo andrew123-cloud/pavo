@@ -25,6 +25,7 @@ interface DataContextType extends PavoData {
   deleteRentalProperty: (id: string) => void;
   addOrder: (order: Order) => void;
   updateOrder: (order: Order) => void;
+  decreaseStock: (productId: string, amount: number) => void;
   cart: CartItem[];
   addToCart: (product: Product) => void;
   updateCartQuantity: (productId: string, quantity: number) => void;
@@ -108,6 +109,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }));
   };
 
+  const decreaseStock = (productId: string, amount: number) => {
+    setData(prevData => ({
+      ...prevData,
+      decorProducts: prevData.decorProducts.map(p => 
+        p.id === productId ? { ...p, stock: Math.max(0, p.stock - amount) } : p
+      ),
+    }));
+  };
+
   const deleteDecorProduct = (id: string) => {
     setData(prevData => ({
       ...prevData,
@@ -134,7 +144,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   };
   
   const addOrder = (order: Order) => {
-    setData(prevData => ({ ...prevData, orders: [...(prevData.orders || []), order] }));
+    setData(prevData => ({ ...prevData, orders: [order, ...(prevData.orders || [])] }));
   };
   
   const updateOrder = (updatedOrder: Order) => {
@@ -196,6 +206,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       deleteRentalProperty,
       addOrder,
       updateOrder,
+      decreaseStock,
       cart,
       addToCart,
       updateCartQuantity,

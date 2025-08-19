@@ -36,6 +36,13 @@ export interface Property {
   aiHint: string;
 }
 
+export interface OrderItem { 
+  id: string;
+  name: string; 
+  quantity: number; 
+  price: number;
+}
+
 export interface Order {
     id: string; // Our internal order ID
     pesapal_order_tracking_id: string;
@@ -48,7 +55,7 @@ export interface Order {
     currency: string;
     created_at: string;
     customer_name: string;
-    items: { name: string, quantity: number, price: number }[];
+    items: OrderItem[];
 }
 
 export interface PavoData {
