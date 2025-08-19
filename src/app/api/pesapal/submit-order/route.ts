@@ -1,4 +1,3 @@
-
 // src/app/api/pesapal/submit-order/route.ts
 import { submitOrder } from "@/lib/pesapal";
 import { NextResponse } from 'next/server';

@@ -1,4 +1,3 @@
-
 // src/lib/pesapal.ts
 import axios from 'axios';
 import { v4 as uuidv4 } from 'uuid';
@@ -7,14 +6,6 @@ const PESAPAL_BASE_URL = process.env.PESAPAL_BASE_URL;
 const PESAPAL_CONSUMER_KEY = process.env.PESAPAL_CONSUMER_KEY;
 const PESAPAL_CONSUMER_SECRET = process.env.PESAPAL_CONSUMER_SECRET;
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:9002';
-
-if (!PESAPAL_BASE_URL || !PESAPAL_CONSUMER_KEY || !PESAPAL_CONSUMER_SECRET) {
-  console.error("FATAL: Pesapal environment variables are not set.");
-  // This will prevent the app from even starting if the config is wrong.
-  // In a real production environment, you might handle this differently,
-  // but for development, failing fast is best.
-  throw new Error("Pesapal API credentials or Base URL are not configured on the server.");
-}
 
 // In-memory cache for the session. In a distributed environment, use Redis or a similar store.
 let tokenCache = {
@@ -48,6 +39,10 @@ export const getAuthToken = async (): Promise<string> => {
 
   const authUrl = `${PESAPAL_BASE_URL}/api/Auth/RequestToken`;
   console.log(`[PESAPAL_AUTH] Requesting new token from ${authUrl}`);
+  
+  if (!PESAPAL_CONSUMER_KEY || !PESAPAL_CONSUMER_SECRET) {
+    throw new Error("Pesapal API credentials are not configured on the server.");
+  }
 
   try {
     const response = await axios.post(

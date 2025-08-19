@@ -14,6 +14,9 @@ import { useToast } from '@/hooks/use-toast';
 import { useState } from 'react';
 import axios from 'axios';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { AlertCircle } from 'lucide-react';
+
 
 const paymentMethods = [
     { id: 'mpesa', name: 'M-Pesa', image: 'https://placehold.co/100x60/1e293b/ffffff.png?text=M-Pesa' },
@@ -28,11 +31,13 @@ export default function CheckoutPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState(paymentMethods[0].name);
 
   const handleCheckout = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
+    setError(null);
 
     const formData = new FormData(e.currentTarget);
     const billing_address = {
@@ -52,13 +57,7 @@ export default function CheckoutPage() {
         });
         
         if (response.data && response.data.error) {
-            toast({
-                variant: 'destructive',
-                title: "Payment Error",
-                description: response.data.error,
-            });
-            setIsLoading(false);
-            return;
+            throw new Error(response.data.error);
         }
 
         if (response.data && response.data.redirect_url) {
@@ -70,11 +69,7 @@ export default function CheckoutPage() {
     } catch (error: any) {
         console.error("Checkout Error:", error);
         const errorMessage = error.response?.data?.error || error.message || "An unexpected error occurred. Please try again.";
-        toast({
-            variant: 'destructive',
-            title: "Error",
-            description: errorMessage,
-        });
+        setError(errorMessage);
         setIsLoading(false);
     }
   };
@@ -102,6 +97,13 @@ export default function CheckoutPage() {
             Complete your purchase securely with Pesapal.
           </p>
         </div>
+        {error && (
+            <Alert variant="destructive" className="mb-8">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Payment Error</AlertTitle>
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+        )}
         <form onSubmit={handleCheckout} className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className="lg:col-span-2">
                 <div className="space-y-8">
