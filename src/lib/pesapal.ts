@@ -54,6 +54,9 @@ export const getAuthToken = async (): Promise<string> => {
         },
       }
     );
+    
+    // Log the full response to help with debugging
+    console.log("Full Pesapal Auth Response:", JSON.stringify(response.data, null, 2));
 
     const data = response.data;
     if (data.error || !data.token) {
