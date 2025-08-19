@@ -1,3 +1,4 @@
+
 // src/lib/pesapal.ts
 import axios from 'axios';
 import { v4 as uuidv4 } from 'uuid';
@@ -7,13 +8,22 @@ const PESAPAL_CONSUMER_KEY = process.env.PESAPAL_CONSUMER_KEY;
 const PESAPAL_CONSUMER_SECRET = process.env.PESAPAL_CONSUMER_SECRET;
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:9002';
 
+if (!PESAPAL_BASE_URL || !PESAPAL_CONSUMER_KEY || !PESAPAL_CONSUMER_SECRET) {
+  console.error("FATAL: Pesapal environment variables are not set.");
+  // This will prevent the app from even starting if the config is wrong.
+  // In a real production environment, you might handle this differently,
+  // but for development, failing fast is best.
+  throw new Error("Pesapal API credentials or Base URL are not configured on the server.");
+}
 
+// In-memory cache for the session. In a distributed environment, use Redis or a similar store.
 let tokenCache = {
   token: null as string | null,
   expires_at: 0,
 };
 
 let ipnIdCache: string | null = null;
+
 
 const getErrorMessage = (error: any, context: string): string => {
     console.error(`[PESAPAL_ERROR] in ${context}:`, error);
@@ -26,7 +36,7 @@ const getErrorMessage = (error: any, context: string): string => {
         }
         return `Pesapal API request failed with status ${error.response.status}. Response: ${responseData}`;
     }
-    return error.message || 'An unknown error occurred';
+    return error.message || `An unknown error occurred in ${context}`;
 };
 
 
@@ -36,12 +46,8 @@ export const getAuthToken = async (): Promise<string> => {
     return tokenCache.token;
   }
 
-  if (!PESAPAL_CONSUMER_KEY || !PESAPAL_CONSUMER_SECRET || !PESAPAL_BASE_URL) {
-    throw new Error("Pesapal API credentials or Base URL are not configured on the server.");
-  }
-  
   const authUrl = `${PESAPAL_BASE_URL}/api/Auth/RequestToken`;
-  console.log(`[PESAPAL_AUTH] Requesting token from ${authUrl}`);
+  console.log(`[PESAPAL_AUTH] Requesting new token from ${authUrl}`);
 
   try {
     const response = await axios.post(
@@ -56,16 +62,13 @@ export const getAuthToken = async (): Promise<string> => {
     const data = response.data;
     console.log("[PESAPAL_AUTH_RESPONSE]", JSON.stringify(data, null, 2));
 
-    const token = data.token;
-    const expiryDate = data.expiryDate;
-
-    if (!token) {
+    if (data.error || !data.token) {
       throw new Error(data.error?.message || "Token not found in PesaPal auth response");
     }
 
     tokenCache = {
-      token: token,
-      expires_at: new Date(expiryDate).getTime(),
+      token: data.token,
+      expires_at: new Date(data.expiryDate).getTime() - 60000, // Subtract 60s for safety margin
     };
     return tokenCache.token;
   } catch (error: any) {
@@ -86,7 +89,7 @@ export const registerIpnUrl = async (): Promise<string> => {
   try {
     console.log(`[PESAPAL_IPN] Getting IPN list from ${getListUrl}`);
     const existingIpnsResponse = await axios.get(getListUrl, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}`, 'Accept': 'application/json' }
     });
     const existingIpns = existingIpnsResponse.data || [];
     console.log(`[PESAPAL_IPN] Found ${existingIpns.length} existing IPNs.`);
@@ -107,7 +110,7 @@ export const registerIpnUrl = async (): Promise<string> => {
     );
     
     const data = response.data;
-    if (!data.ipn_id) {
+     if (data.error || !data.ipn_id) {
         throw new Error(data.error?.message || "Failed to retrieve IPN ID from Pesapal during registration.");
     }
 
@@ -120,35 +123,35 @@ export const registerIpnUrl = async (): Promise<string> => {
 };
 
 export const submitOrder = async (orderData: { amount: number, billing_address: any, description: string }) => {
-  try {
-    const token = await getAuthToken();
-    const notificationId = await registerIpnUrl(); 
+  const token = await getAuthToken();
+  const notificationId = await registerIpnUrl(); 
 
-    const payload = {
-      id: uuidv4(), 
-      currency: 'TZS',
-      amount: orderData.amount,
-      description: orderData.description,
-      callback_url: `${APP_URL}/pesapal/callback`,
-      notification_id: notificationId,
-      billing_address: {
-        email_address: orderData.billing_address.email_address || "",
-        phone_number: orderData.billing_address.phone_number || "",
-        country_code: 'TZ',
-        first_name: orderData.billing_address.first_name || "",
-        last_name: orderData.billing_address.last_name || "",
-        line_1: orderData.billing_address.line_1 || "",
-        line_2: orderData.billing_address.line_2 || "",
-        city: orderData.billing_address.city || "",
-        state: orderData.billing_address.state || "",
-        postal_code: orderData.billing_address.postal_code || "",
-        zip_code: orderData.billing_address.zip_code || ""
-      },
-    };
-    
-    console.log("[PESAPAL_SUBMIT_PAYLOAD]", JSON.stringify(payload, null, 2));
-    
-    const submitUrl = `${PESAPAL_BASE_URL}/api/Transactions/SubmitOrderRequest`;
+  const payload = {
+    id: uuidv4(), 
+    currency: 'TZS',
+    amount: orderData.amount,
+    description: orderData.description,
+    callback_url: `${APP_URL}/pesapal/callback`,
+    notification_id: notificationId,
+    billing_address: {
+      email_address: orderData.billing_address.email_address || "",
+      phone_number: orderData.billing_address.phone_number || "",
+      country_code: 'TZ',
+      first_name: orderData.billing_address.first_name || "",
+      last_name: orderData.billing_address.last_name || "",
+      line_1: orderData.billing_address.line_1 || "",
+      line_2: orderData.billing_address.line_2 || "",
+      city: orderData.billing_address.city || "",
+      state: orderData.billing_address.state || "",
+      postal_code: orderData.billing_address.postal_code || "",
+      zip_code: orderData.billing_address.zip_code || ""
+    },
+  };
+  
+  console.log("[PESAPAL_SUBMIT_PAYLOAD]", JSON.stringify(payload, null, 2));
+  
+  const submitUrl = `${PESAPAL_BASE_URL}/api/Transactions/SubmitOrderRequest`;
+  try {
     const response = await axios.post(
       submitUrl,
       payload,
@@ -157,34 +160,35 @@ export const submitOrder = async (orderData: { amount: number, billing_address: 
     
     const data = response.data;
     console.log("[PESAPAL_SUBMIT_RESPONSE]", JSON.stringify(data, null, 2));
+
+    if (data.error || !data.redirect_url) {
+      throw new Error(data.error?.message || "Pesapal order submission failed, redirect URL not found.");
+    }
+
     return data;
   } catch (error: any) {
-    // This will now catch errors from getAuthToken and registerIpnUrl as well
-    const errorMessage = getErrorMessage(error, 'submitOrder');
-    // Return an error object that the API route can handle
-    return { error: true, error_message: errorMessage };
+    throw new Error(getErrorMessage(error, 'submitOrder'));
   }
 };
 
 export const getTransactionStatus = async (orderTrackingId: string) => {
+  const token = await getAuthToken();
+  const statusUrl = `${PESAPAL_BASE_URL}/api/Transactions/GetTransactionStatus?orderTrackingId=${orderTrackingId}`;
+  console.log(`[PESAPAL_STATUS] Getting transaction status from ${statusUrl}`);
+  
   try {
-    const token = await getAuthToken();
-    const statusUrl = `${PESAPAL_BASE_URL}/api/Transactions/GetTransactionStatus?orderTrackingId=${orderTrackingId}`;
-    console.log(`[PESAPAL_STATUS] Getting transaction status from ${statusUrl}`);
-    
     const response = await axios.get(
       statusUrl,
       { headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json', 'Accept': 'application/json' } }
     );
 
     const data = response.data;
-     if (!data.payment_status_description) {
+     if (data.error || !data.payment_status_description) {
         throw new Error(data.error?.message || 'Unknown error from Pesapal on transaction status check');
     }
     console.log("[PESAPAL_STATUS_RESPONSE]", JSON.stringify(data, null, 2));
     return data;
   } catch (error: any) {
-    const errorMessage = getErrorMessage(error, 'getTransactionStatus');
-    return { error: true, error_message: errorMessage };
+    throw new Error(getErrorMessage(error, 'getTransactionStatus'));
   }
 };
