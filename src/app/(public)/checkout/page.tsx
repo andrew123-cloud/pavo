@@ -52,10 +52,11 @@ export default function CheckoutPage() {
         });
 
         if (response.data && response.data.error) {
+            // This will now catch errors from the API route correctly
             toast({
                 variant: 'destructive',
                 title: "Payment Error",
-                description: response.data.error || 'Failed to initiate payment.',
+                description: response.data.error,
             });
             setIsLoading(false);
             return;
@@ -69,6 +70,7 @@ export default function CheckoutPage() {
 
     } catch (error: any) {
         console.error("Checkout Error:", error);
+        // This handles network errors or if the API route itself crashes
         const errorMessage = error.response?.data?.error || error.message || "An unexpected error occurred. Please try again.";
         toast({
             variant: 'destructive',

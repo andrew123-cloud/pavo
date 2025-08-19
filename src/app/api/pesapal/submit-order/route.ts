@@ -17,7 +17,8 @@ export async function POST(request: Request) {
 
     return NextResponse.json(response);
   } catch (error: any) {
-     console.error("[PESAPAL_SUBMIT_ORDER_ROUTE_ERROR]", error);
-    return NextResponse.json({ error: error.message || "An internal server error occurred." }, { status: 500 });
+     console.error("[PESAPAL_SUBMIT_ORDER_ROUTE_ERROR]", error.message);
+     // Return a clear error message to the frontend
+     return NextResponse.json({ error: error.message || "An internal server error occurred." }, { status: 500 });
   }
 }
