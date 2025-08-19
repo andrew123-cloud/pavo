@@ -16,7 +16,7 @@ let tokenCache = {
 let ipnIdCache: string | null = null;
 
 
-export const getAuthToken = async () => {
+export const getAuthToken = async (): Promise<string> => {
   // Proactively refresh the token if it's within 60 seconds of expiring
   if (tokenCache.token && Date.now() < tokenCache.expires_at - 60000) {
     return tokenCache.token;
@@ -43,6 +43,10 @@ export const getAuthToken = async () => {
     );
 
     const { token, expiryDate } = response.data;
+    if (!token) {
+        throw new Error("Token not found in Pesapal auth response");
+    }
+    
     tokenCache = {
       token,
       expires_at: new Date(expiryDate).getTime(),
@@ -83,9 +87,9 @@ export const registerIpnUrl = async (): Promise<string> => {
       }
     );
     
-    if (!response.data || !response.data.ipn_id) {
+    if (response.data.error || !response.data.ipn_id) {
         console.error("IPN ID not found in Pesapal's response", response.data);
-        throw new Error("Failed to retrieve IPN ID from Pesapal.");
+        throw new Error(response.data.error?.message || "Failed to retrieve IPN ID from Pesapal.");
     }
     
     ipnIdCache = response.data.ipn_id;
@@ -127,12 +131,16 @@ export const submitOrder = async (orderData: { amount: number, billing_address: 
         },
       }
     );
+    
+    if (response.data.error) {
+        throw new Error(response.data.error.message || 'Unknown error from Pesapal on order submission');
+    }
+    
     return response.data;
   } catch (error: any) {
     console.error('Pesapal Submit Order Error:', error.response?.data || error.message);
-    if (error.response) {
-      console.error("Error data:", error.response.data);
-      throw new Error(error.response.data?.error?.message || 'Failed to submit order to Pesapal');
+    if (error.response?.data?.error?.message) {
+      throw new Error(error.response.data.error.message);
     }
     throw new Error('Failed to submit order to Pesapal');
   }
@@ -151,10 +159,18 @@ export const getTransactionStatus = async (orderTrackingId: string) => {
         },
       }
     );
+    
+    if (response.data.error) {
+        throw new Error(response.data.error.message || 'Unknown error from Pesapal on transaction status check');
+    }
+    
     return response.data;
   } catch (error: any)
   {
     console.error('Pesapal Get Transaction Status Error:', error.response?.data || error.message);
+    if (error.response?.data?.error?.message) {
+      throw new Error(error.response.data.error.message);
+    }
     throw new Error('Failed to get transaction status from Pesapal');
   }
 };
