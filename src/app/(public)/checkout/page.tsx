@@ -46,7 +46,7 @@ export default function CheckoutPage() {
 
     try {
         const response = await axios.post('/api/pesapal/submit-order', {
-            amount: cartTotal + 5000,
+            amount: cartTotal + 5000, // Including shipping
             billing_address,
             description: `Payment for Pavo Decors order via ${paymentMethod}`
         });
@@ -79,7 +79,7 @@ export default function CheckoutPage() {
     }
   };
 
-  if (cart.length === 0) {
+  if (cart.length === 0 && !isLoading) { // prevent flicker on redirect
      return (
        <div className="container mx-auto max-w-lg text-center py-24">
          <h1 className="text-2xl font-bold">Your cart is empty.</h1>
@@ -131,7 +131,7 @@ export default function CheckoutPage() {
                      <Card className="bg-black/30 border-white/10">
                         <CardHeader>
                             <CardTitle className="font-headline text-2xl">Payment Method</CardTitle>
-                            <CardDescription>Select your preferred mobile money provider.</CardDescription>
+                            <CardDescription>Select your preferred mobile money provider. You will confirm on the next page.</CardDescription>
                         </CardHeader>
                         <CardContent>
                            <RadioGroup name="paymentMethod" defaultValue={selectedPaymentMethod} onValueChange={setSelectedPaymentMethod} className="grid grid-cols-2 gap-4">

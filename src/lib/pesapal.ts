@@ -134,15 +134,18 @@ export const submitOrder = async (orderData: { amount: number, billing_address: 
       }
     );
 
+    // Pesapal's successful response doesn't have an 'error' key at the top level.
+    // It will have 'order_tracking_id', 'merchant_reference', and 'redirect_url'.
+    // The error structure from them is { "error": { "code": "...", "message": "...", "error_data": null } }
     if (response.data.error) {
-      console.error("Pesapal Submit Order API Error:", response.data.error);
-      throw new Error(response.data.error.message || 'Unknown error from Pesapal on order submission');
+        console.error("[PESAPAL_API_ERROR]", response.data.error);
+        throw new Error(response.data.error.message || 'An error occurred during payment submission.');
     }
 
     return response.data;
   } catch (error: any) {
     console.error('Pesapal Submit Order Request Failed:', error.response?.data || error.message);
-    const errorMessage = error.response?.data?.error?.message || error.response?.data?.message || 'Failed to submit order to Pesapal';
+    const errorMessage = error.response?.data?.error?.message || 'Failed to submit order to Pesapal';
     throw new Error(errorMessage);
   }
 };
