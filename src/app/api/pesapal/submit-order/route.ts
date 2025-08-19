@@ -20,9 +20,9 @@ export async function POST(request: Request) {
     return NextResponse.json(response);
 
   } catch (error: any) {
+     // This is the crucial change: return the specific error message from the library.
      const errorMessage = error.message || "An internal server error occurred.";
      console.error("[PESAPAL_SUBMIT_ORDER_ROUTE_ERROR]", errorMessage);
-     // Return the specific error message from the library
      return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }

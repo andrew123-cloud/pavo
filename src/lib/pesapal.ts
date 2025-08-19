@@ -7,15 +7,17 @@ const PESAPAL_CONSUMER_KEY = process.env.PESAPAL_CONSUMER_KEY;
 const PESAPAL_CONSUMER_SECRET = process.env.PESAPAL_CONSUMER_SECRET;
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:9002';
 
-// In-memory cache for the session. In a distributed environment, use Redis or a similar store.
+// In-memory cache. In a real production app, use Redis or a similar distributed store.
 let tokenCache = {
   token: null as string | null,
   expires_at: 0,
 };
-
 let ipnIdCache: string | null = null;
 
-
+/**
+ * A standardized error handler for all Pesapal API calls.
+ * It logs detailed error info to the server console and returns a user-friendly message.
+ */
 const getErrorMessage = (error: any, context: string): string => {
     console.error(`[PESAPAL_ERROR] in ${context}:`, error);
     if (axios.isAxiosError(error) && error.response) {
