@@ -1,9 +1,8 @@
-
 // src/lib/pesapal.ts
 import axios from 'axios';
 import { v4 as uuidv4 } from 'uuid';
 
-const PESAPAL_BASE_URL = process.env.PESAPAL_BASE_URL || 'https://cybqa.pesapal.com/pesapalv3';
+const PESAPAL_BASE_URL = process.env.PESAPAL_BASE_URL;
 const PESAPAL_CONSUMER_KEY = process.env.PESAPAL_CONSUMER_KEY;
 const PESAPAL_CONSUMER_SECRET = process.env.PESAPAL_CONSUMER_SECRET;
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:9002';
@@ -16,28 +15,29 @@ let tokenCache = {
 
 let ipnIdCache: string | null = null;
 
-const getErrorMessage = (error: any, context: string) => {
+const getErrorMessage = (error: any, context: string): string => {
     console.error(`[PESAPAL_ERROR] in ${context}:`, error);
-    if (axios.isAxiosError(error)) {
-        const pesapalError = error.response?.data?.error;
-        const responseData = JSON.stringify(error.response?.data, null, 2);
+    if (axios.isAxiosError(error) && error.response) {
+        const pesapalError = error.response.data?.error;
+        const responseData = JSON.stringify(error.response.data, null, 2);
         console.error(`[PESAPAL_RESPONSE_DATA] in ${context}:`, responseData);
-        if (pesapalError && pesapalError.message) {
+        if (pesapalError?.message) {
             return `Pesapal Error: ${pesapalError.message} (Code: ${pesapalError.code})`;
         }
-        return `Pesapal API request failed with status ${error.response?.status}. Response: ${responseData}`;
+        return `Pesapal API request failed with status ${error.response.status}. Response: ${responseData}`;
     }
     return error.message || 'An unknown error occurred';
 };
 
 
 export const getAuthToken = async (): Promise<string> => {
-  if (tokenCache.token && Date.now() < tokenCache.expires_at - 60000) {
+  if (tokenCache.token && Date.now() < tokenCache.expires_at) {
+    console.log("[PESAPAL_AUTH] Using cached token.");
     return tokenCache.token;
   }
 
-  if (!PESAPAL_CONSUMER_KEY || !PESAPAL_CONSUMER_SECRET) {
-    throw new Error("Pesapal API credentials are not configured on the server.");
+  if (!PESAPAL_CONSUMER_KEY || !PESAPAL_CONSUMER_SECRET || !PESAPAL_BASE_URL) {
+    throw new Error("Pesapal API credentials or Base URL are not configured on the server.");
   }
   
   const authUrl = `${PESAPAL_BASE_URL}/api/Auth/RequestToken`;
@@ -56,11 +56,11 @@ export const getAuthToken = async (): Promise<string> => {
     const data = response.data;
     console.log("[PESAPAL_AUTH_RESPONSE]", JSON.stringify(data, null, 2));
 
-    const token = data.token || data.access_token;
-    const expiryDate = data.expiryDate || data.expires_at;
+    const token = data.token;
+    const expiryDate = data.expiryDate;
 
     if (!token) {
-      throw new Error("Token not found in PesaPal auth response");
+      throw new Error(data.error?.message || "Token not found in PesaPal auth response");
     }
 
     tokenCache = {
@@ -75,6 +75,7 @@ export const getAuthToken = async (): Promise<string> => {
 
 export const registerIpnUrl = async (): Promise<string> => {
   if (ipnIdCache) {
+    console.log(`[PESAPAL_IPN] Using cached IPN ID: ${ipnIdCache}`);
     return ipnIdCache;
   }
 
@@ -90,14 +91,11 @@ export const registerIpnUrl = async (): Promise<string> => {
     const existingIpns = existingIpnsResponse.data || [];
     console.log(`[PESAPAL_IPN] Found ${existingIpns.length} existing IPNs.`);
 
-    const existingIpn = existingIpns.find((ipn: any) => ipn.url === ipnUrl || ipn.Url === ipnUrl);
-    if (existingIpn) {
-        const id = existingIpn.ipn_id || existingIpn.Id;
-        if(id) {
-            console.log(`[PESAPAL_IPN] Found existing IPN registration with ID: ${id}`);
-            ipnIdCache = id;
-            return ipnIdCache;
-        }
+    const existingIpn = existingIpns.find((ipn: any) => ipn.url === ipnUrl);
+    if (existingIpn && existingIpn.ipn_id) {
+        console.log(`[PESAPAL_IPN] Found existing IPN registration with ID: ${existingIpn.ipn_id}`);
+        ipnIdCache = existingIpn.ipn_id;
+        return ipnIdCache;
     }
 
     const registerUrl = `${PESAPAL_BASE_URL}/api/URLSetup/RegisterIPN`;
@@ -109,7 +107,7 @@ export const registerIpnUrl = async (): Promise<string> => {
     );
     
     const data = response.data;
-    if (data.error || !data.ipn_id) {
+    if (!data.ipn_id) {
         throw new Error(data.error?.message || "Failed to retrieve IPN ID from Pesapal during registration.");
     }
 
@@ -122,34 +120,34 @@ export const registerIpnUrl = async (): Promise<string> => {
 };
 
 export const submitOrder = async (orderData: { amount: number, billing_address: any, description: string }) => {
-  const token = await getAuthToken();
-  const notificationId = await registerIpnUrl(); 
-
-  const payload = {
-    id: uuidv4(), 
-    currency: 'TZS',
-    amount: orderData.amount,
-    description: orderData.description,
-    callback_url: `${APP_URL}/pesapal/callback`,
-    notification_id: notificationId,
-    billing_address: {
-      email_address: orderData.billing_address.email_address,
-      phone_number: orderData.billing_address.phone_number,
-      country_code: 'TZ',
-      first_name: orderData.billing_address.first_name,
-      last_name: orderData.billing_address.last_name,
-      line_1: orderData.billing_address.line_1 || "",
-      line_2: orderData.billing_address.line_2 || "",
-      city: orderData.billing_address.city || "",
-      state: orderData.billing_address.state || "",
-      postal_code: orderData.billing_address.postal_code || "",
-      zip_code: orderData.billing_address.zip_code || ""
-    },
-  };
-  
-  console.log("[PESAPAL_SUBMIT_PAYLOAD]", JSON.stringify(payload, null, 2));
-
   try {
+    const token = await getAuthToken();
+    const notificationId = await registerIpnUrl(); 
+
+    const payload = {
+      id: uuidv4(), 
+      currency: 'TZS',
+      amount: orderData.amount,
+      description: orderData.description,
+      callback_url: `${APP_URL}/pesapal/callback`,
+      notification_id: notificationId,
+      billing_address: {
+        email_address: orderData.billing_address.email_address || "",
+        phone_number: orderData.billing_address.phone_number || "",
+        country_code: 'TZ',
+        first_name: orderData.billing_address.first_name || "",
+        last_name: orderData.billing_address.last_name || "",
+        line_1: orderData.billing_address.line_1 || "",
+        line_2: orderData.billing_address.line_2 || "",
+        city: orderData.billing_address.city || "",
+        state: orderData.billing_address.state || "",
+        postal_code: orderData.billing_address.postal_code || "",
+        zip_code: orderData.billing_address.zip_code || ""
+      },
+    };
+    
+    console.log("[PESAPAL_SUBMIT_PAYLOAD]", JSON.stringify(payload, null, 2));
+    
     const submitUrl = `${PESAPAL_BASE_URL}/api/Transactions/SubmitOrderRequest`;
     const response = await axios.post(
       submitUrl,
@@ -159,34 +157,34 @@ export const submitOrder = async (orderData: { amount: number, billing_address: 
     
     const data = response.data;
     console.log("[PESAPAL_SUBMIT_RESPONSE]", JSON.stringify(data, null, 2));
-    if (data.error || !data.redirect_url) {
-        throw new Error(data.error?.message || 'Pesapal submission failed: redirect_url not found.');
-    }
     return data;
   } catch (error: any) {
-    throw new Error(getErrorMessage(error, 'submitOrder'));
+    // This will now catch errors from getAuthToken and registerIpnUrl as well
+    const errorMessage = getErrorMessage(error, 'submitOrder');
+    // Return an error object that the API route can handle
+    return { error: true, error_message: errorMessage };
   }
 };
 
 export const getTransactionStatus = async (orderTrackingId: string) => {
-  const token = await getAuthToken();
-  const statusUrl = `${PESAPAL_BASE_URL}/api/Transactions/GetTransactionStatus?orderTrackingId=${orderTrackingId}`;
-  console.log(`[PESAPAL_STATUS] Getting transaction status from ${statusUrl}`);
   try {
+    const token = await getAuthToken();
+    const statusUrl = `${PESAPAL_BASE_URL}/api/Transactions/GetTransactionStatus?orderTrackingId=${orderTrackingId}`;
+    console.log(`[PESAPAL_STATUS] Getting transaction status from ${statusUrl}`);
+    
     const response = await axios.get(
       statusUrl,
       { headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json', 'Accept': 'application/json' } }
     );
 
     const data = response.data;
-    if (data.error) {
-      throw new Error(data.error?.message || 'Unknown error from Pesapal on transaction status check');
+     if (!data.payment_status_description) {
+        throw new Error(data.error?.message || 'Unknown error from Pesapal on transaction status check');
     }
     console.log("[PESAPAL_STATUS_RESPONSE]", JSON.stringify(data, null, 2));
     return data;
   } catch (error: any) {
-    throw new Error(getErrorMessage(error, 'getTransactionStatus'));
+    const errorMessage = getErrorMessage(error, 'getTransactionStatus');
+    return { error: true, error_message: errorMessage };
   }
 };
-
-    

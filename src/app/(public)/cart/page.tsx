@@ -95,12 +95,12 @@ export default function CartPage() {
                     </div>
                     <div className="flex justify-between">
                         <span className="text-muted-foreground">Shipping</span>
-                        <span>Calculated at next step</span>
+                        <span>5,000 TZS</span>
                     </div>
                      <Separator />
                     <div className="flex justify-between font-bold text-lg">
                         <span>Total</span>
-                        <span>{cartTotal.toLocaleString()} TZS</span>
+                        <span>{(cartTotal + 5000).toLocaleString()} TZS</span>
                     </div>
                 </CardContent>
                 <CardFooter>

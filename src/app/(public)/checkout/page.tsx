@@ -16,10 +16,10 @@ import axios from 'axios';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
 const paymentMethods = [
-    { id: 'mpesa', name: 'M-Pesa', image: 'https://placehold.co/100x60.png?text=M-Pesa' },
-    { id: 'airtel', name: 'Airtel Money', image: 'https://placehold.co/100x60.png?text=Airtel+Money' },
-    { id: 'tigo', name: 'Tigo Pesa', image: 'https://placehold.co/100x60.png?text=Tigo+Pesa' },
-    { id: 'halopesa', name: 'HaloPesa', image: 'https://placehold.co/100x60.png?text=HaloPesa' },
+    { id: 'mpesa', name: 'M-Pesa', image: 'https://placehold.co/100x60/1e293b/ffffff.png?text=M-Pesa' },
+    { id: 'airtel', name: 'Airtel Money', image: 'https://placehold.co/100x60/1e293b/ffffff.png?text=Airtel' },
+    { id: 'tigo', name: 'Tigo Pesa', image: 'https://placehold.co/100x60/1e293b/ffffff.png?text=Tigo' },
+    { id: 'halopesa', name: 'HaloPesa', image: 'https://placehold.co/100x60/1e293b/ffffff.png?text=HaloPesa' },
 ];
 
 
@@ -50,9 +50,8 @@ export default function CheckoutPage() {
             billing_address,
             description: `Payment for Pavo Decors order via ${paymentMethod}`
         });
-
+        
         if (response.data && response.data.error) {
-            // This will now catch errors from the API route correctly
             toast({
                 variant: 'destructive',
                 title: "Payment Error",
@@ -70,7 +69,6 @@ export default function CheckoutPage() {
 
     } catch (error: any) {
         console.error("Checkout Error:", error);
-        // This handles network errors or if the API route itself crashes
         const errorMessage = error.response?.data?.error || error.message || "An unexpected error occurred. Please try again.";
         toast({
             variant: 'destructive',
@@ -126,7 +124,7 @@ export default function CheckoutPage() {
                             </div>
                             <div className="md:col-span-2 space-y-2">
                                 <Label htmlFor="phone">Phone Number (for payment)</Label>
-                                <Input id="phone" name="phone" placeholder="e.g. 0712345678" required/>
+                                <Input id="phone" name="phone" placeholder="e.g. 255712345678" required/>
                             </div>
                         </CardContent>
                     </Card>
