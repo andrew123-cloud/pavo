@@ -20,6 +20,7 @@ const getErrorMessage = (error: any, context: string) => {
     console.error(`[PESAPAL_ERROR] in ${context}:`, error);
     if (axios.isAxiosError(error)) {
         const pesapalError = error.response?.data?.error;
+        console.error(`[PESAPAL_RESPONSE_DATA] in ${context}:`, JSON.stringify(error.response?.data, null, 2));
         if (pesapalError && pesapalError.message) {
             return `Pesapal Error: ${pesapalError.message} (Code: ${pesapalError.code})`;
         }
@@ -49,13 +50,18 @@ export const getAuthToken = async (): Promise<string> => {
     );
     
     const data = response.data;
-    if (data.error || !data.token) {
-      throw new Error(data.error?.message || "Token not found in PesaPal auth response");
+    console.log("[PESAPAL_AUTH_RESPONSE]", JSON.stringify(data, null, 2));
+
+    const token = data.token || data.access_token;
+    const expiryDate = data.expiryDate || data.expires_at;
+
+    if (!token) {
+      throw new Error("Token not found in PesaPal auth response");
     }
 
     tokenCache = {
-      token: data.token,
-      expires_at: new Date(data.expiryDate).getTime(),
+      token: token,
+      expires_at: new Date(expiryDate).getTime(),
     };
     return tokenCache.token;
   } catch (error: any) {
@@ -76,10 +82,10 @@ export const registerIpnUrl = async (): Promise<string> => {
   const ipnUrl = `${APP_URL}/api/pesapal/ipn`;
 
   try {
-    // First, check if the IPN is already registered
-    const existingIpns = await axios.get(`${PESAPAL_BASE_URL}/api/URLSetup/GetIpnList`, {
+    const existingIpnsResponse = await axios.get(`${PESAPAL_BASE_URL}/api/URLSetup/GetIpnList`, {
         headers: { Authorization: `Bearer ${token}` }
-    }).then(res => res.data || []);
+    });
+    const existingIpns = existingIpnsResponse.data || [];
 
     const existingIpn = existingIpns.find((ipn: any) => ipn.url === ipnUrl);
     if (existingIpn && existingIpn.ipn_id) {
@@ -88,7 +94,6 @@ export const registerIpnUrl = async (): Promise<string> => {
         return ipnIdCache;
     }
 
-    // If not found, register it
     console.log(`Registering new IPN URL: ${ipnUrl}`);
     const response = await axios.post(
       `${PESAPAL_BASE_URL}/api/URLSetup/RegisterIPN`,
@@ -111,10 +116,10 @@ export const registerIpnUrl = async (): Promise<string> => {
 
 export const submitOrder = async (orderData: { amount: number, billing_address: any, description: string }) => {
   const token = await getAuthToken();
-  const notificationId = await registerIpnUrl(); // This now handles getting/creating the IPN ID
+  const notificationId = await registerIpnUrl(); 
 
   const payload = {
-    id: uuidv4(), // Unique merchant reference ID for each order
+    id: uuidv4(), 
     currency: 'TZS',
     amount: orderData.amount,
     description: orderData.description,
@@ -122,7 +127,7 @@ export const submitOrder = async (orderData: { amount: number, billing_address: 
     notification_id: notificationId,
     billing_address: {
       ...orderData.billing_address,
-      country_code: 'TZ' // Assuming Tanzania
+      country_code: 'TZ'
     },
   };
 
