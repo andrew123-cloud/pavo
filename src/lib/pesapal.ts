@@ -1,3 +1,4 @@
+
 // src/lib/pesapal.ts
 import axios from 'axios';
 import { v4 as uuidv4 } from 'uuid';
@@ -57,18 +58,24 @@ export const getAuthToken = async (): Promise<string> => {
     );
     
     const data = response.data;
+    // Log the full response for debugging purposes
     console.log("[PESAPAL_AUTH_RESPONSE]", JSON.stringify(data, null, 2));
 
-    if (data.error || !data.token) {
-      throw new Error(data.error?.message || "Token not found in PesaPal auth response");
+    if (!data || !data.token) {
+      // Make the error more descriptive by including the actual response
+      const readableResponse = JSON.stringify(data);
+      throw new Error(`Token not found in PesaPal auth response. Received: ${readableResponse}`);
     }
 
     tokenCache = {
       token: data.token,
-      expires_at: new Date(data.expiryDate).getTime() - 60000, // Subtract 60s for safety margin
+      // Safety margin of 60 seconds
+      expires_at: new Date(data.expiryDate).getTime() - 60000, 
     };
+    
     return tokenCache.token;
   } catch (error: any) {
+    // Pass the more detailed error up the chain
     throw new Error(getErrorMessage(error, 'getAuthToken'));
   }
 };
