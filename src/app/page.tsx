@@ -147,7 +147,7 @@ export default function PavoSuiteHome() {
                     className="absolute inset-0 transition-transform duration-500 ease-in-out backface-hidden group-hover:rotate-y-180 rounded-2xl"
                   >
                      <Image
-                      src="https://images.unsplash.com/photo-1599577180430-5a527c699b84?q=80&w=2670&auto=format&fit=crop"
+                      src="/palvin-portrait.jpg"
                       alt="Portrait of Palvin Atugonza, founder of Pavo"
                       fill
                       className="object-cover"
