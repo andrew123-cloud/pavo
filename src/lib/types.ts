@@ -58,9 +58,24 @@ export interface Order {
     items: OrderItem[];
 }
 
+export interface SiteSettings {
+  brandDescriptions: {
+    interiors: string;
+    decors: string;
+    homes: string;
+  };
+  founder: {
+    mainDescription: string;
+    philosophy: string;
+    imageUrls: string[];
+  };
+}
+
+
 export interface PavoData {
   portfolioItems: PortfolioItem[];
   decorProducts: Product[];
   rentalProperties: Property[];
   orders: Order[];
+  siteSettings: SiteSettings;
 }

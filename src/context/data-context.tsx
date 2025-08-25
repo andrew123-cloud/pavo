@@ -3,11 +3,12 @@
 'use client';
 
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
-import type { PavoData, PortfolioItem, Product, Property, Order } from '@/lib/types';
+import type { PavoData, PortfolioItem, Product, Property, Order, SiteSettings } from '@/lib/types';
 import { 
   portfolioItems as initialPortfolioItems, 
   decorProducts as initialDecorProducts, 
-  rentalProperties as initialRentalProperties 
+  rentalProperties as initialRentalProperties,
+  siteSettings as initialSiteSettings
 } from '@/lib/data';
 
 interface CartItem extends Product {
@@ -27,6 +28,7 @@ interface DataContextType extends PavoData {
   addOrder: (order: Order) => void;
   updateOrder: (order: Order) => void;
   decreaseStock: (productId: string, amount: number) => void;
+  updateSiteSettings: (settings: SiteSettings) => void;
   cart: CartItem[];
   addToCart: (product: Product) => void;
   updateCartQuantity: (productId: string, quantity: number) => void;
@@ -43,6 +45,7 @@ const initialData: PavoData = {
   decorProducts: initialDecorProducts,
   rentalProperties: initialRentalProperties,
   orders: [],
+  siteSettings: initialSiteSettings,
 };
 
 export function DataProvider({ children }: { children: ReactNode }) {
@@ -55,11 +58,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
     try {
       const storedData = localStorage.getItem('pavo-data');
       if (storedData) {
-        // Ensure orders array exists
         const parsedData = JSON.parse(storedData);
-        if (!parsedData.orders) {
-          parsedData.orders = [];
-        }
+        // Ensure all top-level keys exist
+        if (!parsedData.orders) parsedData.orders = [];
+        if (!parsedData.siteSettings) parsedData.siteSettings = initialSiteSettings;
+        if (!parsedData.siteSettings.founder.imageUrls) parsedData.siteSettings.founder.imageUrls = ['/palvin-portrait.jpg'];
         setData(parsedData);
       }
       const storedCart = localStorage.getItem('pavo-cart');
@@ -158,7 +161,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
         ...prevData,
         orders: (prevData.orders || []).map(o => o.id === updatedOrder.id ? updatedOrder : o)
       }));
-  }
+  };
+  
+  const updateSiteSettings = (settings: SiteSettings) => {
+    setData(prevData => ({ ...prevData, siteSettings: settings }));
+  };
 
   const addToCart = (product: Product) => {
     setCart(prevCart => {
@@ -213,6 +220,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       addOrder,
       updateOrder,
       decreaseStock,
+      updateSiteSettings,
       cart,
       addToCart,
       updateCartQuantity,

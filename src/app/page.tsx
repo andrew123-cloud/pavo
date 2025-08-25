@@ -8,10 +8,14 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import PavoLogo from '@/components/pavo-logo';
+import { usePavoData } from '@/context/data-context';
 
 
 export default function PavoSuiteHome() {
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+  const { siteSettings } = usePavoData();
+  const { brandDescriptions, founder } = siteSettings;
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
   useEffect(() => {
     const handleMouseMove = (event: MouseEvent) => {
@@ -24,25 +28,35 @@ export default function PavoSuiteHome() {
       window.removeEventListener('mousemove', handleMouseMove);
     };
   }, []);
+  
+  useEffect(() => {
+    if (founder.imageUrls.length > 1) {
+      const interval = setInterval(() => {
+        setCurrentImageIndex(prevIndex => (prevIndex + 1) % founder.imageUrls.length);
+      }, 5000); // Change image every 5 seconds
+      return () => clearInterval(interval);
+    }
+  }, [founder.imageUrls.length]);
+
 
   const pavoBrands = [
     {
       name: 'Pavo Interiors',
-      description: 'Bespoke design services that transform spaces into personalized works of art.',
+      description: brandDescriptions.interiors,
       icon: <Palette className="h-8 w-8" />,
       href: '/interiors',
       cta: 'Explore Interiors',
     },
     {
       name: 'Pavo Decors',
-      description: 'A curated collection of handcrafted accessories to add warmth and character to your home.',
+      description: brandDescriptions.decors,
       icon: <Sparkles className="h-8 w-8" />,
       href: '/decors',
       cta: 'Shop Decors',
     },
     {
       name: 'Pavo Homes',
-      description: 'Discover and book unique, aesthetic rental homes for your perfect getaway in Tanzania.',
+      description: brandDescriptions.homes,
       icon: <Hotel className="h-8 w-8" />,
       href: '/homes',
       cta: 'Find a Home',
@@ -129,12 +143,7 @@ export default function PavoSuiteHome() {
                 <h2 className="font-serif text-4xl font-bold tracking-tight text-foreground md:text-5xl">
                   A Vision of Elegance
                 </h2>
-                <p className="mt-6 text-lg text-muted-foreground">
-                  The heart and soul behind the Pavo brand is Palvin Atugonza, a Tanzanian entrepreneur whose journey is a testament to the power of passion and perseverance. Her story isn't just about building a business; it's about creating a legacy of beauty and inspiration.
-                </p>
-                <p className="mt-4 text-lg text-muted-foreground">
-                  Pavo is the culmination of Palvin's diverse experiences and her unwavering belief in the transformative power of one's environment. Whether through bespoke interiors, curated decor, or unique hospitality, her vision is singular: to inspire a life lived beautifully.
-                </p>
+                 <div className="mt-6 text-lg text-muted-foreground space-y-4" dangerouslySetInnerHTML={{ __html: founder.mainDescription.replace(/\n/g, '<br />') }} />
                 <Button asChild variant="link" className="text-lg mt-6 p-0 text-primary hover:text-primary/80">
                   <Link href="/about">
                     Learn More About Our Story <ArrowRight className="ml-2" />
@@ -147,7 +156,7 @@ export default function PavoSuiteHome() {
                     className="absolute inset-0 transition-transform duration-500 ease-in-out backface-hidden group-hover:rotate-y-180 rounded-2xl"
                   >
                      <Image
-                      src="/palvin-portrait.jpg"
+                      src={founder.imageUrls[currentImageIndex] || '/palvin-portrait.jpg'}
                       alt="Portrait of Palvin Atugonza, founder of Pavo"
                       fill
                       className="object-cover"
@@ -161,7 +170,7 @@ export default function PavoSuiteHome() {
                      <div>
                        <Feather className="h-12 w-12 text-primary mx-auto" />
                        <h3 className="mt-4 font-serif text-2xl font-bold">The Pavo Philosophy</h3>
-                       <p className="mt-2 text-muted-foreground">"To blend modern innovation with timeless elegance, creating spaces and experiences that are not just seen, but felt."</p>
+                       <p className="mt-2 text-muted-foreground">{founder.philosophy}</p>
                      </div>
                   </div>
                 </div>

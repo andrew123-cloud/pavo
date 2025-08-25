@@ -1,4 +1,4 @@
-import type { PortfolioItem, Testimonial, Product, Property } from './types';
+import type { PortfolioItem, Testimonial, Product, Property, SiteSettings } from './types';
 
 export const portfolioItems: PortfolioItem[] = [
   {
@@ -125,3 +125,20 @@ export const rentalProperties: Property[] = [
     aiHint: 'city penthouse'
   },
 ];
+
+export const siteSettings: SiteSettings = {
+  brandDescriptions: {
+    interiors: 'Bespoke design services that transform spaces into personalized works of art.',
+    decors: 'A curated collection of handcrafted accessories to add warmth and character to your home.',
+    homes: 'Discover and book unique, aesthetic rental homes for your perfect getaway in Tanzania.'
+  },
+  founder: {
+    mainDescription: `The heart and soul behind the Pavo brand is Palvin Atugonza, a Tanzanian entrepreneur whose journey is a testament to the power of passion and perseverance. Her story isn't just about building a business; it's about creating a legacy of beauty and inspiration.
+    
+Pavo is the culmination of Palvin's diverse experiences and her unwavering belief in the transformative power of one's environment. Whether through bespoke interiors, curated decor, or unique hospitality, her vision is singular: to inspire a life lived beautifully.`,
+    philosophy: "To blend modern innovation with timeless elegance, creating spaces and experiences that are not just seen, but felt.",
+    imageUrls: [
+      '/palvin-portrait.jpg'
+    ]
+  }
+};

@@ -107,6 +107,17 @@ function AdminLayout({ children }: { children: React.ReactNode }) {
                   <Hotel className="h-4 w-4" />
                   Homes
                 </Link>
+                 <Link
+                  href="/admin/settings"
+                  className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-all hover:text-primary ${
+                    pathname.startsWith('/admin/settings')
+                      ? 'bg-muted text-primary'
+                      : 'text-muted-foreground'
+                  }`}
+                >
+                  <Settings className="h-4 w-4" />
+                  Settings
+                </Link>
               </nav>
             </div>
           </div>
@@ -161,6 +172,13 @@ function AdminLayout({ children }: { children: React.ReactNode }) {
                   >
                     <Hotel className="h-5 w-5" />
                     Homes
+                  </Link>
+                  <Link
+                    href="/admin/settings"
+                    className="mx-[-0.65rem] flex items-center gap-4 rounded-xl px-3 py-2 text-muted-foreground hover:text-foreground"
+                  >
+                    <Settings className="h-5 w-5" />
+                    Settings
                   </Link>
                 </nav>
               </SheetContent>
