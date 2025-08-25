@@ -27,6 +27,7 @@ import {
   DialogDescription,
   DialogClose,
 } from '@/components/ui/dialog';
+import { BookingForm } from '@/components/shared/booking-form';
 
 export default function PavoInteriorsHome() {
   const { portfolioItems } = usePavoData();
@@ -246,27 +247,18 @@ export default function PavoInteriorsHome() {
         </div>
       </section>
 
-      <section id="blog-cta" className="bg-secondary/50 py-20 md:py-32">
+      <section id="contact" className="py-20 md:py-32 bg-secondary/30">
         <div className="container mx-auto px-4">
-          <div className="mx-auto max-w-4xl text-center">
+           <div className="text-center">
             <h2 className="font-headline text-4xl font-bold tracking-tight text-foreground md:text-5xl">
-              Get Inspired
+              Start Your Design Journey
             </h2>
-            <p className="mt-4 text-lg text-muted-foreground">
-              Visit our blog for design tips, trend reports, and inspiration for
-              your next project. Or, get personalized recommendations from our AI
-              assistant.
+            <p className="mt-4 max-w-2xl mx-auto text-lg text-muted-foreground">
+                Ready to transform your space? Fill out the form below to book a consultation with our design experts.
             </p>
-            <div className="mt-8 flex flex-col sm:flex-row justify-center gap-4">
-              <Button asChild size="lg">
-                <Link href="#">Read The Blog</Link>
-              </Button>
-              <Button asChild variant="outline" size="lg">
-                <Link href="/recommendations">
-                  AI Recommendations <ArrowRight className="ml-2" />
-                </Link>
-              </Button>
-            </div>
+          </div>
+          <div className="mt-12 max-w-2xl mx-auto">
+            <BookingForm />
           </div>
         </div>
       </section>
