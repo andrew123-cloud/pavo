@@ -1,4 +1,3 @@
-
 // src/app/admin/settings/page.tsx
 'use client';
 
@@ -29,10 +28,17 @@ export default function SettingsAdminPage() {
     updateSiteSettings(newSettings);
   };
 
-  const handleImageChange = (index: number, value: string) => {
-    const newSettings = { ...siteSettings };
-    newSettings.founder.imageUrls[index] = value;
-    updateSiteSettings(newSettings);
+  const handleImageChange = (index: number, event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files && event.target.files[0]) {
+      const file = event.target.files[0];
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const newSettings = { ...siteSettings };
+        newSettings.founder.imageUrls[index] = reader.result as string;
+        updateSiteSettings(newSettings);
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const addImageField = () => {
@@ -128,9 +134,9 @@ export default function SettingsAdminPage() {
                 {siteSettings.founder.imageUrls.map((url, index) => (
                     <div key={index} className="flex items-center gap-2">
                         <Input 
-                            value={url}
-                            placeholder="Enter image URL"
-                            onChange={(e) => handleImageChange(index, e.target.value)}
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => handleImageChange(index, e)}
                         />
                          <Image src={url || `https://placehold.co/100x100.png`} alt="preview" width={40} height={40} className="rounded-md object-cover"/>
                         <Button variant="ghost" size="icon" onClick={() => removeImageField(index)}>
