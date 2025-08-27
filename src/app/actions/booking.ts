@@ -4,6 +4,7 @@
 import { z } from "zod";
 
 const bookingSchema = z.object({
+  fullName: z.string().min(3, { message: "Please enter a valid full name." }),
   email: z.string().email({ message: "Please enter a valid email address." }),
   phone: z.string().min(10, { message: "Please enter a valid phone number." }),
   location: z.string().min(3, { message: "Please enter a valid location." }),
@@ -22,6 +23,7 @@ const bookingSchema = z.object({
 export type BookingState = {
   message?: string | null;
   errors?: {
+    fullName?: string[];
     email?: string[];
     phone?: string[];
     location?: string[];
@@ -53,7 +55,7 @@ export async function handleBooking(
     };
   }
 
-  const { email, ...bookingDetails } = validatedFields.data;
+  const { email, fullName, ...bookingDetails } = validatedFields.data;
 
   try {
     // **Email Sending Simulation**
@@ -62,6 +64,7 @@ export async function handleBooking(
     // to simulate sending a confirmation email and notifying the admin.
 
     console.log("--- New Detailed Booking Request ---");
+    console.log("Client Name:", fullName);
     console.log("Client Email:", email);
     console.log("Full Booking Details:", JSON.stringify(bookingDetails, null, 2));
     console.log("--- End of Booking Request ---");

@@ -66,28 +66,38 @@ export function BookingForm() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
              <div className="space-y-2">
-                <Label htmlFor="email">Client Email</Label>
+                <Label htmlFor="fullName">Full Name</Label>
+                <Input id="fullName" name="fullName" placeholder="Amina Juma" required />
+                 {state.errors?.fullName && (
+                    <p className="text-sm font-medium text-destructive">{state.errors.fullName[0]}</p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
                 <Input id="email" name="email" type="email" placeholder="amina@example.com" required />
                  {state.errors?.email && (
                     <p className="text-sm font-medium text-destructive">{state.errors.email[0]}</p>
                 )}
               </div>
-              <div className="space-y-2">
+          </div>
+          
+           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            <div className="space-y-2">
                 <Label htmlFor="phone">Phone Number</Label>
                 <Input id="phone" name="phone" placeholder="+255 712 345 678" required />
                  {state.errors?.phone && (
                     <p className="text-sm font-medium text-destructive">{state.errors.phone[0]}</p>
                 )}
-              </div>
-          </div>
-          
-           <div className="space-y-2">
+            </div>
+            <div className="space-y-2">
                 <Label htmlFor="location">Location of Property</Label>
                 <Input id="location" name="location" placeholder="e.g. Masaki, Dar es Salaam" required />
                  {state.errors?.location && (
                     <p className="text-sm font-medium text-destructive">{state.errors.location[0]}</p>
                 )}
             </div>
+          </div>
+
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
             <div className="space-y-2">
