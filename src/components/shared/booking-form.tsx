@@ -45,9 +45,9 @@ export function BookingForm() {
   const { toast } = useToast();
   const formRef = useRef<HTMLFormElement>(null);
 
+  // This effect will run once when the server action is successful.
   useEffect(() => {
     if (state.success && formRef.current) {
-      // Server action was successful, now try to send email
       const serviceId = process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID;
       const templateId = process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_ID;
       const publicKey = process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY;
@@ -59,10 +59,10 @@ export function BookingForm() {
           title: "Email Configuration Error",
           description: "Could not send confirmation email. Please contact support.",
         });
-        // We still show the main success message below.
-        return;
+        return; // Stop if config is missing
       }
 
+      // Send the email immediately
       emailjs.sendForm(serviceId, templateId, formRef.current, publicKey)
         .then(() => {
           toast({
@@ -71,7 +71,7 @@ export function BookingForm() {
           });
         })
         .catch((error) => {
-          console.error('EmailJS failed...', error);
+          console.error('EmailJS failed to send:', error);
           toast({
             variant: "destructive",
             title: "Email Sending Failed",
