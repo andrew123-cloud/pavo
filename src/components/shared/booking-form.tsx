@@ -1,8 +1,10 @@
 // src/components/shared/booking-form.tsx
 'use client';
 
+import React, { useRef, useEffect, useState } from 'react';
 import { useActionState } from 'react';
 import { useFormStatus } from 'react-dom';
+import emailjs from '@emailjs/browser';
 import { handleBooking } from '@/app/actions/booking';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -16,7 +18,8 @@ import { AlertCircle, CheckCircle2, Loader2, Calendar as CalendarIcon } from 'lu
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
-import { useState } from 'react';
+import { useToast } from '@/hooks/use-toast';
+
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -36,9 +39,48 @@ function SubmitButton() {
 
 export function BookingForm() {
   const initialState = { message: null, errors: {}, success: false };
-  const [state, dispatch] = useActionState(handleBooking, initialState);
+  const [state, formAction] = useActionState(handleBooking, initialState);
   const [preferredDate, setPreferredDate] = useState<Date>();
   const [completionDate, setCompletionDate] = useState<Date>();
+  const { toast } = useToast();
+  const formRef = useRef<HTMLFormElement>(null);
+
+  useEffect(() => {
+    if (state.success && formRef.current) {
+      // Server action was successful, now try to send email
+      const serviceId = process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID;
+      const templateId = process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_ID;
+      const publicKey = process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY;
+
+      if (!serviceId || !templateId || !publicKey) {
+        console.error("EmailJS environment variables are not set!");
+        toast({
+          variant: "destructive",
+          title: "Email Configuration Error",
+          description: "Could not send confirmation email. Please contact support.",
+        });
+        // We still show the main success message below.
+        return;
+      }
+
+      emailjs.sendForm(serviceId, templateId, formRef.current, publicKey)
+        .then(() => {
+          toast({
+            title: "Confirmation Sent!",
+            description: "A confirmation email has been sent to your address.",
+          });
+        })
+        .catch((error) => {
+          console.error('EmailJS failed...', error);
+          toast({
+            variant: "destructive",
+            title: "Email Sending Failed",
+            description: "We received your booking but couldn't send the email. Please check your inbox or contact support.",
+          });
+        });
+    }
+  }, [state.success, toast]);
+
 
   if (state.success) {
     return (
@@ -46,7 +88,7 @@ export function BookingForm() {
         <CheckCircle2 className="h-4 w-4 text-green-500" />
         <AlertTitle className="text-green-700 font-bold">Booking Request Sent!</AlertTitle>
         <AlertDescription>
-          Thank you for your interest! We have received your detailed request and will contact you within 2 business days to schedule your consultation.
+          Thank you for your interest! We have received your detailed request and will contact you within 2 business days to schedule your consultation. An email confirmation is on its way.
         </AlertDescription>
       </Alert>
     );
@@ -55,7 +97,7 @@ export function BookingForm() {
   return (
     <Card className="bg-background/50 border-white/10 p-2 sm:p-6">
       <CardContent className="p-0">
-        <form action={dispatch} className="space-y-6">
+        <form ref={formRef} action={formAction} className="space-y-6">
           {state.errors?.server && (
               <Alert variant="destructive">
                 <AlertCircle className="h-4 w-4" />
