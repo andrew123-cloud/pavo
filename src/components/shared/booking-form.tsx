@@ -84,10 +84,6 @@ export function BookingForm() {
         };
 
         try {
-            console.log("--- New Detailed Booking Request ---");
-            console.log("Full Booking Details:", JSON.stringify(templateParams, null, 2));
-            console.log("--- End of Booking Request ---");
-            
             await emailjs.send(serviceId, templateId, templateParams, publicKey);
 
             toast({
