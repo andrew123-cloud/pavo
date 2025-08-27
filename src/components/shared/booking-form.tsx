@@ -209,7 +209,7 @@ export function BookingForm() {
                             <Calendar mode="single" selected={completionDate} onSelect={setCompletionDate} initialFocus />
                         </PopoverContent>
                     </Popover>
-                    <input type="hidden" name="completionDate" value={completionDate?.toISOString()} />
+                    <input type="hidden" name="completionDate" value={completionDate?.toISOString() || ''} />
                      {state.errors?.completionDate && (<p className="text-sm font-medium text-destructive">{state.errors.completionDate[0]}</p>)}
                 </div>
             </div>
@@ -241,7 +241,7 @@ export function BookingForm() {
                         <Calendar mode="single" selected={preferredDate} onSelect={setPreferredDate} initialFocus />
                     </PopoverContent>
                 </Popover>
-                 <input type="hidden" name="preferredDate" value={preferredDate?.toISOString()} />
+                 <input type="hidden" name="preferredDate" value={preferredDate?.toISOString() || ''} />
                  {state.errors?.preferredDate && (<p className="text-sm font-medium text-destructive">{state.errors.preferredDate[0]}</p>)}
             </div>
 
