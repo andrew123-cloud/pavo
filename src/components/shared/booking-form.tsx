@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useRef, useEffect, useState } from 'react';
-import { useActionState } from 'react';
+import { useActionState } from 'react-dom';
 import { useFormStatus } from 'react-dom';
 import emailjs from '@emailjs/browser';
 import { handleBooking } from '@/app/actions/booking';
