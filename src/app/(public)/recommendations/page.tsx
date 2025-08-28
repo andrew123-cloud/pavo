@@ -4,7 +4,7 @@
 import React from 'react';
 import { useActionState } from 'react';
 import { useFormStatus } from 'react-dom';
-import { getPersonalizedRecommendations } from './actions';
+import { getPersonalizedRecommendations } from '@/app/(public)/recommendations/actions';
 import { Button } from '@/components/ui/button';
 import {
   Card,
