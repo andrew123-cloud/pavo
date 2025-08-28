@@ -1,8 +1,7 @@
-
 // src/app/admin/bookings/page.tsx
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -42,13 +41,19 @@ import { usePavoData } from '@/context/data-context';
 import type { Booking } from '@/lib/types';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { format } from 'date-fns';
-
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 
 export default function BookingsAdminPage() {
   const { bookings, markBookingAsRead } = usePavoData();
+  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
 
   const handleMarkAsRead = (id: string) => {
     markBookingAsRead(id);
+  };
+  
+  const handleViewDetails = (booking: Booking) => {
+    markBookingAsRead(booking.id);
+    setSelectedBooking(booking);
   };
 
   const renderBookingsTable = (bookingList: Booking[]) => (
@@ -99,7 +104,7 @@ export default function BookingsAdminPage() {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
                             <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                            <DropdownMenuItem onClick={() => alert(`Details for ${booking.fullName}: \n${booking.style}`)}>View Details</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleViewDetails(booking)}>View Details</DropdownMenuItem>
                             <DropdownMenuSeparator/>
                             <DropdownMenuItem onClick={() => window.location.href = `mailto:${booking.email}`}>
                                 <Mail className="mr-2 h-4 w-4"/> Email
@@ -127,6 +132,7 @@ export default function BookingsAdminPage() {
 
 
   return (
+    <>
     <Tabs defaultValue="all">
       <div className="flex items-center">
         <TabsList>
@@ -180,5 +186,67 @@ export default function BookingsAdminPage() {
         </CardFooter>
        </Card>
     </Tabs>
+
+     {selectedBooking && (
+      <Dialog open={!!selectedBooking} onOpenChange={() => setSelectedBooking(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="font-headline text-2xl">Booking Details</DialogTitle>
+            <DialogDescription>
+              From: {selectedBooking.fullName} ({selectedBooking.email})
+            </DialogDescription>
+          </DialogHeader>
+          <div className="mt-4 grid gap-4 max-h-[70vh] overflow-y-auto pr-4">
+             <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+                <div className="font-semibold text-muted-foreground">Full Name:</div>
+                <div>{selectedBooking.fullName}</div>
+
+                <div className="font-semibold text-muted-foreground">Email:</div>
+                <div>{selectedBooking.email}</div>
+                
+                <div className="font-semibold text-muted-foreground">Phone:</div>
+                <div>{selectedBooking.phone}</div>
+
+                <div className="font-semibold text-muted-foreground">Location:</div>
+                <div>{selectedBooking.location}</div>
+             </div>
+             <hr/>
+             <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+                 <div className="font-semibold text-muted-foreground">Property Type:</div>
+                 <div>{selectedBooking.propertyType}</div>
+
+                 <div className="font-semibold text-muted-foreground">Space to Design:</div>
+                 <div>{selectedBooking.spaceToBeDesigned}</div>
+
+                 <div className="font-semibold text-muted-foreground">Approx. Size:</div>
+                 <div>{selectedBooking.size}</div>
+
+                 <div className="font-semibold text-muted-foreground">Current Status:</div>
+                 <div>{selectedBooking.status}</div>
+
+                 <div className="font-semibold text-muted-foreground">Budget Range:</div>
+                 <div>{selectedBooking.budget}</div>
+                 
+                 <div className="font-semibold text-muted-foreground">Services Required:</div>
+                 <div>{selectedBooking.servicesRequired}</div>
+             </div>
+             <hr/>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+                <div className="font-semibold text-muted-foreground">Preferred Consultation Date:</div>
+                 <div>{selectedBooking.preferredDate}</div>
+
+                 <div className="font-semibold text-muted-foreground">Preferred Completion Date:</div>
+                 <div>{selectedBooking.completionDate || 'N/A'}</div>
+              </div>
+              <hr/>
+              <div>
+                <h4 className="font-semibold mb-2">Preferred Design Style</h4>
+                <p className="text-sm text-muted-foreground bg-secondary p-3 rounded-md">{selectedBooking.style}</p>
+              </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    )}
+    </>
   );
 }
