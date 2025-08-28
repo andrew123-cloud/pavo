@@ -3,7 +3,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
-import type { PavoData, PortfolioItem, Product, Property, Order, SiteSettings } from '@/lib/types';
+import type { PavoData, PortfolioItem, Product, Property, Order, SiteSettings, Booking } from '@/lib/types';
 import { 
   portfolioItems as initialPortfolioItems, 
   decorProducts as initialDecorProducts, 
@@ -28,6 +28,9 @@ interface DataContextType extends PavoData {
   addOrder: (order: Order) => void;
   updateOrder: (order: Order) => void;
   decreaseStock: (productId: string, amount: number) => void;
+  addBooking: (booking: Omit<Booking, 'id' | 'createdAt' | 'isRead'>) => void;
+  markBookingAsRead: (id: string) => void;
+  markAllBookingsAsRead: () => void;
   updateSiteSettings: (settings: SiteSettings) => void;
   cart: CartItem[];
   addToCart: (product: Product) => void;
@@ -45,6 +48,7 @@ const initialData: PavoData = {
   decorProducts: initialDecorProducts,
   rentalProperties: initialRentalProperties,
   orders: [],
+  bookings: [],
   siteSettings: initialSiteSettings,
 };
 
@@ -61,6 +65,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const parsedData = JSON.parse(storedData);
         // Ensure all top-level keys exist
         if (!parsedData.orders) parsedData.orders = [];
+        if (!parsedData.bookings) parsedData.bookings = [];
         if (!parsedData.siteSettings) parsedData.siteSettings = initialSiteSettings;
         if (!parsedData.siteSettings.founder.imageUrls) parsedData.siteSettings.founder.imageUrls = ['/palvin-portrait.jpg'];
         setData(parsedData);
@@ -167,6 +172,33 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setData(prevData => ({ ...prevData, siteSettings: settings }));
   };
 
+  const addBooking = (booking: Omit<Booking, 'id' | 'createdAt' | 'isRead'>) => {
+    const newBooking: Booking = {
+      ...booking,
+      id: String(Date.now()),
+      createdAt: new Date().toISOString(),
+      isRead: false,
+    };
+    setData(prevData => ({
+      ...prevData,
+      bookings: [newBooking, ...(prevData.bookings || [])]
+    }));
+  };
+  
+  const markBookingAsRead = (id: string) => {
+    setData(prevData => ({
+      ...prevData,
+      bookings: (prevData.bookings || []).map(b => b.id === id ? { ...b, isRead: true } : b)
+    }));
+  };
+
+  const markAllBookingsAsRead = () => {
+    setData(prevData => ({
+      ...prevData,
+      bookings: (prevData.bookings || []).map(b => ({ ...b, isRead: true }))
+    }));
+  };
+
   const addToCart = (product: Product) => {
     setCart(prevCart => {
       const existingItem = prevCart.find(item => item.id === product.id);
@@ -220,6 +252,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
       addOrder,
       updateOrder,
       decreaseStock,
+      addBooking,
+      markBookingAsRead,
+      markAllBookingsAsRead,
       updateSiteSettings,
       cart,
       addToCart,

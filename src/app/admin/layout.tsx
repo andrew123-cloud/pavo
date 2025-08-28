@@ -1,3 +1,4 @@
+
 // src/app/admin/layout.tsx
 'use client';
 
@@ -10,10 +11,12 @@ import {
   Hotel,
   Settings,
   PanelLeft,
-  Search,
   User,
   LogOut,
   ShoppingBag,
+  Bell,
+  Check,
+  BookMarked
 } from 'lucide-react';
 
 import { usePathname, useRouter } from 'next/navigation';
@@ -26,21 +29,28 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Input } from '@/components/ui/input';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import PavoLogo from '@/components/pavo-logo';
 import { useAuth } from '@/context/auth-context';
 import { ProtectedRoute } from '@/components/shared/protected-route';
+import { usePavoData } from '@/context/data-context';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { formatDistanceToNow } from 'date-fns';
+import { Badge } from '@/components/ui/badge';
 
 function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { user, logout } = useAuth();
+  const { bookings, markAllBookingsAsRead } = usePavoData();
   const router = useRouter();
 
   const handleLogout = () => {
     logout();
     router.push('/admin/login');
   };
+  
+  const unreadBookings = bookings.filter(b => !b.isRead);
 
   return (
     <ProtectedRoute>
@@ -62,6 +72,17 @@ function AdminLayout({ children }: { children: React.ReactNode }) {
                 >
                   <Home className="h-4 w-4" />
                   Dashboard
+                </Link>
+                 <Link
+                  href="/admin/bookings"
+                  className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-all hover:text-primary ${
+                    pathname.startsWith('/admin/bookings')
+                      ? 'bg-muted text-primary'
+                      : 'text-muted-foreground'
+                  }`}
+                >
+                  <BookMarked className="h-4 w-4" />
+                  Bookings
                 </Link>
                 <Link
                   href="/admin/orders"
@@ -146,6 +167,13 @@ function AdminLayout({ children }: { children: React.ReactNode }) {
                     Dashboard
                   </Link>
                    <Link
+                    href="/admin/bookings"
+                    className="mx-[-0.65rem] flex items-center gap-4 rounded-xl px-3 py-2 text-muted-foreground hover:text-foreground"
+                  >
+                    <BookMarked className="h-5 w-5" />
+                    Bookings
+                  </Link>
+                   <Link
                     href="/admin/orders"
                     className="mx-[-0.65rem] flex items-center gap-4 rounded-xl px-3 py-2 text-muted-foreground hover:text-foreground"
                   >
@@ -186,6 +214,60 @@ function AdminLayout({ children }: { children: React.ReactNode }) {
             <div className="w-full flex-1">
               {/* Search can be added here if needed */}
             </div>
+
+             <Popover onOpenChange={(open) => { if(!open) markAllBookingsAsRead() }}>
+                <PopoverTrigger asChild>
+                    <Button
+                    variant="outline"
+                    size="icon"
+                    className="relative rounded-full"
+                    >
+                    <Bell className="h-5 w-5" />
+                    {unreadBookings.length > 0 && (
+                        <Badge className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center rounded-full p-0">
+                            {unreadBookings.length}
+                        </Badge>
+                    )}
+                    <span className="sr-only">Booking Notifications</span>
+                    </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-80 p-0">
+                    <div className="p-4 border-b">
+                        <h4 className="font-medium text-sm">Booking Requests</h4>
+                    </div>
+                    <div className="p-2 max-h-80 overflow-y-auto">
+                        {bookings.length > 0 ? (
+                             bookings.slice(0,5).map(booking => (
+                                <Link key={booking.id} href="/admin/bookings" className="block">
+                                    <div className={`p-2 rounded-lg hover:bg-muted ${!booking.isRead && 'bg-blue-500/10'}`}>
+                                        <div className="flex items-start gap-3">
+                                            <Avatar className="h-8 w-8">
+                                                <AvatarFallback>{booking.fullName.charAt(0)}</AvatarFallback>
+                                            </Avatar>
+                                            <div className="text-xs">
+                                                <p className="font-medium">{booking.fullName}</p>
+                                                <p className="text-muted-foreground">Requested a consultation for {booking.propertyType}.</p>
+                                                <p className="text-muted-foreground/80 mt-1">{formatDistanceToNow(new Date(booking.createdAt), { addSuffix: true })}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </Link>
+                            ))
+                        ): (
+                            <p className="text-center text-sm text-muted-foreground py-8">No new bookings.</p>
+                        )}
+                    </div>
+                     {bookings.length > 0 && (
+                        <div className="p-2 border-t text-center">
+                            <Button variant="link" size="sm" asChild>
+                                <Link href="/admin/bookings">View all bookings</Link>
+                            </Button>
+                        </div>
+                     )}
+                </PopoverContent>
+            </Popover>
+
+
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button

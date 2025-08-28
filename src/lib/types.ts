@@ -1,3 +1,4 @@
+
 export interface PortfolioItem {
   id: string;
   title: string;
@@ -58,6 +59,26 @@ export interface Order {
     items: OrderItem[];
 }
 
+export interface Booking {
+  id: string;
+  createdAt: string;
+  isRead: boolean;
+  fullName: string;
+  email: string;
+  phone: string;
+  location: string;
+  propertyType: string;
+  spaceToBeDesigned: string;
+  size: string;
+  status: string;
+  style: string;
+  budget: string;
+  servicesRequired: string;
+  preferredDate: string; // Storing as formatted string
+  completionDate?: string; // Storing as formatted string
+}
+
+
 export interface SiteSettings {
   brandDescriptions: {
     interiors: string;
@@ -77,5 +98,6 @@ export interface PavoData {
   decorProducts: Product[];
   rentalProperties: Property[];
   orders: Order[];
+  bookings: Booking[];
   siteSettings: SiteSettings;
 }

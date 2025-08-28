@@ -1,3 +1,4 @@
+
 import type { PortfolioItem, Testimonial, Product, Property, SiteSettings } from './types';
 
 export const portfolioItems: PortfolioItem[] = [

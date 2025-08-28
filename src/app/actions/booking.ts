@@ -1,9 +1,12 @@
+
 // src/app/actions/booking.ts
 "use server";
 
-// This file is kept for potential future server-side logic,
-// but the booking form now uses a client-side submission process with react-hook-form.
-// The validation and submission logic is co-located in src/components/shared/booking-form.tsx.
+// This file is no longer actively used for form submission.
+// The client-side form in `src/components/shared/booking-form.tsx` now
+// handles validation, email sending via EmailJS, and saving the booking
+// to the DataContext directly. This file is kept for posterity but
+// can be removed if no other server-side booking logic is needed.
 
 export type BookingState = {
   message?: string | null;

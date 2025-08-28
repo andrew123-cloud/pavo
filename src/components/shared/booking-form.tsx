@@ -1,3 +1,4 @@
+
 // src/components/shared/booking-form.tsx
 'use client';
 
@@ -10,7 +11,6 @@ import emailjs from '@emailjs/browser';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -21,6 +21,8 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
+import { usePavoData } from '@/context/data-context';
+import type { Booking } from '@/lib/types';
 
 
 const bookingSchema = z.object({
@@ -44,6 +46,7 @@ type FormValues = z.infer<typeof bookingSchema>;
 
 export function BookingForm() {
     const { toast } = useToast();
+    const { addBooking } = usePavoData();
     const [isSubmitting, setIsSubmitting] = React.useState(false);
     const [isSuccess, setIsSuccess] = React.useState(false);
     const [serverError, setServerError] = React.useState<string | null>(null);
@@ -77,29 +80,40 @@ export function BookingForm() {
             return;
         }
 
+        const formattedCompletionDate = data.completionDate ? format(data.completionDate, 'PPP') : 'Not specified';
+        const formattedPreferredDate = format(data.preferredDate, 'PPP');
+
         const templateParams = {
             ...data,
-            completionDate: data.completionDate ? format(data.completionDate, 'PPP') : 'Not specified',
-            preferredDate: format(data.preferredDate, 'PPP'),
+            completionDate: formattedCompletionDate,
+            preferredDate: formattedPreferredDate,
         };
 
         try {
             await emailjs.send(serviceId, templateId, templateParams, publicKey);
+            
+            // Save the booking to the context
+            const bookingData: Omit<Booking, 'id' | 'createdAt' | 'isRead'> = {
+                ...data,
+                completionDate: formattedCompletionDate,
+                preferredDate: formattedPreferredDate,
+            }
+            addBooking(bookingData);
 
             toast({
-                title: "Confirmation Sent!",
-                description: "A confirmation email has been sent to your address.",
+                title: "Booking Request Sent!",
+                description: "We have received your request and will contact you within 2 hours.",
             });
             setIsSuccess(true);
             form.reset();
 
         } catch (error) {
             console.error("EmailJS failed to send:", error);
-            setServerError("We received your booking but couldn't send the email. Please check your inbox or contact support.");
+            setServerError("There was an issue submitting your request. Please try again later.");
             toast({
                 variant: "destructive",
-                title: "Email Sending Failed",
-                description: "We received your booking but couldn't send the email. Please check your inbox or contact support.",
+                title: "Submission Failed",
+                description: "There was an issue submitting your request. Please try again later.",
             });
         } finally {
             setIsSubmitting(false);
@@ -113,7 +127,7 @@ export function BookingForm() {
         <CheckCircle2 className="h-4 w-4 text-green-500" />
         <AlertTitle className="text-green-700 font-bold">Booking Request Sent!</AlertTitle>
         <AlertDescription>
-          Thank you for your interest! We have received your detailed request and will contact you within 2 business days to schedule your consultation. An email confirmation is on its way.
+          Thank you for your interest! We have received your detailed request and will contact you within 2 hours to schedule your consultation. An email confirmation is on its way.
         </AlertDescription>
       </Alert>
     );
