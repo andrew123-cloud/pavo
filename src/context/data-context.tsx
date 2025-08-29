@@ -1,3 +1,4 @@
+
 // src/context/data-context.tsx
 'use client';
 
@@ -50,7 +51,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     siteSettings: initialSiteSettings,
   });
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [isLoaded, setIsLoaded] = useState(false);
+  const [isCartLoaded, setIsCartLoaded] = useState(false);
   const [loading, setLoading] = useState(true);
 
   // Fetch initial data from Firestore using onSnapshot for real-time updates
@@ -63,49 +64,60 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const bookingsQuery = query(collection(db, 'bookings'), orderBy('createdAt', 'desc'));
     const settingsDoc = doc(db, 'settings', 'site');
 
-    const unsubPortfolio = onSnapshot(portfolioQuery, (snapshot) => {
+    const unsubs: (() => void)[] = [];
+    let loadedParts = 0;
+    const totalParts = 6; // The number of collections we are loading
+
+    const checkAllLoaded = () => {
+        loadedParts++;
+        if (loadedParts === totalParts) {
+            setLoading(false);
+        }
+    };
+    
+    unsubs.push(onSnapshot(portfolioQuery, (snapshot) => {
         const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as PortfolioItem));
         setData(prev => ({...prev, portfolioItems: items}));
-        setLoading(false);
-    }, (error) => { console.error("Portfolio listener failed: ", error); setLoading(false); });
+        checkAllLoaded();
+    }, (error) => { console.error("Portfolio listener failed: ", error); checkAllLoaded(); }));
 
-    const unsubDecors = onSnapshot(decorsQuery, (snapshot) => {
+    unsubs.push(onSnapshot(decorsQuery, (snapshot) => {
         const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
         setData(prev => ({...prev, decorProducts: items}));
-    }, (error) => { console.error("Decor listener failed: ", error); });
+        checkAllLoaded();
+    }, (error) => { console.error("Decor listener failed: ", error); checkAllLoaded(); }));
 
-    const unsubHomes = onSnapshot(homesQuery, (snapshot) => {
+    unsubs.push(onSnapshot(homesQuery, (snapshot) => {
         const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Property));
         setData(prev => ({...prev, rentalProperties: items}));
-    }, (error) => { console.error("Homes listener failed: ", error); });
+        checkAllLoaded();
+    }, (error) => { console.error("Homes listener failed: ", error); checkAllLoaded(); }));
 
-    const unsubOrders = onSnapshot(ordersQuery, (snapshot) => {
+    unsubs.push(onSnapshot(ordersQuery, (snapshot) => {
         const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
         setData(prev => ({...prev, orders: items}));
-    }, (error) => { console.error("Orders listener failed: ", error); });
+        checkAllLoaded();
+    }, (error) => { console.error("Orders listener failed: ", error); checkAllLoaded(); }));
     
-    const unsubBookings = onSnapshot(bookingsQuery, (snapshot) => {
+    unsubs.push(onSnapshot(bookingsQuery, (snapshot) => {
         const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Booking));
         setData(prev => ({...prev, bookings: items}));
-    }, (error) => { console.error("Bookings listener failed: ", error); });
+        checkAllLoaded();
+    }, (error) => { console.error("Bookings listener failed: ", error); checkAllLoaded(); }));
 
-    const unsubSettings = onSnapshot(settingsDoc, (doc) => {
+    unsubs.push(onSnapshot(settingsDoc, async (doc) => {
         if (doc.exists()) {
             setData(prev => ({...prev, siteSettings: doc.data() as SiteSettings}));
         } else {
-             // If settings don't exist, create them with initial data
-            setDoc(settingsDoc, initialSiteSettings).catch(e => console.error("Failed to set initial site settings", e));
+            // If settings don't exist, create them with initial data
+            await setDoc(settingsDoc, initialSiteSettings).catch(e => console.error("Failed to set initial site settings", e));
         }
-    }, (error) => { console.error("Settings listener failed: ", error); });
+        checkAllLoaded();
+    }, (error) => { console.error("Settings listener failed: ", error); checkAllLoaded(); }));
 
     // Unsubscribe from listeners on cleanup
     return () => {
-        unsubPortfolio();
-        unsubDecors();
-        unsubHomes();
-        unsubOrders();
-        unsubBookings();
-        unsubSettings();
+        unsubs.forEach(unsub => unsub());
     };
 
   }, []);
@@ -120,15 +132,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error("Failed to parse cart from localStorage", error);
     }
-    setIsLoaded(true);
+    setIsCartLoaded(true);
   }, []);
 
   // Save cart to localStorage whenever it changes
   useEffect(() => {
-    if (isLoaded) {
+    if (isCartLoaded) {
       localStorage.setItem('pavo-cart', JSON.stringify(cart));
     }
-  }, [cart, isLoaded]);
+  }, [cart, isCartLoaded]);
 
   // Firestore operations
   const addPortfolioItem = async (item: Omit<PortfolioItem, 'id'>) => {
@@ -262,7 +274,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const cartTotal = cart.reduce((total, item) => total + item.price * item.quantity, 0);
   const cartCount = cart.reduce((count, item) => count + item.quantity, 0);
 
-  if (!isLoaded) {
+  if (!isCartLoaded) {
     return null; // or a loading spinner
   }
 
