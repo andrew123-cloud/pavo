@@ -1,4 +1,3 @@
-
 // src/app/admin/interiors/page.tsx
 'use client';
 
@@ -119,7 +118,7 @@ export default function InteriorsAdmin() {
         location: formData.get('location') as string,
         description: formData.get('description') as string,
         imageUrl: afterImageUrl || editingItem?.imageUrl || 'https://placehold.co/600x400.png',
-        beforeImageUrl: beforeImageUrl || editingItem?.beforeImageUrl || 'https://placehold.co/600x400.png',
+        beforeImageUrl: beforeImageUrl || editingItem?.beforeImageUrl || undefined,
         aiHint: formData.get('title')?.toString().toLowerCase().split(' ').slice(0,2).join(' ') || "new interior"
       };
 
