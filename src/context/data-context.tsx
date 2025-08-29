@@ -274,8 +274,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const cartTotal = cart.reduce((total, item) => total + item.price * item.quantity, 0);
   const cartCount = cart.reduce((count, item) => count + item.quantity, 0);
 
-  if (!isCartLoaded) {
-    return null; // or a loading spinner
+  if (loading || !isCartLoaded) {
+    return null; // Return null or a loading spinner while data is loading
   }
 
   return (
