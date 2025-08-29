@@ -86,6 +86,7 @@ export default function HomesAdmin() {
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    const formData = new FormData(event.currentTarget);
     let imageUrl = editingProperty?.imageUrl;
 
     try {
@@ -95,7 +96,6 @@ export default function HomesAdmin() {
         toast({ title: 'Image uploaded!' });
       }
 
-      const formData = new FormData(event.currentTarget);
       const propertyData = {
         title: formData.get('title') as string,
         location: formData.get('location') as string,

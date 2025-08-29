@@ -103,8 +103,10 @@ export default function InteriorsAdmin() {
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    const formData = new FormData(event.currentTarget);
 
     try {
+      toast({ title: 'Saving portfolio item...' });
       const [beforeImageUrl, afterImageUrl] = await Promise.all([
         uploadImage(beforeImageFile, 'before'),
         uploadImage(afterImageFile, 'after')
@@ -112,7 +114,6 @@ export default function InteriorsAdmin() {
 
       setIsUploading(false);
       
-      const formData = new FormData(event.currentTarget);
       const itemData = {
         title: formData.get('title') as string,
         location: formData.get('location') as string,
@@ -145,6 +146,8 @@ export default function InteriorsAdmin() {
       toast({ variant: 'destructive', title: 'Delete Failed' });
     }
   };
+
+  const isAnyImageUploading = Object.values(uploadProgress).some(p => p > 0 && p < 100);
 
   return (
     <div>
@@ -312,8 +315,8 @@ export default function InteriorsAdmin() {
                         <DialogClose asChild>
                             <Button type="button" variant="secondary" onClick={closeForm}>Cancel</Button>
                         </DialogClose>
-                        <Button type="submit" disabled={isUploading}>
-                            {isUploading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        <Button type="submit" disabled={isAnyImageUploading}>
+                            {isAnyImageUploading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                             {editingItem ? 'Save Changes' : 'Add Item'}
                         </Button>
                     </DialogFooter>

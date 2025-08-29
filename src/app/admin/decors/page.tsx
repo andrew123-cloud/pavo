@@ -87,6 +87,7 @@ export default function DecorsAdmin() {
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    const formData = new FormData(event.currentTarget);
     let imageUrl = editingProduct?.imageUrl;
 
     try {
@@ -96,7 +97,6 @@ export default function DecorsAdmin() {
         toast({ title: 'Image uploaded!', description: 'You can now save the product.' });
       }
 
-      const formData = new FormData(event.currentTarget);
       const productData = {
         name: formData.get('name') as string,
         category: formData.get('category') as string,
