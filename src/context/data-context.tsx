@@ -5,7 +5,7 @@ import React, { createContext, useContext, useState, ReactNode, useEffect } from
 import type { PavoData, PortfolioItem, Product, Property, Order, SiteSettings, Booking } from '@/lib/types';
 import { siteSettings as initialSiteSettings } from '@/lib/data';
 import { db } from '@/lib/firebase';
-import { collection, doc, getDocs, setDoc, deleteDoc, writeBatch, getDoc, orderBy, query } from 'firebase/firestore';
+import { collection, doc, setDoc, deleteDoc, writeBatch, getDoc, orderBy, query, onSnapshot, addDoc } from 'firebase/firestore';
 
 interface CartItem extends Product {
   quantity: number;
@@ -53,51 +53,61 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [isLoaded, setIsLoaded] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // Fetch initial data from Firestore
+  // Fetch initial data from Firestore using onSnapshot for real-time updates
   useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      try {
-        // Fetch all collections
-        const portfolioItemsQuery = query(collection(db, 'portfolioItems'), orderBy('title'));
-        const decorProductsQuery = query(collection(db, 'decorProducts'), orderBy('name'));
-        const rentalPropertiesQuery = query(collection(db, 'rentalProperties'), orderBy('title'));
-        const ordersQuery = query(collection(db, 'orders'), orderBy('created_at', 'desc'));
-        const bookingsQuery = query(collection(db, 'bookings'), orderBy('createdAt', 'desc'));
-        const siteSettingsDoc = doc(db, 'settings', 'site');
+    setLoading(true);
+    const portfolioQuery = query(collection(db, 'portfolioItems'), orderBy('title'));
+    const decorsQuery = query(collection(db, 'decorProducts'), orderBy('name'));
+    const homesQuery = query(collection(db, 'rentalProperties'), orderBy('title'));
+    const ordersQuery = query(collection(db, 'orders'), orderBy('created_at', 'desc'));
+    const bookingsQuery = query(collection(db, 'bookings'), orderBy('createdAt', 'desc'));
+    const settingsDoc = doc(db, 'settings', 'site');
 
-        const [
-          portfolioItemsSnap,
-          decorProductsSnap,
-          rentalPropertiesSnap,
-          ordersSnap,
-          bookingsSnap,
-          siteSettingsSnap,
-        ] = await Promise.all([
-          getDocs(portfolioItemsQuery),
-          getDocs(decorProductsQuery),
-          getDocs(rentalPropertiesQuery),
-          getDocs(ordersQuery),
-          getDocs(bookingsQuery),
-          getDoc(siteSettingsDoc),
-        ]);
+    const unsubPortfolio = onSnapshot(portfolioQuery, (snapshot) => {
+        const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as PortfolioItem));
+        setData(prev => ({...prev, portfolioItems: items}));
+        setLoading(false);
+    }, (error) => { console.error("Portfolio listener failed: ", error); setLoading(false); });
 
-        const portfolioItems = portfolioItemsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as PortfolioItem));
-        const decorProducts = decorProductsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
-        const rentalProperties = rentalPropertiesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Property));
-        const orders = ordersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
-        const bookings = bookingsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Booking));
-        const siteSettings = siteSettingsSnap.exists() ? siteSettingsSnap.data() as SiteSettings : initialSiteSettings;
-        
-        setData({ portfolioItems, decorProducts, rentalProperties, orders, bookings, siteSettings });
+    const unsubDecors = onSnapshot(decorsQuery, (snapshot) => {
+        const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
+        setData(prev => ({...prev, decorProducts: items}));
+    }, (error) => { console.error("Decor listener failed: ", error); });
 
-      } catch (error) {
-        console.error("Error fetching data from Firestore:", error);
-      }
-      setLoading(false);
+    const unsubHomes = onSnapshot(homesQuery, (snapshot) => {
+        const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Property));
+        setData(prev => ({...prev, rentalProperties: items}));
+    }, (error) => { console.error("Homes listener failed: ", error); });
+
+    const unsubOrders = onSnapshot(ordersQuery, (snapshot) => {
+        const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
+        setData(prev => ({...prev, orders: items}));
+    }, (error) => { console.error("Orders listener failed: ", error); });
+    
+    const unsubBookings = onSnapshot(bookingsQuery, (snapshot) => {
+        const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Booking));
+        setData(prev => ({...prev, bookings: items}));
+    }, (error) => { console.error("Bookings listener failed: ", error); });
+
+    const unsubSettings = onSnapshot(settingsDoc, (doc) => {
+        if (doc.exists()) {
+            setData(prev => ({...prev, siteSettings: doc.data() as SiteSettings}));
+        } else {
+             // If settings don't exist, create them with initial data
+            setDoc(settingsDoc, initialSiteSettings).catch(e => console.error("Failed to set initial site settings", e));
+        }
+    }, (error) => { console.error("Settings listener failed: ", error); });
+
+    // Unsubscribe from listeners on cleanup
+    return () => {
+        unsubPortfolio();
+        unsubDecors();
+        unsubHomes();
+        unsubOrders();
+        unsubBookings();
+        unsubSettings();
     };
 
-    fetchData();
   }, []);
 
   // Load cart from localStorage on initial render
@@ -122,39 +132,31 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   // Firestore operations
   const addPortfolioItem = async (item: Omit<PortfolioItem, 'id'>) => {
-    const newDocRef = doc(collection(db, 'portfolioItems'));
-    const newItem = { ...item, id: newDocRef.id };
-    await setDoc(newDocRef, item);
-    setData(prev => ({ ...prev, portfolioItems: [...prev.portfolioItems, newItem].sort((a,b) => a.title.localeCompare(b.title)) }));
+    await addDoc(collection(db, 'portfolioItems'), item);
   };
 
   const updatePortfolioItem = async (updatedItem: PortfolioItem) => {
     const docRef = doc(db, 'portfolioItems', updatedItem.id);
-    await setDoc(docRef, updatedItem, { merge: true });
-    setData(prev => ({ ...prev, portfolioItems: prev.portfolioItems.map(item => item.id === updatedItem.id ? updatedItem : item).sort((a,b) => a.title.localeCompare(b.title)) }));
+    const { id, ...itemData } = updatedItem; // Omit id from data
+    await setDoc(docRef, itemData, { merge: true });
   };
 
   const deletePortfolioItem = async (id: string) => {
     await deleteDoc(doc(db, 'portfolioItems', id));
-    setData(prev => ({ ...prev, portfolioItems: prev.portfolioItems.filter(item => item.id !== id) }));
   };
   
   const addDecorProduct = async (product: Omit<Product, 'id'>) => {
-    const newDocRef = doc(collection(db, 'decorProducts'));
-    const newProduct = { ...product, id: newDocRef.id };
-    await setDoc(newDocRef, product);
-    setData(prev => ({ ...prev, decorProducts: [...prev.decorProducts, newProduct].sort((a,b) => a.name.localeCompare(b.name)) }));
+     await addDoc(collection(db, 'decorProducts'), product);
   };
 
   const updateDecorProduct = async (updatedProduct: Product) => {
     const docRef = doc(db, 'decorProducts', updatedProduct.id);
-    await setDoc(docRef, updatedProduct, { merge: true });
-    setData(prev => ({ ...prev, decorProducts: prev.decorProducts.map(p => p.id === updatedProduct.id ? updatedProduct : p).sort((a,b) => a.name.localeCompare(b.name)) }));
+    const { id, ...productData } = updatedProduct; // Omit id
+    await setDoc(docRef, productData, { merge: true });
   };
 
   const deleteDecorProduct = async (id: string) => {
     await deleteDoc(doc(db, 'decorProducts', id));
-    setData(prev => ({ ...prev, decorProducts: prev.decorProducts.filter(p => p.id !== id) }));
   };
   
   const decreaseStock = async (productId: string, amount: number) => {
@@ -163,44 +165,40 @@ export function DataProvider({ children }: { children: ReactNode }) {
     if(product) {
       const newStock = Math.max(0, product.stock - amount);
       await setDoc(productRef, { stock: newStock }, { merge: true });
-      setData(prev => ({ ...prev, decorProducts: prev.decorProducts.map(p => p.id === productId ? {...p, stock: newStock} : p) }));
     }
   };
 
   const addRentalProperty = async (property: Omit<Property, 'id'>) => {
-    const newDocRef = doc(collection(db, 'rentalProperties'));
-    const newProperty = { ...property, id: newDocRef.id };
-    await setDoc(newDocRef, property);
-    setData(prev => ({ ...prev, rentalProperties: [...prev.rentalProperties, newProperty].sort((a,b) => a.title.localeCompare(b.title)) }));
+    await addDoc(collection(db, 'rentalProperties'), property);
   };
 
   const updateRentalProperty = async (updatedProperty: Property) => {
     const docRef = doc(db, 'rentalProperties', updatedProperty.id);
-    await setDoc(docRef, updatedProperty, { merge: true });
-    setData(prev => ({ ...prev, rentalProperties: prev.rentalProperties.map(p => p.id === updatedProperty.id ? updatedProperty : p).sort((a,b) => a.title.localeCompare(b.title)) }));
+    const { id, ...propertyData } = updatedProperty; // Omit id
+    await setDoc(docRef, propertyData, { merge: true });
   };
 
   const deleteRentalProperty = async (id: string) => {
     await deleteDoc(doc(db, 'rentalProperties', id));
-    setData(prev => ({ ...prev, rentalProperties: prev.rentalProperties.filter(p => p.id !== id) }));
   };
 
   const addOrder = async (order: Order) => {
     const docRef = doc(db, 'orders', order.id);
     await setDoc(docRef, order);
-    setData(prev => ({ ...prev, orders: [order, ...prev.orders] }));
+    // Realtime listener will update state
   };
 
   const updateOrder = async (updatedOrder: Order) => {
     const docRef = doc(db, 'orders', updatedOrder.id);
-    await setDoc(docRef, updatedOrder, { merge: true });
-    setData(prev => ({ ...prev, orders: prev.orders.map(o => o.id === updatedOrder.id ? updatedOrder : o) }));
+    const { id, ...orderData } = updatedOrder; // Omit id
+    await setDoc(docRef, orderData, { merge: true });
+    // Realtime listener will update state
   };
   
   const updateSiteSettings = async (settings: SiteSettings) => {
     const docRef = doc(db, 'settings', 'site');
     await setDoc(docRef, settings);
-    setData(prev => ({ ...prev, siteSettings: settings }));
+    // Realtime listener will update state
   };
 
   const addBooking = async (booking: Omit<Booking, 'id' | 'createdAt' | 'isRead'>) => {
@@ -209,16 +207,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
       createdAt: new Date().toISOString(),
       isRead: false,
     };
-    const newDocRef = doc(collection(db, 'bookings'));
-    await setDoc(newDocRef, newBooking);
-    const fullBooking = { ...newBooking, id: newDocRef.id };
-    setData(prev => ({ ...prev, bookings: [fullBooking, ...prev.bookings] }));
+    await addDoc(collection(db, 'bookings'), newBooking);
+    // Realtime listener will update state
   };
 
   const markBookingAsRead = async (id: string) => {
     const docRef = doc(db, 'bookings', id);
     await setDoc(docRef, { isRead: true }, { merge: true });
-    setData(prev => ({ ...prev, bookings: prev.bookings.map(b => b.id === id ? { ...b, isRead: true } : b) }));
+    // Realtime listener will update state
   };
 
   const markAllBookingsAsRead = async () => {
@@ -229,7 +225,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       batch.update(docRef, { isRead: true });
     });
     await batch.commit();
-    setData(prev => ({ ...prev, bookings: prev.bookings.map(b => ({ ...b, isRead: true })) }));
+    // Realtime listener will update state
   };
 
   const addToCart = (product: Product) => {
