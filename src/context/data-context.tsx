@@ -1,4 +1,5 @@
 
+
 // src/context/data-context.tsx
 'use client';
 
@@ -63,11 +64,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
       const storedData = localStorage.getItem('pavo-data');
       if (storedData) {
         const parsedData = JSON.parse(storedData);
-        // Ensure all top-level keys exist
+        // Ensure all top-level keys exist and have defaults
         if (!parsedData.orders) parsedData.orders = [];
         if (!parsedData.bookings) parsedData.bookings = [];
         if (!parsedData.siteSettings) parsedData.siteSettings = initialSiteSettings;
         if (!parsedData.siteSettings.founder.imageUrls) parsedData.siteSettings.founder.imageUrls = ['/palvin-portrait.jpg'];
+        if (!parsedData.siteSettings.heroImages) parsedData.siteSettings.heroImages = initialSiteSettings.heroImages;
         setData(parsedData);
       }
       const storedCart = localStorage.getItem('pavo-cart');

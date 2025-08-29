@@ -1,3 +1,4 @@
+
 // src/app/(public)/decors/page.tsx
 'use client';
 import Image from 'next/image';
@@ -8,11 +9,24 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/componen
 import { Badge } from '@/components/ui/badge';
 import { usePavoData } from '@/context/data-context';
 import { useToast } from '@/hooks/use-toast';
+import { useState, useEffect } from 'react';
 
 export default function PavoDecorsHome() {
-  const { decorProducts, addToCart } = usePavoData();
+  const { decorProducts, addToCart, siteSettings } = usePavoData();
   const { toast } = useToast();
   const categories = ['Pillows', 'Curtains', 'Vases', 'Wall Art', 'Tableware'];
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+
+  const heroImages = siteSettings.heroImages.decors;
+
+  useEffect(() => {
+    if (heroImages.length > 1) {
+      const interval = setInterval(() => {
+        setCurrentImageIndex(prevIndex => (prevIndex + 1) % heroImages.length);
+      }, 5000); // Change image every 5 seconds
+      return () => clearInterval(interval);
+    }
+  }, [heroImages.length]);
 
   const handleAddToCart = (product: (typeof decorProducts)[0]) => {
     addToCart(product);
@@ -25,14 +39,18 @@ export default function PavoDecorsHome() {
   return (
     <div className="flex flex-col dark bg-background text-foreground">
       <section className="relative h-[80vh] min-h-[500px] w-full">
-        <Image
-          src="https://images.unsplash.com/photo-1540932239986-30128078f3c5?q=80&w=2832&auto=format&fit=crop"
-          alt="A stylishly arranged collection of home decor items"
-          layout="fill"
-          objectFit="cover"
-          className="opacity-30"
-          data-ai-hint="home decor collection"
-        />
+        {heroImages.map((src, index) => (
+          <Image
+            key={src}
+            src={src}
+            alt="A stylishly arranged collection of home decor items"
+            layout="fill"
+            objectFit="cover"
+            className={`transition-opacity duration-1000 ease-in-out ${index === currentImageIndex ? 'opacity-30' : 'opacity-0'}`}
+            data-ai-hint="home decor collection"
+            priority={index === 0}
+          />
+        ))}
         <div className="absolute inset-0 bg-gradient-to-t from-background via-background/80 to-transparent" />
         <div className="container relative z-10 mx-auto flex h-full flex-col items-start justify-center px-4 text-left">
           <Badge variant="secondary" className="mb-4">

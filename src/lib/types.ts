@@ -1,4 +1,5 @@
 
+
 export interface PortfolioItem {
   id: string;
   title: string;
@@ -89,6 +90,12 @@ export interface SiteSettings {
     mainDescription: string;
     philosophy: string;
     imageUrls: string[];
+  };
+  heroImages: {
+    suite: string[];
+    interiors: string[];
+    decors: string[];
+    homes: string[];
   };
 }
 

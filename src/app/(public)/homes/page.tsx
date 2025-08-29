@@ -1,3 +1,4 @@
+
 // src/app/(public)/homes/page.tsx
 'use client';
 import Image from 'next/image';
@@ -16,26 +17,44 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { usePavoData } from '@/context/data-context';
+import { useState, useEffect } from 'react';
 
 export default function PavoHomesHome() {
-  const { rentalProperties } = usePavoData();
+  const { rentalProperties, siteSettings } = usePavoData();
   const homeTypes = [
     { name: 'Beachfront', icon: <Waves className="h-10 w-10" /> },
     { name: 'Safari Lodges', icon: <TreePine className="h-10 w-10" /> },
     { name: 'City Apartments', icon: <BedDouble className="h-10 w-10" /> },
   ];
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+
+  const heroImages = siteSettings.heroImages.homes;
+
+  useEffect(() => {
+    if (heroImages.length > 1) {
+      const interval = setInterval(() => {
+        setCurrentImageIndex(prevIndex => (prevIndex + 1) % heroImages.length);
+      }, 5000); // Change image every 5 seconds
+      return () => clearInterval(interval);
+    }
+  }, [heroImages.length]);
+
 
   return (
     <div className="flex flex-col dark bg-background text-foreground">
       <section className="relative h-[80vh] min-h-[500px] w-full">
-        <Image
-          src="https://images.unsplash.com/photo-1512917774080-9991f1c4c750?q=80&w=2940&auto=format&fit=crop"
-          alt="A beautiful and aesthetic rental home in Tanzania"
-          layout="fill"
-          objectFit="cover"
-          className="opacity-30"
-          data-ai-hint="tanzania rental home"
-        />
+        {heroImages.map((src, index) => (
+          <Image
+            key={src}
+            src={src}
+            alt="A beautiful and aesthetic rental home in Tanzania"
+            layout="fill"
+            objectFit="cover"
+            className={`transition-opacity duration-1000 ease-in-out ${index === currentImageIndex ? 'opacity-30' : 'opacity-0'}`}
+            data-ai-hint="tanzania rental home"
+            priority={index === 0}
+          />
+        ))}
         <div className="absolute inset-0 bg-gradient-to-t from-background via-background/80 to-transparent" />
         <div className="container relative z-10 mx-auto flex h-full flex-col items-center justify-center px-4 pb-16 text-center">
           <Badge variant="secondary" className="mb-4">

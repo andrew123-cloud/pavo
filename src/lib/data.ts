@@ -1,4 +1,5 @@
 
+
 import type { PortfolioItem, Testimonial, Product, Property, SiteSettings } from './types';
 
 export const portfolioItems: PortfolioItem[] = [
@@ -141,5 +142,11 @@ Pavo is the culmination of Palvin's diverse experiences and her unwavering belie
     imageUrls: [
       '/palvin-portrait.jpg'
     ]
+  },
+  heroImages: {
+    suite: [],
+    interiors: ['https://images.unsplash.com/photo-1586023492125-27b2c045efd7?q=80&w=2158&auto=format&fit=crop'],
+    decors: ['https://images.unsplash.com/photo-1540932239986-30128078f3c5?q=80&w=2832&auto=format&fit=crop'],
+    homes: ['https://images.unsplash.com/photo-1512917774080-9991f1c4c750?q=80&w=2940&auto=format&fit=crop'],
   }
 };

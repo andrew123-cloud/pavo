@@ -1,3 +1,4 @@
+
 // src/app/page.tsx
 'use client';
 import { useEffect, useState } from 'react';
@@ -14,8 +15,9 @@ import { usePavoData } from '@/context/data-context';
 export default function PavoSuiteHome() {
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   const { siteSettings } = usePavoData();
-  const { brandDescriptions, founder } = siteSettings;
+  const { brandDescriptions, founder, heroImages } = siteSettings;
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [currentFounderImageIndex, setCurrentFounderImageIndex] = useState(0);
 
   useEffect(() => {
     const handleMouseMove = (event: MouseEvent) => {
@@ -32,11 +34,13 @@ export default function PavoSuiteHome() {
   useEffect(() => {
     if (founder.imageUrls.length > 1) {
       const interval = setInterval(() => {
-        setCurrentImageIndex(prevIndex => (prevIndex + 1) % founder.imageUrls.length);
+        setCurrentFounderImageIndex(prevIndex => (prevIndex + 1) % founder.imageUrls.length);
       }, 5000); // Change image every 5 seconds
       return () => clearInterval(interval);
     }
   }, [founder.imageUrls.length]);
+  
+  const suiteHeroImages = heroImages.suite.length > 0 ? heroImages.suite : ['https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=250&auto=format&fit=crop'];
 
 
   const pavoBrands = [
@@ -74,10 +78,26 @@ export default function PavoSuiteHome() {
       <main className="flex-grow">
         <section className="relative h-screen w-full perspective-1000">
           <div className="absolute inset-0 preserve-3d">
-            <div className="shape shape-1"></div>
-            <div className="shape shape-2"></div>
-            <div className="shape shape-3"></div>
-            <div className="shape shape-4"></div>
+            {suiteHeroImages.length > 0 ? (
+                suiteHeroImages.map((src, index) => (
+                    <div key={src} className="shape" style={{
+                        width: '250px',
+                        height: '250px',
+                        top: `${15 + (index * 20)}%`,
+                        left: `${15 + (index * 20)}%`,
+                        animationDelay: `-${index*3}s`,
+                        backgroundImage: `url(${src})`,
+                        backgroundSize: 'cover'
+                    }}/>
+                ))
+            ) : (
+                <>
+                    <div className="shape shape-1"></div>
+                    <div className="shape shape-2"></div>
+                    <div className="shape shape-3"></div>
+                    <div className="shape shape-4"></div>
+                </>
+            )}
           </div>
 
           <div className="relative z-10 flex h-full flex-col items-center justify-center px-4 text-center">
@@ -156,7 +176,7 @@ export default function PavoSuiteHome() {
                     className="absolute inset-0 transition-transform duration-500 ease-in-out backface-hidden group-hover:rotate-y-180 rounded-2xl"
                   >
                      <Image
-                      src={founder.imageUrls[currentImageIndex] || '/palvin-portrait.jpg'}
+                      src={founder.imageUrls[currentFounderImageIndex] || '/palvin-portrait.jpg'}
                       alt="Portrait of Palvin Atugonza, founder of Pavo"
                       fill
                       className="object-cover"

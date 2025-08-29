@@ -1,6 +1,7 @@
+
 // src/app/(public)/interiors/page.tsx
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import {
@@ -30,19 +31,36 @@ import {
 import { BookingForm } from '@/components/shared/booking-form';
 
 export default function PavoInteriorsHome() {
-  const { portfolioItems } = usePavoData();
+  const { portfolioItems, siteSettings } = usePavoData();
   const [selectedProject, setSelectedProject] = useState<PortfolioItem | null>(null);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+
+  const heroImages = siteSettings.heroImages.interiors;
+
+  useEffect(() => {
+    if (heroImages.length > 1) {
+      const interval = setInterval(() => {
+        setCurrentImageIndex(prevIndex => (prevIndex + 1) % heroImages.length);
+      }, 5000); // Change image every 5 seconds
+      return () => clearInterval(interval);
+    }
+  }, [heroImages.length]);
+
 
   return (
     <div className="flex flex-col dark bg-background text-foreground">
       <section className="relative h-[80vh] min-h-[500px] w-full">
-        <Image
-          src="https://images.unsplash.com/photo-1586023492125-27b2c045efd7?q=80&w=2158&auto=format&fit=crop"
-          alt="Elegant living room designed by Pavo Interiors"
-          fill
-          className="object-cover opacity-30"
-          data-ai-hint="elegant living room"
-        />
+        {heroImages.map((src, index) => (
+            <Image
+                key={src}
+                src={src}
+                alt="Elegant living room designed by Pavo Interiors"
+                fill
+                className={`object-cover transition-opacity duration-1000 ease-in-out ${index === currentImageIndex ? 'opacity-30' : 'opacity-0'}`}
+                data-ai-hint="elegant living room"
+                priority={index === 0}
+            />
+        ))}
         <div className="absolute inset-0 bg-gradient-to-t from-background via-background/80 to-transparent" />
         <div className="container relative z-10 mx-auto flex h-full flex-col items-center justify-center px-4 text-center">
           <Badge variant="secondary" className="mb-4">
