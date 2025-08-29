@@ -13,14 +13,17 @@ import { ImagePlus, Trash2, Loader2 } from 'lucide-react';
 import Image from 'next/image';
 import type { SiteSettings } from '@/lib/types';
 import { storage } from '@/lib/firebase';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+import { Progress } from '@/components/ui/progress';
 
 type HeroImageKey = keyof SiteSettings['heroImages'];
+type FounderImageKey = 'founder';
 
 export default function SettingsAdminPage() {
   const { siteSettings, updateSiteSettings } = usePavoData();
   const { toast } = useToast();
   const [isSaving, setIsSaving] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [localSettings, setLocalSettings] = useState<SiteSettings>(siteSettings);
 
   React.useEffect(() => {
@@ -35,29 +38,42 @@ export default function SettingsAdminPage() {
     setLocalSettings(prev => ({ ...prev, founder: { ...prev.founder, [field]: value } }));
   };
 
-  const handleImageUpload = async (file: File, path: string) => {
-    if (!file) return null;
-    setIsSaving(true);
-    toast({ title: `Uploading ${path} image...` });
-    try {
+  const uploadImage = (file: File, path: string): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      if (!file) return reject("No file provided");
+      
+      setIsSaving(true);
+      setUploadProgress(0);
       const storageRef = ref(storage, `settings/${path}/${Date.now()}-${file.name}`);
-      const snapshot = await uploadBytes(storageRef, file);
-      const downloadURL = await getDownloadURL(snapshot.ref);
-      toast({ title: 'Image Uploaded!' });
-      return downloadURL;
-    } catch (error) {
-      console.error("Image upload failed:", error);
-      toast({ variant: 'destructive', title: 'Upload Failed', description: 'Could not upload the image.' });
-      return null;
-    } finally {
-      setIsSaving(false);
-    }
+      const uploadTask = uploadBytesResumable(storageRef, file);
+
+      uploadTask.on('state_changed',
+        (snapshot) => {
+          const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+          setUploadProgress(progress);
+        },
+        (error) => {
+          console.error("Upload failed:", error);
+          toast({ variant: 'destructive', title: 'Upload Failed', description: 'Could not upload the image.' });
+          setIsSaving(false);
+          reject(error);
+        },
+        () => {
+          getDownloadURL(uploadTask.snapshot.ref).then((downloadURL) => {
+            toast({ title: 'Image Uploaded!' });
+            setUploadProgress(100);
+            setIsSaving(false);
+            resolve(downloadURL);
+          });
+        }
+      );
+    });
   };
   
   const handleFounderImageChange = async (index: number, event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files[0]) {
       const file = event.target.files[0];
-      const newUrl = await handleImageUpload(file, `founder`);
+      const newUrl = await uploadImage(file, `founder`);
       if (newUrl) {
         const newImageUrls = [...localSettings.founder.imageUrls];
         newImageUrls[index] = newUrl;
@@ -79,7 +95,7 @@ export default function SettingsAdminPage() {
   const handleHeroImageChange = async (key: HeroImageKey, index: number, event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files[0]) {
       const file = event.target.files[0];
-      const newUrl = await handleImageUpload(file, `hero/${key}`);
+      const newUrl = await uploadImage(file, `hero/${key}`);
       if (newUrl) {
         const newHeroImages = { ...localSettings.heroImages };
         newHeroImages[key][index] = newUrl;
@@ -165,6 +181,7 @@ export default function SettingsAdminPage() {
                 </Button>
             </div>
           ))}
+          {isSaving && uploadProgress > 0 && <Progress value={uploadProgress} className="mt-4" />}
         </CardContent>
       </Card>
 
@@ -253,6 +270,7 @@ export default function SettingsAdminPage() {
                     <ImagePlus className="h-4 w-4 mr-2"/>
                     Add Image
                 </Button>
+                 {isSaving && uploadProgress > 0 && <Progress value={uploadProgress} className="mt-4" />}
             </div>
         </CardContent>
       </Card>

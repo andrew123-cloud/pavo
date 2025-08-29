@@ -15,14 +15,16 @@ import { Label } from '@/components/ui/label';
 import type { Property } from '@/lib/types';
 import { usePavoData } from '@/context/data-context';
 import { storage } from '@/lib/firebase';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { useToast } from '@/hooks/use-toast';
+import { Progress } from '@/components/ui/progress';
 
 export default function HomesAdmin() {
   const { rentalProperties, addRentalProperty, updateRentalProperty, deleteRentalProperty, loading } = usePavoData();
   const { toast } = useToast();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [editingProperty, setEditingProperty] = useState<Property | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -38,6 +40,7 @@ export default function HomesAdmin() {
     setEditingProperty(null);
     setImageFile(null);
     setImagePreview(null);
+    setUploadProgress(0);
     setIsFormOpen(false);
   };
 
@@ -53,17 +56,42 @@ export default function HomesAdmin() {
     }
   };
 
+  const uploadImage = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      setIsUploading(true);
+      setUploadProgress(0);
+      const storageRef = ref(storage, `rental-properties/${Date.now()}-${file.name}`);
+      const uploadTask = uploadBytesResumable(storageRef, file);
+
+      uploadTask.on('state_changed',
+        (snapshot) => {
+          const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+          setUploadProgress(progress);
+        },
+        (error) => {
+          console.error("Upload failed:", error);
+          setIsUploading(false);
+          reject(error);
+        },
+        () => {
+          getDownloadURL(uploadTask.snapshot.ref).then((downloadURL) => {
+            setIsUploading(false);
+            setUploadProgress(100);
+            resolve(downloadURL);
+          });
+        }
+      );
+    });
+  };
+
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setIsUploading(true);
     let imageUrl = editingProperty?.imageUrl;
 
     try {
       if (imageFile) {
         toast({ title: 'Uploading image...' });
-        const storageRef = ref(storage, `rental-properties/${Date.now()}-${imageFile.name}`);
-        const snapshot = await uploadBytes(storageRef, imageFile);
-        imageUrl = await getDownloadURL(snapshot.ref);
+        imageUrl = await uploadImage(imageFile);
         toast({ title: 'Image uploaded!' });
       }
 
@@ -88,7 +116,6 @@ export default function HomesAdmin() {
     } catch (error) {
       console.error("Error saving property:", error);
       toast({ variant: 'destructive', title: 'Save Failed' });
-    } finally {
       setIsUploading(false);
     }
   };
@@ -235,6 +262,14 @@ export default function HomesAdmin() {
                                      <Image src={imagePreview} alt="Image preview" width={100} height={100} className="rounded-md object-cover"/>
                                 </div>
                             </div>
+                        )}
+                        {isUploading && (
+                             <div className="grid grid-cols-4 items-center gap-4">
+                                <Label className="text-right">Progress</Label>
+                                <div className="col-span-3">
+                                    <Progress value={uploadProgress} />
+                                </div>
+                             </div>
                         )}
                     </div>
                     <DialogFooter>

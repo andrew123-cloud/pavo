@@ -16,14 +16,16 @@ import type { PortfolioItem } from '@/lib/types';
 import { usePavoData } from '@/context/data-context';
 import { Textarea } from '@/components/ui/textarea';
 import { storage } from '@/lib/firebase';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { useToast } from '@/hooks/use-toast';
+import { Progress } from '@/components/ui/progress';
 
 export default function InteriorsAdmin() {
   const { portfolioItems, addPortfolioItem, updatePortfolioItem, deletePortfolioItem, loading } = usePavoData();
   const { toast } = useToast();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<{ [key: string]: number }>({});
   const [editingItem, setEditingItem] = useState<PortfolioItem | null>(null);
 
   const [beforeImageFile, setBeforeImageFile] = useState<File | null>(null);
@@ -37,6 +39,7 @@ export default function InteriorsAdmin() {
     setAfterImageFile(null);
     setAfterImagePreview(item?.imageUrl || null);
     setBeforeImagePreview(item?.beforeImageUrl || null);
+    setUploadProgress({});
     setIsFormOpen(true);
   };
 
@@ -46,6 +49,7 @@ export default function InteriorsAdmin() {
     setAfterImageFile(null);
     setAfterImagePreview(null);
     setBeforeImagePreview(null);
+    setUploadProgress({});
     setIsFormOpen(false);
   };
 
@@ -66,29 +70,55 @@ export default function InteriorsAdmin() {
     }
   };
   
-  const uploadImage = async (file: File | null, path: string): Promise<string | null> => {
-    if (!file) return null;
-    toast({ title: `Uploading ${path} image...` });
-    const storageRef = ref(storage, `portfolio/${path}/${Date.now()}-${file.name}`);
-    const snapshot = await uploadBytes(storageRef, file);
-    return getDownloadURL(snapshot.ref);
+  const uploadImage = (file: File | null, path: 'before' | 'after'): Promise<string | null> => {
+    return new Promise((resolve, reject) => {
+      if (!file) {
+        return resolve(null);
+      }
+      setIsUploading(true);
+      setUploadProgress(prev => ({ ...prev, [path]: 0 }));
+
+      const storageRef = ref(storage, `portfolio/${path}/${Date.now()}-${file.name}`);
+      const uploadTask = uploadBytesResumable(storageRef, file);
+
+      uploadTask.on('state_changed',
+        (snapshot) => {
+          const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+          setUploadProgress(prev => ({...prev, [path]: progress}));
+        },
+        (error) => {
+          console.error(`Upload of ${path} image failed:`, error);
+          setIsUploading(false);
+          reject(error);
+        },
+        () => {
+          getDownloadURL(uploadTask.snapshot.ref).then((downloadURL) => {
+            setUploadProgress(prev => ({...prev, [path]: 100}));
+            resolve(downloadURL);
+          });
+        }
+      );
+    });
   };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setIsUploading(true);
 
     try {
-      const beforeImageUrl = await uploadImage(beforeImageFile, 'before') || editingItem?.beforeImageUrl;
-      const afterImageUrl = await uploadImage(afterImageFile, 'after') || editingItem?.imageUrl;
+      const [beforeImageUrl, afterImageUrl] = await Promise.all([
+        uploadImage(beforeImageFile, 'before'),
+        uploadImage(afterImageFile, 'after')
+      ]);
+
+      setIsUploading(false);
       
       const formData = new FormData(event.currentTarget);
       const itemData = {
         title: formData.get('title') as string,
         location: formData.get('location') as string,
         description: formData.get('description') as string,
-        imageUrl: afterImageUrl || 'https://placehold.co/600x400.png',
-        beforeImageUrl: beforeImageUrl || 'https://placehold.co/600x400.png',
+        imageUrl: afterImageUrl || editingItem?.imageUrl || 'https://placehold.co/600x400.png',
+        beforeImageUrl: beforeImageUrl || editingItem?.beforeImageUrl || 'https://placehold.co/600x400.png',
         aiHint: formData.get('title')?.toString().toLowerCase().split(' ').slice(0,2).join(' ') || "new interior"
       };
 
@@ -103,7 +133,6 @@ export default function InteriorsAdmin() {
     } catch (error) {
       console.error("Error saving portfolio item:", error);
       toast({ variant: 'destructive', title: 'Save Failed' });
-    } finally {
       setIsUploading(false);
     }
   };
@@ -218,7 +247,7 @@ export default function InteriorsAdmin() {
                             {editingItem ? 'Update the details of your portfolio item.' : 'Add a new project to your portfolio.'}
                         </DialogDescription>
                     </DialogHeader>
-                    <div className="grid gap-4 py-4">
+                    <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-4">
                         <div className="grid grid-cols-4 items-center gap-4">
                             <Label htmlFor="title" className="text-right">
                                 Title
@@ -251,6 +280,13 @@ export default function InteriorsAdmin() {
                                 </div>
                             </div>
                         )}
+                        {uploadProgress.before > 0 && (
+                            <div className="grid grid-cols-4 items-center gap-4">
+                               <Label className="text-right">Progress</Label>
+                               <div className="col-span-3"><Progress value={uploadProgress.before} /></div>
+                            </div>
+                        )}
+
                         <div className="grid grid-cols-4 items-center gap-4">
                             <Label htmlFor="afterImage" className="text-right">
                                 After Image
@@ -263,6 +299,12 @@ export default function InteriorsAdmin() {
                                 <div className="col-span-3">
                                      <Image src={afterImagePreview} alt="After image preview" width={100} height={100} className="rounded-md object-cover"/>
                                 </div>
+                            </div>
+                        )}
+                        {uploadProgress.after > 0 && (
+                            <div className="grid grid-cols-4 items-center gap-4">
+                               <Label className="text-right">Progress</Label>
+                               <div className="col-span-3"><Progress value={uploadProgress.after} /></div>
                             </div>
                         )}
                     </div>
