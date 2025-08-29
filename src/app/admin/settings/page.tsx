@@ -113,6 +113,16 @@ export default function SettingsAdminPage() {
     }
     setIsSaving(false);
   };
+  
+  const getFileName = (url: string | null | undefined) => {
+    if (!url) return null;
+    try {
+      return decodeURIComponent(new URL(url).pathname.split('/').pop() || '');
+    } catch (e) {
+      return null;
+    }
+  };
+
 
   return (
     <div className="space-y-8">
@@ -140,10 +150,10 @@ export default function SettingsAdminPage() {
                                 className="opacity-0 absolute inset-0 w-full h-full z-10 cursor-pointer"
                             />
                             <Button type="button" variant="outline" className="w-full justify-start text-left font-normal truncate">
-                                {url ? new URL(url).pathname.split('/').pop() : `Select image ${index + 1}...`}
+                                {getFileName(url) || `Select image ${index + 1}...`}
                             </Button>
                         </div>
-                         <Image src={url || `https://placehold.co/100x100.png`} alt="preview" width={40} height={40} className="rounded-md object-cover"/>
+                         <Image src={url || `https://placehold.co/40x40.png`} alt="preview" width={40} height={40} className="rounded-md object-cover"/>
                         <Button variant="ghost" size="icon" onClick={() => removeHeroImageField(key, index)}>
                             <Trash2 className="h-4 w-4"/>
                         </Button>
@@ -230,10 +240,10 @@ export default function SettingsAdminPage() {
                                 className="opacity-0 absolute inset-0 w-full h-full z-10 cursor-pointer"
                             />
                             <Button type="button" variant="outline" className="w-full justify-start text-left font-normal truncate">
-                                {url ? new URL(url).pathname.split('/').pop() : `Select image ${index + 1}...`}
+                                {getFileName(url) || `Select image ${index + 1}...`}
                             </Button>
                         </div>
-                         <Image src={url || `https://placehold.co/100x100.png`} alt="preview" width={40} height={40} className="rounded-md object-cover"/>
+                         <Image src={url || `https://placehold.co/40x40.png`} alt="preview" width={40} height={40} className="rounded-md object-cover"/>
                         <Button variant="ghost" size="icon" onClick={() => removeFounderImageField(index)}>
                             <Trash2 className="h-4 w-4"/>
                         </Button>
