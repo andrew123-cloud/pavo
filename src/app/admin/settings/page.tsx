@@ -1,8 +1,7 @@
-
 // src/app/admin/settings/page.tsx
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from '@/components/ui/input';
@@ -10,85 +9,109 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { usePavoData } from '@/context/data-context';
 import { useToast } from '@/hooks/use-toast';
-import { ImagePlus, Trash2 } from 'lucide-react';
+import { ImagePlus, Trash2, Loader2 } from 'lucide-react';
 import Image from 'next/image';
 import type { SiteSettings } from '@/lib/types';
+import { storage } from '@/lib/firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 type HeroImageKey = keyof SiteSettings['heroImages'];
 
 export default function SettingsAdminPage() {
   const { siteSettings, updateSiteSettings } = usePavoData();
   const { toast } = useToast();
+  const [isSaving, setIsSaving] = useState(false);
+  const [localSettings, setLocalSettings] = useState<SiteSettings>(siteSettings);
+
+  React.useEffect(() => {
+    setLocalSettings(siteSettings);
+  }, [siteSettings]);
 
   const handleBrandDescriptionChange = (brandName: 'interiors' | 'decors' | 'homes', value: string) => {
-    const newSettings = { ...siteSettings };
-    newSettings.brandDescriptions[brandName] = value;
-    updateSiteSettings(newSettings);
+    setLocalSettings(prev => ({ ...prev, brandDescriptions: { ...prev.brandDescriptions, [brandName]: value } }));
   };
   
   const handleFounderInfoChange = (field: 'mainDescription' | 'philosophy', value: string) => {
-    const newSettings = { ...siteSettings };
-    newSettings.founder[field] = value;
-    updateSiteSettings(newSettings);
+    setLocalSettings(prev => ({ ...prev, founder: { ...prev.founder, [field]: value } }));
   };
 
-  const handleFounderImageChange = (index: number, event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (file: File, path: string) => {
+    if (!file) return null;
+    setIsSaving(true);
+    toast({ title: `Uploading ${path} image...` });
+    try {
+      const storageRef = ref(storage, `settings/${path}/${Date.now()}-${file.name}`);
+      const snapshot = await uploadBytes(storageRef, file);
+      const downloadURL = await getDownloadURL(snapshot.ref);
+      toast({ title: 'Image Uploaded!' });
+      return downloadURL;
+    } catch (error) {
+      console.error("Image upload failed:", error);
+      toast({ variant: 'destructive', title: 'Upload Failed', description: 'Could not upload the image.' });
+      return null;
+    } finally {
+      setIsSaving(false);
+    }
+  };
+  
+  const handleFounderImageChange = async (index: number, event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files[0]) {
       const file = event.target.files[0];
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const newSettings = { ...siteSettings };
-        newSettings.founder.imageUrls[index] = reader.result as string;
-        updateSiteSettings(newSettings);
-      };
-      reader.readAsDataURL(file);
+      const newUrl = await handleImageUpload(file, `founder`);
+      if (newUrl) {
+        const newImageUrls = [...localSettings.founder.imageUrls];
+        newImageUrls[index] = newUrl;
+        setLocalSettings(prev => ({ ...prev, founder: { ...prev.founder, imageUrls: newImageUrls } }));
+      }
     }
   };
 
   const addFounderImageField = () => {
-    const newSettings = { ...siteSettings };
-    newSettings.founder.imageUrls.push('');
-    updateSiteSettings(newSettings);
+    setLocalSettings(prev => ({ ...prev, founder: { ...prev.founder, imageUrls: [...prev.founder.imageUrls, ''] } }));
   };
 
   const removeFounderImageField = (index: number) => {
-    const newSettings = { ...siteSettings };
-    newSettings.founder.imageUrls.splice(index, 1);
-    updateSiteSettings(newSettings);
+    const newImageUrls = [...localSettings.founder.imageUrls];
+    newImageUrls.splice(index, 1);
+    setLocalSettings(prev => ({ ...prev, founder: { ...prev.founder, imageUrls: newImageUrls } }));
   };
 
-  const handleHeroImageChange = (key: HeroImageKey, index: number, event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleHeroImageChange = async (key: HeroImageKey, index: number, event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files[0]) {
       const file = event.target.files[0];
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const newSettings = { ...siteSettings };
-        newSettings.heroImages[key][index] = reader.result as string;
-        updateSiteSettings(newSettings);
-      };
-      reader.readAsDataURL(file);
+      const newUrl = await handleImageUpload(file, `hero/${key}`);
+      if (newUrl) {
+        const newHeroImages = { ...localSettings.heroImages };
+        newHeroImages[key][index] = newUrl;
+        setLocalSettings(prev => ({ ...prev, heroImages: newHeroImages }));
+      }
     }
   };
 
   const addHeroImageField = (key: HeroImageKey) => {
-    const newSettings = { ...siteSettings };
-    newSettings.heroImages[key].push('');
-    updateSiteSettings(newSettings);
+    const newHeroImages = { ...localSettings.heroImages };
+    newHeroImages[key].push('');
+    setLocalSettings(prev => ({ ...prev, heroImages: newHeroImages }));
   };
 
   const removeHeroImageField = (key: HeroImageKey, index: number) => {
-    const newSettings = { ...siteSettings };
-    newSettings.heroImages[key].splice(index, 1);
-    updateSiteSettings(newSettings);
+    const newHeroImages = { ...localSettings.heroImages };
+    newHeroImages[key].splice(index, 1);
+    setLocalSettings(prev => ({ ...prev, heroImages: newHeroImages }));
   };
 
-  const handleSave = () => {
-    // The data is saved on change due to updateSiteSettings call.
-    // This button just provides user feedback.
-    toast({
-      title: "Settings Saved",
-      description: "Your site content has been updated.",
-    });
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      await updateSiteSettings(localSettings);
+      toast({
+        title: "Settings Saved",
+        description: "Your site content has been updated.",
+      });
+    } catch (error) {
+       toast({ variant: 'destructive', title: 'Save Failed', description: 'Could not save settings.' });
+    }
+    setIsSaving(false);
   };
 
   return (
@@ -104,17 +127,22 @@ export default function SettingsAdminPage() {
           <CardDescription>Manage the background images for the main public pages. Add multiple images for a slideshow effect.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          {(Object.keys(siteSettings.heroImages) as HeroImageKey[]).map(key => (
+          {(Object.keys(localSettings.heroImages) as HeroImageKey[]).map(key => (
             <div key={key} className="space-y-4 p-4 border rounded-lg">
                 <Label className="text-lg font-semibold capitalize">{key === 'suite' ? 'Main Landing Page' : key}</Label>
-                {siteSettings.heroImages[key].map((url, index) => (
+                {localSettings.heroImages[key].map((url, index) => (
                     <div key={index} className="flex items-center gap-2">
-                        <Input 
-                            type="file"
-                            accept="image/*"
-                            onChange={(e) => handleHeroImageChange(key, index, e)}
-                            className="flex-grow"
-                        />
+                        <div className="flex-grow relative">
+                            <Input 
+                                type="file"
+                                accept="image/*"
+                                onChange={(e) => handleHeroImageChange(key, index, e)}
+                                className="opacity-0 absolute inset-0 w-full h-full z-10 cursor-pointer"
+                            />
+                            <Button type="button" variant="outline" className="w-full justify-start text-left font-normal truncate">
+                                {url ? new URL(url).pathname.split('/').pop() : `Select image ${index + 1}...`}
+                            </Button>
+                        </div>
                          <Image src={url || `https://placehold.co/100x100.png`} alt="preview" width={40} height={40} className="rounded-md object-cover"/>
                         <Button variant="ghost" size="icon" onClick={() => removeHeroImageField(key, index)}>
                             <Trash2 className="h-4 w-4"/>
@@ -140,7 +168,7 @@ export default function SettingsAdminPage() {
             <Label htmlFor="interiorsDesc">Pavo Interiors</Label>
             <Textarea
               id="interiorsDesc"
-              value={siteSettings.brandDescriptions.interiors}
+              value={localSettings.brandDescriptions.interiors}
               onChange={(e) => handleBrandDescriptionChange('interiors', e.target.value)}
               rows={3}
             />
@@ -149,7 +177,7 @@ export default function SettingsAdminPage() {
             <Label htmlFor="decorsDesc">Pavo Decors</Label>
             <Textarea
               id="decorsDesc"
-              value={siteSettings.brandDescriptions.decors}
+              value={localSettings.brandDescriptions.decors}
               onChange={(e) => handleBrandDescriptionChange('decors', e.target.value)}
               rows={3}
             />
@@ -158,7 +186,7 @@ export default function SettingsAdminPage() {
             <Label htmlFor="homesDesc">Pavo Homes</Label>
             <Textarea
               id="homesDesc"
-              value={siteSettings.brandDescriptions.homes}
+              value={localSettings.brandDescriptions.homes}
               onChange={(e) => handleBrandDescriptionChange('homes', e.target.value)}
               rows={3}
             />
@@ -176,7 +204,7 @@ export default function SettingsAdminPage() {
                 <Label htmlFor="founderMainDesc">Main Description</Label>
                 <Textarea
                 id="founderMainDesc"
-                value={siteSettings.founder.mainDescription}
+                value={localSettings.founder.mainDescription}
                 onChange={(e) => handleFounderInfoChange('mainDescription', e.target.value)}
                 rows={4}
                 />
@@ -185,20 +213,26 @@ export default function SettingsAdminPage() {
                 <Label htmlFor="founderPhilosophy">Pavo Philosophy</Label>
                 <Textarea
                 id="founderPhilosophy"
-                value={siteSettings.founder.philosophy}
+                value={localSettings.founder.philosophy}
                 onChange={(e) => handleFounderInfoChange('philosophy', e.target.value)}
                 rows={3}
                 />
             </div>
             <div className="space-y-4">
                 <Label>Founder Images</Label>
-                {siteSettings.founder.imageUrls.map((url, index) => (
+                {localSettings.founder.imageUrls.map((url, index) => (
                     <div key={index} className="flex items-center gap-2">
-                        <Input 
-                            type="file"
-                            accept="image/*"
-                            onChange={(e) => handleFounderImageChange(index, e)}
-                        />
+                       <div className="flex-grow relative">
+                            <Input 
+                                type="file"
+                                accept="image/*"
+                                onChange={(e) => handleFounderImageChange(index, e)}
+                                className="opacity-0 absolute inset-0 w-full h-full z-10 cursor-pointer"
+                            />
+                            <Button type="button" variant="outline" className="w-full justify-start text-left font-normal truncate">
+                                {url ? new URL(url).pathname.split('/').pop() : `Select image ${index + 1}...`}
+                            </Button>
+                        </div>
                          <Image src={url || `https://placehold.co/100x100.png`} alt="preview" width={40} height={40} className="rounded-md object-cover"/>
                         <Button variant="ghost" size="icon" onClick={() => removeFounderImageField(index)}>
                             <Trash2 className="h-4 w-4"/>
@@ -215,7 +249,10 @@ export default function SettingsAdminPage() {
 
 
       <div className="flex justify-end">
-        <Button onClick={handleSave}>Save All Changes</Button>
+        <Button onClick={handleSave} disabled={isSaving}>
+            {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+            Save All Changes
+        </Button>
       </div>
     </div>
   );

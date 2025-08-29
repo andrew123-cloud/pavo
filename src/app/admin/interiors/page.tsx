@@ -5,7 +5,7 @@ import React, { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { MoreHorizontal, PlusCircle } from "lucide-react";
+import { MoreHorizontal, PlusCircle, Loader2 } from "lucide-react";
 import Image from "next/image";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogClose } from '@/components/ui/dialog';
@@ -15,25 +15,36 @@ import { Label } from '@/components/ui/label';
 import type { PortfolioItem } from '@/lib/types';
 import { usePavoData } from '@/context/data-context';
 import { Textarea } from '@/components/ui/textarea';
+import { storage } from '@/lib/firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { useToast } from '@/hooks/use-toast';
 
 export default function InteriorsAdmin() {
-  const { portfolioItems, addPortfolioItem, updatePortfolioItem, deletePortfolioItem } = usePavoData();
+  const { portfolioItems, addPortfolioItem, updatePortfolioItem, deletePortfolioItem, loading } = usePavoData();
+  const { toast } = useToast();
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const [editingItem, setEditingItem] = useState<PortfolioItem | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [beforeImagePreview, setBeforeImagePreview] = useState<string | null>(null);
 
+  const [beforeImageFile, setBeforeImageFile] = useState<File | null>(null);
+  const [afterImageFile, setAfterImageFile] = useState<File | null>(null);
+  const [beforeImagePreview, setBeforeImagePreview] = useState<string | null>(null);
+  const [afterImagePreview, setAfterImagePreview] = useState<string | null>(null);
 
   const openForm = (item?: PortfolioItem) => {
     setEditingItem(item || null);
-    setImagePreview(item?.imageUrl || null);
+    setBeforeImageFile(null);
+    setAfterImageFile(null);
+    setAfterImagePreview(item?.imageUrl || null);
     setBeforeImagePreview(item?.beforeImageUrl || null);
     setIsFormOpen(true);
   };
 
   const closeForm = () => {
     setEditingItem(null);
-    setImagePreview(null);
+    setBeforeImageFile(null);
+    setAfterImageFile(null);
+    setAfterImagePreview(null);
     setBeforeImagePreview(null);
     setIsFormOpen(false);
   };
@@ -44,38 +55,66 @@ export default function InteriorsAdmin() {
       const reader = new FileReader();
       reader.onloadend = () => {
         if (type === 'after') {
-            setImagePreview(reader.result as string);
+          setAfterImageFile(file);
+          setAfterImagePreview(reader.result as string);
         } else {
-            setBeforeImagePreview(reader.result as string);
+          setBeforeImageFile(file);
+          setBeforeImagePreview(reader.result as string);
         }
       };
       reader.readAsDataURL(file);
     }
   };
-
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const formData = new FormData(event.currentTarget);
-    const newItem: PortfolioItem = {
-      id: editingItem ? editingItem.id : String(Date.now()),
-      title: formData.get('title') as string,
-      location: formData.get('location') as string,
-      description: formData.get('description') as string,
-      imageUrl: imagePreview || editingItem?.imageUrl || 'https://placehold.co/600x400.png',
-      beforeImageUrl: beforeImagePreview || editingItem?.beforeImageUrl || 'https://placehold.co/600x400.png',
-      aiHint: editingItem?.aiHint || formData.get('title')?.toString().toLowerCase().split(' ').slice(0,2).join(' ') || "new interior"
-    };
-
-    if (editingItem) {
-      updatePortfolioItem(newItem);
-    } else {
-      addPortfolioItem(newItem);
-    }
-    closeForm();
+  
+  const uploadImage = async (file: File | null, path: string): Promise<string | null> => {
+    if (!file) return null;
+    toast({ title: `Uploading ${path} image...` });
+    const storageRef = ref(storage, `portfolio/${path}/${Date.now()}-${file.name}`);
+    const snapshot = await uploadBytes(storageRef, file);
+    return getDownloadURL(snapshot.ref);
   };
 
-  const handleDelete = (id: string) => {
-    deletePortfolioItem(id);
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setIsUploading(true);
+
+    try {
+      const beforeImageUrl = await uploadImage(beforeImageFile, 'before') || editingItem?.beforeImageUrl;
+      const afterImageUrl = await uploadImage(afterImageFile, 'after') || editingItem?.imageUrl;
+      
+      const formData = new FormData(event.currentTarget);
+      const itemData = {
+        title: formData.get('title') as string,
+        location: formData.get('location') as string,
+        description: formData.get('description') as string,
+        imageUrl: afterImageUrl || 'https://placehold.co/600x400.png',
+        beforeImageUrl: beforeImageUrl || 'https://placehold.co/600x400.png',
+        aiHint: formData.get('title')?.toString().toLowerCase().split(' ').slice(0,2).join(' ') || "new interior"
+      };
+
+      if (editingItem) {
+        await updatePortfolioItem({ ...itemData, id: editingItem.id });
+        toast({ title: 'Portfolio Item Updated' });
+      } else {
+        await addPortfolioItem(itemData);
+        toast({ title: 'Portfolio Item Added' });
+      }
+      closeForm();
+    } catch (error) {
+      console.error("Error saving portfolio item:", error);
+      toast({ variant: 'destructive', title: 'Save Failed' });
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      await deletePortfolioItem(id);
+      toast({ title: 'Item Deleted' });
+    } catch(e) {
+      toast({ variant: 'destructive', title: 'Delete Failed' });
+    }
   };
 
   return (
@@ -95,6 +134,11 @@ export default function InteriorsAdmin() {
                 <CardDescription>Manage your interior design portfolio.</CardDescription>
             </CardHeader>
             <CardContent>
+                {loading ? (
+                    <div className="flex justify-center items-center h-64">
+                        <Loader2 className="h-8 w-8 animate-spin" />
+                    </div>
+                ) : (
                 <Table>
                     <TableHeader>
                         <TableRow>
@@ -156,6 +200,7 @@ export default function InteriorsAdmin() {
                         ))}
                     </TableBody>
                 </Table>
+                )}
             </CardContent>
             <CardFooter>
                 <div className="text-xs text-muted-foreground">
@@ -178,19 +223,19 @@ export default function InteriorsAdmin() {
                             <Label htmlFor="title" className="text-right">
                                 Title
                             </Label>
-                            <Input id="title" name="title" defaultValue={editingItem?.title} className="col-span-3" />
+                            <Input id="title" name="title" defaultValue={editingItem?.title} className="col-span-3" required />
                         </div>
                         <div className="grid grid-cols-4 items-center gap-4">
                             <Label htmlFor="location" className="text-right">
                                 Location
                             </Label>
-                            <Input id="location" name="location" defaultValue={editingItem?.location} className="col-span-3" />
+                            <Input id="location" name="location" defaultValue={editingItem?.location} className="col-span-3" required />
                         </div>
                         <div className="grid grid-cols-4 items-start gap-4">
                             <Label htmlFor="description" className="text-right pt-2">
                                 Description
                             </Label>
-                            <Textarea id="description" name="description" defaultValue={editingItem?.description} className="col-span-3" rows={4} />
+                            <Textarea id="description" name="description" defaultValue={editingItem?.description} className="col-span-3" rows={4} required/>
                         </div>
                         <div className="grid grid-cols-4 items-center gap-4">
                             <Label htmlFor="beforeImage" className="text-right">
@@ -212,11 +257,11 @@ export default function InteriorsAdmin() {
                             </Label>
                             <Input id="afterImage" name="afterImage" type="file" accept="image/*" onChange={(e) => handleImageChange(e, 'after')} className="col-span-3" />
                         </div>
-                         {imagePreview && (
+                         {afterImagePreview && (
                             <div className="grid grid-cols-4 items-start gap-4">
                                 <Label className="text-right pt-2">Preview</Label>
                                 <div className="col-span-3">
-                                     <Image src={imagePreview} alt="After image preview" width={100} height={100} className="rounded-md object-cover"/>
+                                     <Image src={afterImagePreview} alt="After image preview" width={100} height={100} className="rounded-md object-cover"/>
                                 </div>
                             </div>
                         )}
@@ -225,7 +270,10 @@ export default function InteriorsAdmin() {
                         <DialogClose asChild>
                             <Button type="button" variant="secondary" onClick={closeForm}>Cancel</Button>
                         </DialogClose>
-                        <Button type="submit">{editingItem ? 'Save Changes' : 'Add Item'}</Button>
+                        <Button type="submit" disabled={isUploading}>
+                            {isUploading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            {editingItem ? 'Save Changes' : 'Add Item'}
+                        </Button>
                     </DialogFooter>
                  </form>
             </DialogContent>

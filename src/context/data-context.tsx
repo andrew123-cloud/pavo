@@ -1,38 +1,34 @@
-
-
 // src/context/data-context.tsx
 'use client';
 
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import type { PavoData, PortfolioItem, Product, Property, Order, SiteSettings, Booking } from '@/lib/types';
-import { 
-  portfolioItems as initialPortfolioItems, 
-  decorProducts as initialDecorProducts, 
-  rentalProperties as initialRentalProperties,
-  siteSettings as initialSiteSettings
-} from '@/lib/data';
+import { siteSettings as initialSiteSettings } from '@/lib/data';
+import { db } from '@/lib/firebase';
+import { collection, doc, getDocs, setDoc, deleteDoc, writeBatch, getDoc, orderBy, query } from 'firebase/firestore';
 
 interface CartItem extends Product {
   quantity: number;
 }
 
 interface DataContextType extends PavoData {
-  addPortfolioItem: (item: PortfolioItem) => void;
-  updatePortfolioItem: (item: PortfolioItem) => void;
-  deletePortfolioItem: (id: string) => void;
-  addDecorProduct: (product: Product) => void;
-  updateDecorProduct: (product: Product) => void;
-  deleteDecorProduct: (id: string) => void;
-  addRentalProperty: (property: Property) => void;
-  updateRentalProperty: (property: Property) => void;
-  deleteRentalProperty: (id: string) => void;
-  addOrder: (order: Order) => void;
-  updateOrder: (order: Order) => void;
-  decreaseStock: (productId: string, amount: number) => void;
-  addBooking: (booking: Omit<Booking, 'id' | 'createdAt' | 'isRead'>) => void;
-  markBookingAsRead: (id: string) => void;
-  markAllBookingsAsRead: () => void;
-  updateSiteSettings: (settings: SiteSettings) => void;
+  loading: boolean;
+  addPortfolioItem: (item: Omit<PortfolioItem, 'id'>) => Promise<void>;
+  updatePortfolioItem: (item: PortfolioItem) => Promise<void>;
+  deletePortfolioItem: (id: string) => Promise<void>;
+  addDecorProduct: (product: Omit<Product, 'id'>) => Promise<void>;
+  updateDecorProduct: (product: Product) => Promise<void>;
+  deleteDecorProduct: (id: string) => Promise<void>;
+  addRentalProperty: (property: Omit<Property, 'id'>) => Promise<void>;
+  updateRentalProperty: (property: Property) => Promise<void>;
+  deleteRentalProperty: (id: string) => Promise<void>;
+  addOrder: (order: Order) => Promise<void>;
+  updateOrder: (order: Order) => Promise<void>;
+  decreaseStock: (productId: string, amount: number) => Promise<void>;
+  addBooking: (booking: Omit<Booking, 'id' | 'createdAt' | 'isRead'>) => Promise<void>;
+  markBookingAsRead: (id: string) => Promise<void>;
+  markAllBookingsAsRead: () => Promise<void>;
+  updateSiteSettings: (settings: SiteSettings) => Promise<void>;
   cart: CartItem[];
   addToCart: (product: Product) => void;
   updateCartQuantity: (productId: string, quantity: number) => void;
@@ -44,161 +40,196 @@ interface DataContextType extends PavoData {
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
-const initialData: PavoData = {
-  portfolioItems: initialPortfolioItems,
-  decorProducts: initialDecorProducts,
-  rentalProperties: initialRentalProperties,
-  orders: [],
-  bookings: [],
-  siteSettings: initialSiteSettings,
-};
-
 export function DataProvider({ children }: { children: ReactNode }) {
-  const [isLoaded, setIsLoaded] = useState(false);
-  const [data, setData] = useState<PavoData>(initialData);
+  const [data, setData] = useState<PavoData>({
+    portfolioItems: [],
+    decorProducts: [],
+    rentalProperties: [],
+    orders: [],
+    bookings: [],
+    siteSettings: initialSiteSettings,
+  });
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [isLoaded, setIsLoaded] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  // Load state from localStorage on initial render
+  // Fetch initial data from Firestore
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        // Fetch all collections
+        const portfolioItemsQuery = query(collection(db, 'portfolioItems'), orderBy('title'));
+        const decorProductsQuery = query(collection(db, 'decorProducts'), orderBy('name'));
+        const rentalPropertiesQuery = query(collection(db, 'rentalProperties'), orderBy('title'));
+        const ordersQuery = query(collection(db, 'orders'), orderBy('created_at', 'desc'));
+        const bookingsQuery = query(collection(db, 'bookings'), orderBy('createdAt', 'desc'));
+        const siteSettingsDoc = doc(db, 'settings', 'site');
+
+        const [
+          portfolioItemsSnap,
+          decorProductsSnap,
+          rentalPropertiesSnap,
+          ordersSnap,
+          bookingsSnap,
+          siteSettingsSnap,
+        ] = await Promise.all([
+          getDocs(portfolioItemsQuery),
+          getDocs(decorProductsQuery),
+          getDocs(rentalPropertiesQuery),
+          getDocs(ordersQuery),
+          getDocs(bookingsQuery),
+          getDoc(siteSettingsDoc),
+        ]);
+
+        const portfolioItems = portfolioItemsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as PortfolioItem));
+        const decorProducts = decorProductsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
+        const rentalProperties = rentalPropertiesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Property));
+        const orders = ordersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
+        const bookings = bookingsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Booking));
+        const siteSettings = siteSettingsSnap.exists() ? siteSettingsSnap.data() as SiteSettings : initialSiteSettings;
+        
+        setData({ portfolioItems, decorProducts, rentalProperties, orders, bookings, siteSettings });
+
+      } catch (error) {
+        console.error("Error fetching data from Firestore:", error);
+      }
+      setLoading(false);
+    };
+
+    fetchData();
+  }, []);
+
+  // Load cart from localStorage on initial render
   useEffect(() => {
     try {
-      const storedData = localStorage.getItem('pavo-data-no-settings');
-      if (storedData) {
-        const parsedData = JSON.parse(storedData);
-        // We restore everything EXCEPT site settings
-        setData(prevData => ({
-          ...prevData, // start with initial data (including site settings)
-          ...parsedData, // overwrite with saved data
-        }));
-      }
       const storedCart = localStorage.getItem('pavo-cart');
       if (storedCart) {
         setCart(JSON.parse(storedCart));
       }
     } catch (error) {
-      console.error("Failed to parse data from localStorage", error);
+      console.error("Failed to parse cart from localStorage", error);
     }
     setIsLoaded(true);
   }, []);
 
-  // Save state to localStorage whenever it changes
+  // Save cart to localStorage whenever it changes
   useEffect(() => {
     if (isLoaded) {
-      // Create a new object without siteSettings to avoid storage quota errors
-      const { siteSettings, ...restOfData } = data;
-      localStorage.setItem('pavo-data-no-settings', JSON.stringify(restOfData));
-    }
-  }, [data, isLoaded]);
-
-  useEffect(() => {
-    if (isLoaded) {
-        localStorage.setItem('pavo-cart', JSON.stringify(cart));
+      localStorage.setItem('pavo-cart', JSON.stringify(cart));
     }
   }, [cart, isLoaded]);
 
-
-  const addPortfolioItem = (item: PortfolioItem) => {
-    setData(prevData => ({ ...prevData, portfolioItems: [...prevData.portfolioItems, item] }));
+  // Firestore operations
+  const addPortfolioItem = async (item: Omit<PortfolioItem, 'id'>) => {
+    const newDocRef = doc(collection(db, 'portfolioItems'));
+    const newItem = { ...item, id: newDocRef.id };
+    await setDoc(newDocRef, item);
+    setData(prev => ({ ...prev, portfolioItems: [...prev.portfolioItems, newItem].sort((a,b) => a.title.localeCompare(b.title)) }));
   };
 
-  const updatePortfolioItem = (updatedItem: PortfolioItem) => {
-    setData(prevData => ({
-      ...prevData,
-      portfolioItems: prevData.portfolioItems.map(item => item.id === updatedItem.id ? updatedItem : item),
-    }));
+  const updatePortfolioItem = async (updatedItem: PortfolioItem) => {
+    const docRef = doc(db, 'portfolioItems', updatedItem.id);
+    await setDoc(docRef, updatedItem, { merge: true });
+    setData(prev => ({ ...prev, portfolioItems: prev.portfolioItems.map(item => item.id === updatedItem.id ? updatedItem : item).sort((a,b) => a.title.localeCompare(b.title)) }));
   };
 
-  const deletePortfolioItem = (id: string) => {
-    setData(prevData => ({
-      ...prevData,
-      portfolioItems: prevData.portfolioItems.filter(item => item.id !== id),
-    }));
-  };
-
-  const addDecorProduct = (product: Product) => {
-    setData(prevData => ({ ...prevData, decorProducts: [...prevData.decorProducts, product] }));
-  };
-
-  const updateDecorProduct = (updatedProduct: Product) => {
-    setData(prevData => ({
-      ...prevData,
-      decorProducts: prevData.decorProducts.map(p => p.id === updatedProduct.id ? updatedProduct : p),
-    }));
-  };
-
-  const decreaseStock = (productId: string, amount: number) => {
-    setData(prevData => ({
-      ...prevData,
-      decorProducts: prevData.decorProducts.map(p => 
-        p.id === productId ? { ...p, stock: Math.max(0, p.stock - amount) } : p
-      ),
-    }));
-  };
-
-  const deleteDecorProduct = (id: string) => {
-    setData(prevData => ({
-      ...prevData,
-      decorProducts: prevData.decorProducts.filter(p => p.id !== id),
-    }));
-  };
-
-  const addRentalProperty = (property: Property) => {
-    setData(prevData => ({ ...prevData, rentalProperties: [...prevData.rentalProperties, property] }));
-  };
-
-  const updateRentalProperty = (updatedProperty: Property) => {
-    setData(prevData => ({
-      ...prevData,
-      rentalProperties: prevData.rentalProperties.map(p => p.id === updatedProperty.id ? updatedProperty : p),
-    }));
-  };
-
-  const deleteRentalProperty = (id: string) => {
-    setData(prevData => ({
-      ...prevData,
-      rentalProperties: prevData.rentalProperties.filter(p => p.id !== id),
-    }));
+  const deletePortfolioItem = async (id: string) => {
+    await deleteDoc(doc(db, 'portfolioItems', id));
+    setData(prev => ({ ...prev, portfolioItems: prev.portfolioItems.filter(item => item.id !== id) }));
   };
   
-  const addOrder = (order: Order) => {
-    setData(prevData => ({ ...prevData, orders: [order, ...(prevData.orders || [])] }));
-  };
-  
-  const updateOrder = (updatedOrder: Order) => {
-      setData(prevData => ({
-        ...prevData,
-        orders: (prevData.orders || []).map(o => o.id === updatedOrder.id ? updatedOrder : o)
-      }));
-  };
-  
-  const updateSiteSettings = (settings: SiteSettings) => {
-    setData(prevData => ({ ...prevData, siteSettings: settings }));
+  const addDecorProduct = async (product: Omit<Product, 'id'>) => {
+    const newDocRef = doc(collection(db, 'decorProducts'));
+    const newProduct = { ...product, id: newDocRef.id };
+    await setDoc(newDocRef, product);
+    setData(prev => ({ ...prev, decorProducts: [...prev.decorProducts, newProduct].sort((a,b) => a.name.localeCompare(b.name)) }));
   };
 
-  const addBooking = (booking: Omit<Booking, 'id' | 'createdAt' | 'isRead'>) => {
-    const newBooking: Booking = {
+  const updateDecorProduct = async (updatedProduct: Product) => {
+    const docRef = doc(db, 'decorProducts', updatedProduct.id);
+    await setDoc(docRef, updatedProduct, { merge: true });
+    setData(prev => ({ ...prev, decorProducts: prev.decorProducts.map(p => p.id === updatedProduct.id ? updatedProduct : p).sort((a,b) => a.name.localeCompare(b.name)) }));
+  };
+
+  const deleteDecorProduct = async (id: string) => {
+    await deleteDoc(doc(db, 'decorProducts', id));
+    setData(prev => ({ ...prev, decorProducts: prev.decorProducts.filter(p => p.id !== id) }));
+  };
+  
+  const decreaseStock = async (productId: string, amount: number) => {
+    const productRef = doc(db, 'decorProducts', productId);
+    const product = data.decorProducts.find(p => p.id === productId);
+    if(product) {
+      const newStock = Math.max(0, product.stock - amount);
+      await setDoc(productRef, { stock: newStock }, { merge: true });
+      setData(prev => ({ ...prev, decorProducts: prev.decorProducts.map(p => p.id === productId ? {...p, stock: newStock} : p) }));
+    }
+  };
+
+  const addRentalProperty = async (property: Omit<Property, 'id'>) => {
+    const newDocRef = doc(collection(db, 'rentalProperties'));
+    const newProperty = { ...property, id: newDocRef.id };
+    await setDoc(newDocRef, property);
+    setData(prev => ({ ...prev, rentalProperties: [...prev.rentalProperties, newProperty].sort((a,b) => a.title.localeCompare(b.title)) }));
+  };
+
+  const updateRentalProperty = async (updatedProperty: Property) => {
+    const docRef = doc(db, 'rentalProperties', updatedProperty.id);
+    await setDoc(docRef, updatedProperty, { merge: true });
+    setData(prev => ({ ...prev, rentalProperties: prev.rentalProperties.map(p => p.id === updatedProperty.id ? updatedProperty : p).sort((a,b) => a.title.localeCompare(b.title)) }));
+  };
+
+  const deleteRentalProperty = async (id: string) => {
+    await deleteDoc(doc(db, 'rentalProperties', id));
+    setData(prev => ({ ...prev, rentalProperties: prev.rentalProperties.filter(p => p.id !== id) }));
+  };
+
+  const addOrder = async (order: Order) => {
+    const docRef = doc(db, 'orders', order.id);
+    await setDoc(docRef, order);
+    setData(prev => ({ ...prev, orders: [order, ...prev.orders] }));
+  };
+
+  const updateOrder = async (updatedOrder: Order) => {
+    const docRef = doc(db, 'orders', updatedOrder.id);
+    await setDoc(docRef, updatedOrder, { merge: true });
+    setData(prev => ({ ...prev, orders: prev.orders.map(o => o.id === updatedOrder.id ? updatedOrder : o) }));
+  };
+  
+  const updateSiteSettings = async (settings: SiteSettings) => {
+    const docRef = doc(db, 'settings', 'site');
+    await setDoc(docRef, settings);
+    setData(prev => ({ ...prev, siteSettings: settings }));
+  };
+
+  const addBooking = async (booking: Omit<Booking, 'id' | 'createdAt' | 'isRead'>) => {
+    const newBooking: Omit<Booking, 'id'> = {
       ...booking,
-      id: String(Date.now()),
       createdAt: new Date().toISOString(),
       isRead: false,
     };
-    setData(prevData => ({
-      ...prevData,
-      bookings: [newBooking, ...(prevData.bookings || [])]
-    }));
-  };
-  
-  const markBookingAsRead = (id: string) => {
-    setData(prevData => ({
-      ...prevData,
-      bookings: (prevData.bookings || []).map(b => b.id === id ? { ...b, isRead: true } : b)
-    }));
+    const newDocRef = doc(collection(db, 'bookings'));
+    await setDoc(newDocRef, newBooking);
+    const fullBooking = { ...newBooking, id: newDocRef.id };
+    setData(prev => ({ ...prev, bookings: [fullBooking, ...prev.bookings] }));
   };
 
-  const markAllBookingsAsRead = () => {
-    setData(prevData => ({
-      ...prevData,
-      bookings: (prevData.bookings || []).map(b => ({ ...b, isRead: true }))
-    }));
+  const markBookingAsRead = async (id: string) => {
+    const docRef = doc(db, 'bookings', id);
+    await setDoc(docRef, { isRead: true }, { merge: true });
+    setData(prev => ({ ...prev, bookings: prev.bookings.map(b => b.id === id ? { ...b, isRead: true } : b) }));
+  };
+
+  const markAllBookingsAsRead = async () => {
+    const batch = writeBatch(db);
+    const unreadBookings = data.bookings.filter(b => !b.isRead);
+    unreadBookings.forEach(booking => {
+      const docRef = doc(db, 'bookings', booking.id);
+      batch.update(docRef, { isRead: true });
+    });
+    await batch.commit();
+    setData(prev => ({ ...prev, bookings: prev.bookings.map(b => ({ ...b, isRead: true })) }));
   };
 
   const addToCart = (product: Product) => {
@@ -241,7 +272,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   return (
     <DataContext.Provider value={{ 
-      ...data, 
+      ...data,
+      loading,
       addPortfolioItem, 
       updatePortfolioItem, 
       deletePortfolioItem,

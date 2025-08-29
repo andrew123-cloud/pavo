@@ -5,7 +5,7 @@ import React, { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { MoreHorizontal, PlusCircle, Star } from "lucide-react";
+import { MoreHorizontal, PlusCircle, Star, Loader2 } from "lucide-react";
 import Image from "next/image";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogClose } from '@/components/ui/dialog';
@@ -14,21 +14,29 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import type { Property } from '@/lib/types';
 import { usePavoData } from '@/context/data-context';
+import { storage } from '@/lib/firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { useToast } from '@/hooks/use-toast';
 
 export default function HomesAdmin() {
-  const { rentalProperties, addRentalProperty, updateRentalProperty, deleteRentalProperty } = usePavoData();
+  const { rentalProperties, addRentalProperty, updateRentalProperty, deleteRentalProperty, loading } = usePavoData();
+  const { toast } = useToast();
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const [editingProperty, setEditingProperty] = useState<Property | null>(null);
+  const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
 
   const openForm = (property?: Property) => {
     setEditingProperty(property || null);
+    setImageFile(null);
     setImagePreview(property?.imageUrl || null);
     setIsFormOpen(true);
   };
 
   const closeForm = () => {
     setEditingProperty(null);
+    setImageFile(null);
     setImagePreview(null);
     setIsFormOpen(false);
   };
@@ -36,6 +44,7 @@ export default function HomesAdmin() {
   const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files[0]) {
       const file = event.target.files[0];
+      setImageFile(file);
       const reader = new FileReader();
       reader.onloadend = () => {
         setImagePreview(reader.result as string);
@@ -44,29 +53,53 @@ export default function HomesAdmin() {
     }
   };
 
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const formData = new FormData(event.currentTarget);
-    const newProperty: Property = {
-      id: editingProperty ? editingProperty.id : String(Date.now()),
-      title: formData.get('title') as string,
-      location: formData.get('location') as string,
-      pricePerNight: Number(formData.get('pricePerNight')),
-      rating: editingProperty ? editingProperty.rating : 0, // Keep existing rating
-      imageUrl: imagePreview || editingProperty?.imageUrl || 'https://placehold.co/600x400.png',
-      aiHint: editingProperty?.aiHint || formData.get('title')?.toString().toLowerCase().split(' ').slice(0,2).join(' ') || 'new home',
-    };
+    setIsUploading(true);
+    let imageUrl = editingProperty?.imageUrl;
 
-    if (editingProperty) {
-      updateRentalProperty(newProperty);
-    } else {
-      addRentalProperty(newProperty);
+    try {
+      if (imageFile) {
+        toast({ title: 'Uploading image...' });
+        const storageRef = ref(storage, `rental-properties/${Date.now()}-${imageFile.name}`);
+        const snapshot = await uploadBytes(storageRef, imageFile);
+        imageUrl = await getDownloadURL(snapshot.ref);
+        toast({ title: 'Image uploaded!' });
+      }
+
+      const formData = new FormData(event.currentTarget);
+      const propertyData = {
+        title: formData.get('title') as string,
+        location: formData.get('location') as string,
+        pricePerNight: Number(formData.get('pricePerNight')),
+        rating: editingProperty ? editingProperty.rating : 0,
+        imageUrl: imageUrl || 'https://placehold.co/600x400.png',
+        aiHint: formData.get('title')?.toString().toLowerCase().split(' ').slice(0,2).join(' ') || 'new home',
+      };
+
+      if (editingProperty) {
+        await updateRentalProperty({ ...propertyData, id: editingProperty.id });
+        toast({ title: 'Property Updated' });
+      } else {
+        await addRentalProperty(propertyData);
+        toast({ title: 'Property Added' });
+      }
+      closeForm();
+    } catch (error) {
+      console.error("Error saving property:", error);
+      toast({ variant: 'destructive', title: 'Save Failed' });
+    } finally {
+      setIsUploading(false);
     }
-    closeForm();
   };
 
-  const handleDelete = (id: string) => {
-    deleteRentalProperty(id);
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteRentalProperty(id);
+      toast({ title: 'Property Deleted' });
+    } catch (error) {
+      toast({ variant: 'destructive', title: 'Delete Failed' });
+    }
   };
 
   return (
@@ -86,6 +119,11 @@ export default function HomesAdmin() {
                 <CardDescription>Manage your rental properties.</CardDescription>
             </CardHeader>
             <CardContent>
+                {loading ? (
+                    <div className="flex justify-center items-center h-64">
+                        <Loader2 className="h-8 w-8 animate-spin" />
+                    </div>
+                ) : (
                 <Table>
                     <TableHeader>
                         <TableRow>
@@ -130,9 +168,7 @@ export default function HomesAdmin() {
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent align="end">
                                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                        <DropdownMenuItem onClick={() => alert('Viewing details for ' + property.title)}>View Details</DropdownMenuItem>
                                         <DropdownMenuItem onClick={() => openForm(property)}>Edit</DropdownMenuItem>
-                                        <DropdownMenuItem>Manage Bookings</DropdownMenuItem>
                                         <AlertDialog>
                                             <AlertDialogTrigger asChild>
                                                 <DropdownMenuItem onSelect={(e) => e.preventDefault()}>Delete</DropdownMenuItem>
@@ -157,6 +193,7 @@ export default function HomesAdmin() {
                         ))}
                     </TableBody>
                 </Table>
+                )}
             </CardContent>
             <CardFooter>
                 <div className="text-xs text-muted-foreground">
@@ -177,15 +214,15 @@ export default function HomesAdmin() {
                     <div className="grid gap-4 py-4">
                         <div className="grid grid-cols-4 items-center gap-4">
                             <Label htmlFor="title" className="text-right">Title</Label>
-                            <Input id="title" name="title" defaultValue={editingProperty?.title} className="col-span-3" />
+                            <Input id="title" name="title" defaultValue={editingProperty?.title} className="col-span-3" required />
                         </div>
                         <div className="grid grid-cols-4 items-center gap-4">
                             <Label htmlFor="location" className="text-right">Location</Label>
-                            <Input id="location" name="location" defaultValue={editingProperty?.location} className="col-span-3" />
+                            <Input id="location" name="location" defaultValue={editingProperty?.location} className="col-span-3" required />
                         </div>
                         <div className="grid grid-cols-4 items-center gap-4">
                             <Label htmlFor="pricePerNight" className="text-right">Price/Night (TZS)</Label>
-                            <Input id="pricePerNight" name="pricePerNight" type="number" defaultValue={editingProperty?.pricePerNight} className="col-span-3" />
+                            <Input id="pricePerNight" name="pricePerNight" type="number" defaultValue={editingProperty?.pricePerNight} className="col-span-3" required />
                         </div>
                         <div className="grid grid-cols-4 items-center gap-4">
                             <Label htmlFor="image" className="text-right">Image</Label>
@@ -204,7 +241,10 @@ export default function HomesAdmin() {
                          <DialogClose asChild>
                             <Button type="button" variant="secondary" onClick={closeForm}>Cancel</Button>
                         </DialogClose>
-                        <Button type="submit">{editingProperty ? 'Save Changes' : 'Add Property'}</Button>
+                        <Button type="submit" disabled={isUploading}>
+                            {isUploading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            {editingProperty ? 'Save Changes' : 'Add Property'}
+                        </Button>
                     </DialogFooter>
                 </form>
             </DialogContent>

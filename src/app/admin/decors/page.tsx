@@ -5,7 +5,7 @@ import React, { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { MoreHorizontal, PlusCircle } from "lucide-react";
+import { MoreHorizontal, PlusCircle, Loader2 } from "lucide-react";
 import Image from "next/image";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
@@ -15,21 +15,29 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import type { Product } from '@/lib/types';
 import { usePavoData } from '@/context/data-context';
+import { storage } from '@/lib/firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { useToast } from '@/hooks/use-toast';
 
 export default function DecorsAdmin() {
-  const { decorProducts, addDecorProduct, updateDecorProduct, deleteDecorProduct } = usePavoData();
+  const { decorProducts, addDecorProduct, updateDecorProduct, deleteDecorProduct, loading } = usePavoData();
+  const { toast } = useToast();
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
 
   const openForm = (product?: Product) => {
     setEditingProduct(product || null);
+    setImageFile(null);
     setImagePreview(product?.imageUrl || null);
     setIsFormOpen(true);
   };
 
   const closeForm = () => {
     setEditingProduct(null);
+    setImageFile(null);
     setImagePreview(null);
     setIsFormOpen(false);
   };
@@ -37,6 +45,7 @@ export default function DecorsAdmin() {
   const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files[0]) {
       const file = event.target.files[0];
+      setImageFile(file);
       const reader = new FileReader();
       reader.onloadend = () => {
         setImagePreview(reader.result as string);
@@ -45,29 +54,53 @@ export default function DecorsAdmin() {
     }
   };
 
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const formData = new FormData(event.currentTarget);
-    const newProduct: Product = {
-      id: editingProduct ? editingProduct.id : String(Date.now()),
-      name: formData.get('name') as string,
-      category: formData.get('category') as string,
-      price: Number(formData.get('price')),
-      stock: Number(formData.get('stock')),
-      imageUrl: imagePreview || editingProduct?.imageUrl || 'https://placehold.co/600x400.png',
-      aiHint: editingProduct?.aiHint || formData.get('name')?.toString().toLowerCase().split(' ').slice(0,2).join(' ') || 'new decor',
-    };
+    setIsUploading(true);
+    let imageUrl = editingProduct?.imageUrl;
 
-    if (editingProduct) {
-      updateDecorProduct(newProduct);
-    } else {
-      addDecorProduct(newProduct);
+    try {
+      if (imageFile) {
+        toast({ title: 'Uploading image...', description: 'Please wait.' });
+        const storageRef = ref(storage, `decor-products/${Date.now()}-${imageFile.name}`);
+        const snapshot = await uploadBytes(storageRef, imageFile);
+        imageUrl = await getDownloadURL(snapshot.ref);
+        toast({ title: 'Image uploaded!', description: 'You can now save the product.' });
+      }
+
+      const formData = new FormData(event.currentTarget);
+      const productData = {
+        name: formData.get('name') as string,
+        category: formData.get('category') as string,
+        price: Number(formData.get('price')),
+        stock: Number(formData.get('stock')),
+        imageUrl: imageUrl || 'https://placehold.co/600x400.png',
+        aiHint: formData.get('name')?.toString().toLowerCase().split(' ').slice(0,2).join(' ') || 'new decor',
+      };
+
+      if (editingProduct) {
+        await updateDecorProduct({ ...productData, id: editingProduct.id });
+        toast({ title: 'Product Updated', description: `${productData.name} has been updated successfully.` });
+      } else {
+        await addDecorProduct(productData);
+        toast({ title: 'Product Added', description: `${productData.name} has been added to your catalog.` });
+      }
+      closeForm();
+    } catch (error) {
+      console.error("Error saving product:", error);
+      toast({ variant: 'destructive', title: 'Save Failed', description: 'There was an error saving the product.' });
+    } finally {
+      setIsUploading(false);
     }
-    closeForm();
   };
 
-  const handleDelete = (id: string) => {
-    deleteDecorProduct(id);
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteDecorProduct(id);
+      toast({ title: 'Product Deleted', description: 'The product has been removed.' });
+    } catch (error) {
+       toast({ variant: 'destructive', title: 'Delete Failed', description: 'There was an error deleting the product.' });
+    }
   };
 
   return (
@@ -87,6 +120,11 @@ export default function DecorsAdmin() {
                 <CardDescription>Manage your decor products and inventory.</CardDescription>
             </CardHeader>
             <CardContent>
+                {loading ? (
+                    <div className="flex justify-center items-center h-64">
+                        <Loader2 className="h-8 w-8 animate-spin" />
+                    </div>
+                ) : (
                 <Table>
                     <TableHeader>
                         <TableRow>
@@ -137,7 +175,6 @@ export default function DecorsAdmin() {
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent align="end">
                                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                        <DropdownMenuItem onClick={() => alert('Viewing details for ' + product.name)}>View Details</DropdownMenuItem>
                                         <DropdownMenuItem onClick={() => openForm(product)}>Edit</DropdownMenuItem>
                                         <AlertDialog>
                                             <AlertDialogTrigger asChild>
@@ -163,6 +200,7 @@ export default function DecorsAdmin() {
                         ))}
                     </TableBody>
                 </Table>
+                )}
             </CardContent>
             <CardFooter>
                 <div className="text-xs text-muted-foreground">
@@ -183,19 +221,19 @@ export default function DecorsAdmin() {
                     <div className="grid gap-4 py-4">
                         <div className="grid grid-cols-4 items-center gap-4">
                             <Label htmlFor="name" className="text-right">Name</Label>
-                            <Input id="name" name="name" defaultValue={editingProduct?.name} className="col-span-3" />
+                            <Input id="name" name="name" defaultValue={editingProduct?.name} className="col-span-3" required />
                         </div>
                         <div className="grid grid-cols-4 items-center gap-4">
                             <Label htmlFor="category" className="text-right">Category</Label>
-                            <Input id="category" name="category" defaultValue={editingProduct?.category} className="col-span-3" />
+                            <Input id="category" name="category" defaultValue={editingProduct?.category} className="col-span-3" required />
                         </div>
                         <div className="grid grid-cols-4 items-center gap-4">
                             <Label htmlFor="price" className="text-right">Price (TZS)</Label>
-                            <Input id="price" name="price" type="number" defaultValue={editingProduct?.price} className="col-span-3" />
+                            <Input id="price" name="price" type="number" defaultValue={editingProduct?.price} className="col-span-3" required />
                         </div>
                         <div className="grid grid-cols-4 items-center gap-4">
                             <Label htmlFor="stock" className="text-right">Stock</Label>
-                            <Input id="stock" name="stock" type="number" defaultValue={editingProduct?.stock} className="col-span-3" />
+                            <Input id="stock" name="stock" type="number" defaultValue={editingProduct?.stock} className="col-span-3" required />
                         </div>
                         <div className="grid grid-cols-4 items-center gap-4">
                             <Label htmlFor="image" className="text-right">Image</Label>
@@ -214,7 +252,10 @@ export default function DecorsAdmin() {
                          <DialogClose asChild>
                             <Button type="button" variant="secondary" onClick={closeForm}>Cancel</Button>
                         </DialogClose>
-                        <Button type="submit">{editingProduct ? 'Save Changes' : 'Add Product'}</Button>
+                        <Button type="submit" disabled={isUploading}>
+                            {isUploading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            {editingProduct ? 'Save Changes' : 'Add Product'}
+                        </Button>
                     </DialogFooter>
                 </form>
             </DialogContent>
