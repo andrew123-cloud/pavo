@@ -61,16 +61,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
   // Load state from localStorage on initial render
   useEffect(() => {
     try {
-      const storedData = localStorage.getItem('pavo-data');
+      const storedData = localStorage.getItem('pavo-data-no-settings');
       if (storedData) {
         const parsedData = JSON.parse(storedData);
-        // Ensure all top-level keys exist and have defaults
-        if (!parsedData.orders) parsedData.orders = [];
-        if (!parsedData.bookings) parsedData.bookings = [];
-        if (!parsedData.siteSettings) parsedData.siteSettings = initialSiteSettings;
-        if (!parsedData.siteSettings.founder.imageUrls) parsedData.siteSettings.founder.imageUrls = ['/palvin-portrait.jpg'];
-        if (!parsedData.siteSettings.heroImages) parsedData.siteSettings.heroImages = initialSiteSettings.heroImages;
-        setData(parsedData);
+        // We restore everything EXCEPT site settings
+        setData(prevData => ({
+          ...prevData, // start with initial data (including site settings)
+          ...parsedData, // overwrite with saved data
+        }));
       }
       const storedCart = localStorage.getItem('pavo-cart');
       if (storedCart) {
@@ -85,7 +83,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
   // Save state to localStorage whenever it changes
   useEffect(() => {
     if (isLoaded) {
-      localStorage.setItem('pavo-data', JSON.stringify(data));
+      // Create a new object without siteSettings to avoid storage quota errors
+      const { siteSettings, ...restOfData } = data;
+      localStorage.setItem('pavo-data-no-settings', JSON.stringify(restOfData));
     }
   }, [data, isLoaded]);
 
