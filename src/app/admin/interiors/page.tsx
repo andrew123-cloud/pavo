@@ -107,6 +107,12 @@ export default function InteriorsAdmin() {
 
     try {
       toast({ title: 'Saving portfolio item...' });
+      
+      // Set uploading to true at the beginning of the process
+      if(beforeImageFile || afterImageFile) {
+        setIsUploading(true);
+      }
+      
       const [beforeImageUrl, afterImageUrl] = await Promise.all([
         uploadImage(beforeImageFile, 'before'),
         uploadImage(afterImageFile, 'after')
@@ -147,7 +153,7 @@ export default function InteriorsAdmin() {
     }
   };
 
-  const isAnyImageUploading = Object.values(uploadProgress).some(p => p > 0 && p < 100);
+  const isAnyImageUploading = isUploading && Object.values(uploadProgress).some(p => p > 0 && p < 100);
 
   return (
     <div>
