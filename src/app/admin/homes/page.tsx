@@ -23,7 +23,7 @@ export default function HomesAdmin() {
   const { rentalProperties, addRentalProperty, updateRentalProperty, deleteRentalProperty, loading } = usePavoData();
   const { toast } = useToast();
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [editingProperty, setEditingProperty] = useState<Property | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -41,6 +41,7 @@ export default function HomesAdmin() {
     setImageFile(null);
     setImagePreview(null);
     setUploadProgress(0);
+    setIsSubmitting(false);
     setIsFormOpen(false);
   };
 
@@ -58,7 +59,6 @@ export default function HomesAdmin() {
 
   const uploadImage = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
-      setIsUploading(true);
       setUploadProgress(0);
       const storageRef = ref(storage, `rental-properties/${Date.now()}-${file.name}`);
       const uploadTask = uploadBytesResumable(storageRef, file);
@@ -70,12 +70,10 @@ export default function HomesAdmin() {
         },
         (error) => {
           console.error("Upload failed:", error);
-          setIsUploading(false);
           reject(error);
         },
         () => {
           getDownloadURL(uploadTask.snapshot.ref).then((downloadURL) => {
-            setIsUploading(false);
             setUploadProgress(100);
             resolve(downloadURL);
           });
@@ -86,6 +84,8 @@ export default function HomesAdmin() {
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setIsSubmitting(true);
+    
     const formData = new FormData(event.currentTarget);
     let imageUrl = editingProperty?.imageUrl;
 
@@ -93,14 +93,13 @@ export default function HomesAdmin() {
       if (imageFile) {
         toast({ title: 'Uploading image...' });
         imageUrl = await uploadImage(imageFile);
-        toast({ title: 'Image uploaded!' });
       }
 
       const propertyData = {
         title: formData.get('title') as string,
         location: formData.get('location') as string,
         pricePerNight: Number(formData.get('pricePerNight')),
-        rating: editingProperty ? editingProperty.rating : 0,
+        rating: editingProperty?.rating || 0, // Keep existing rating or default to 0
         imageUrl: imageUrl || 'https://placehold.co/600x400.png',
         aiHint: formData.get('title')?.toString().toLowerCase().split(' ').slice(0,2).join(' ') || 'new home',
       };
@@ -116,7 +115,7 @@ export default function HomesAdmin() {
     } catch (error) {
       console.error("Error saving property:", error);
       toast({ variant: 'destructive', title: 'Save Failed' });
-      setIsUploading(false);
+      setIsSubmitting(false);
     }
   };
 
@@ -263,7 +262,7 @@ export default function HomesAdmin() {
                                 </div>
                             </div>
                         )}
-                        {isUploading && (
+                        {isSubmitting && uploadProgress > 0 && (
                              <div className="grid grid-cols-4 items-center gap-4">
                                 <Label className="text-right">Progress</Label>
                                 <div className="col-span-3">
@@ -276,8 +275,8 @@ export default function HomesAdmin() {
                          <DialogClose asChild>
                             <Button type="button" variant="secondary" onClick={closeForm}>Cancel</Button>
                         </DialogClose>
-                        <Button type="submit" disabled={isUploading}>
-                            {isUploading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        <Button type="submit" disabled={isSubmitting}>
+                            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                             {editingProperty ? 'Save Changes' : 'Add Property'}
                         </Button>
                     </DialogFooter>

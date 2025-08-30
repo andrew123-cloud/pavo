@@ -24,7 +24,7 @@ export default function InteriorsAdmin() {
   const { portfolioItems, addPortfolioItem, updatePortfolioItem, deletePortfolioItem, loading } = usePavoData();
   const { toast } = useToast();
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<{ [key: string]: number }>({});
   const [editingItem, setEditingItem] = useState<PortfolioItem | null>(null);
 
@@ -50,6 +50,7 @@ export default function InteriorsAdmin() {
     setAfterImagePreview(null);
     setBeforeImagePreview(null);
     setUploadProgress({});
+    setIsSubmitting(false);
     setIsFormOpen(false);
   };
 
@@ -75,7 +76,6 @@ export default function InteriorsAdmin() {
       if (!file) {
         return resolve(null);
       }
-      setIsUploading(true);
       setUploadProgress(prev => ({ ...prev, [path]: 0 }));
 
       const storageRef = ref(storage, `portfolio/${path}/${Date.now()}-${file.name}`);
@@ -88,7 +88,6 @@ export default function InteriorsAdmin() {
         },
         (error) => {
           console.error(`Upload of ${path} image failed:`, error);
-          setIsUploading(false);
           reject(error);
         },
         () => {
@@ -103,22 +102,17 @@ export default function InteriorsAdmin() {
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setIsSubmitting(true);
+
     const formData = new FormData(event.currentTarget);
 
     try {
       toast({ title: 'Saving portfolio item...' });
       
-      // Set uploading to true at the beginning of the process
-      if(beforeImageFile || afterImageFile) {
-        setIsUploading(true);
-      }
-      
       const [beforeImageUrl, afterImageUrl] = await Promise.all([
         uploadImage(beforeImageFile, 'before'),
         uploadImage(afterImageFile, 'after')
       ]);
-
-      setIsUploading(false);
       
       const itemData = {
         title: formData.get('title') as string,
@@ -140,7 +134,7 @@ export default function InteriorsAdmin() {
     } catch (error) {
       console.error("Error saving portfolio item:", error);
       toast({ variant: 'destructive', title: 'Save Failed' });
-      setIsUploading(false);
+      setIsSubmitting(false);
     }
   };
 
@@ -153,7 +147,7 @@ export default function InteriorsAdmin() {
     }
   };
 
-  const isAnyImageUploading = isUploading && Object.values(uploadProgress).some(p => p > 0 && p < 100);
+  const isAnyImageUploading = Object.values(uploadProgress).some(p => p > 0 && p < 100);
 
   return (
     <div>
@@ -289,7 +283,7 @@ export default function InteriorsAdmin() {
                                 </div>
                             </div>
                         )}
-                        {uploadProgress.before > 0 && (
+                        {isSubmitting && uploadProgress.before > 0 && (
                             <div className="grid grid-cols-4 items-center gap-4">
                                <Label className="text-right">Progress</Label>
                                <div className="col-span-3"><Progress value={uploadProgress.before} /></div>
@@ -310,7 +304,7 @@ export default function InteriorsAdmin() {
                                 </div>
                             </div>
                         )}
-                        {uploadProgress.after > 0 && (
+                        {isSubmitting && uploadProgress.after > 0 && (
                             <div className="grid grid-cols-4 items-center gap-4">
                                <Label className="text-right">Progress</Label>
                                <div className="col-span-3"><Progress value={uploadProgress.after} /></div>
@@ -321,8 +315,8 @@ export default function InteriorsAdmin() {
                         <DialogClose asChild>
                             <Button type="button" variant="secondary" onClick={closeForm}>Cancel</Button>
                         </DialogClose>
-                        <Button type="submit" disabled={isAnyImageUploading}>
-                            {isAnyImageUploading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        <Button type="submit" disabled={isSubmitting || isAnyImageUploading}>
+                            {(isSubmitting || isAnyImageUploading) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                             {editingItem ? 'Save Changes' : 'Add Item'}
                         </Button>
                     </DialogFooter>

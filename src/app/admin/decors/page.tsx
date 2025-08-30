@@ -24,7 +24,7 @@ export default function DecorsAdmin() {
   const { decorProducts, addDecorProduct, updateDecorProduct, deleteDecorProduct, loading } = usePavoData();
   const { toast } = useToast();
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -42,6 +42,7 @@ export default function DecorsAdmin() {
     setImageFile(null);
     setImagePreview(null);
     setUploadProgress(0);
+    setIsSubmitting(false);
     setIsFormOpen(false);
   };
 
@@ -59,7 +60,6 @@ export default function DecorsAdmin() {
 
   const uploadImage = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
-      setIsUploading(true);
       setUploadProgress(0);
       const storageRef = ref(storage, `decor-products/${Date.now()}-${file.name}`);
       const uploadTask = uploadBytesResumable(storageRef, file);
@@ -71,12 +71,10 @@ export default function DecorsAdmin() {
         },
         (error) => {
           console.error("Upload failed:", error);
-          setIsUploading(false);
           reject(error);
         },
         () => {
           getDownloadURL(uploadTask.snapshot.ref).then((downloadURL) => {
-            setIsUploading(false);
             setUploadProgress(100);
             resolve(downloadURL);
           });
@@ -87,6 +85,8 @@ export default function DecorsAdmin() {
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setIsSubmitting(true);
+
     const formData = new FormData(event.currentTarget);
     let imageUrl = editingProduct?.imageUrl;
 
@@ -94,7 +94,6 @@ export default function DecorsAdmin() {
       if (imageFile) {
         toast({ title: 'Uploading image...', description: 'Please wait.' });
         imageUrl = await uploadImage(imageFile);
-        toast({ title: 'Image uploaded!', description: 'You can now save the product.' });
       }
 
       const productData = {
@@ -117,7 +116,7 @@ export default function DecorsAdmin() {
     } catch (error) {
       console.error("Error saving product:", error);
       toast({ variant: 'destructive', title: 'Save Failed', description: 'There was an error saving the product.' });
-      setIsUploading(false);
+      setIsSubmitting(false);
     }
   };
 
@@ -274,7 +273,7 @@ export default function DecorsAdmin() {
                                 </div>
                             </div>
                         )}
-                        {isUploading && (
+                        {isSubmitting && uploadProgress > 0 && (
                              <div className="grid grid-cols-4 items-center gap-4">
                                 <Label className="text-right">Progress</Label>
                                 <div className="col-span-3">
@@ -287,8 +286,8 @@ export default function DecorsAdmin() {
                          <DialogClose asChild>
                             <Button type="button" variant="secondary" onClick={closeForm}>Cancel</Button>
                         </DialogClose>
-                        <Button type="submit" disabled={isUploading}>
-                            {isUploading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        <Button type="submit" disabled={isSubmitting}>
+                            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                             {editingProduct ? 'Save Changes' : 'Add Product'}
                         </Button>
                     </DialogFooter>
