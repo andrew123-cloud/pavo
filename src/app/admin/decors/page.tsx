@@ -96,10 +96,9 @@ export default function DecorsAdmin() {
         imageUrl = await uploadImage(imageFile);
       }
 
-      if (!imageUrl) {
+      if (!imageUrl && !editingProduct) {
         toast({ variant: 'destructive', title: 'Image Required', description: 'Please select an image for the product.' });
-        setIsSubmitting(false);
-        return;
+        return; // Early return
       }
       
       const productData = {
@@ -107,7 +106,7 @@ export default function DecorsAdmin() {
         category: formData.get('category') as string,
         price: Number(formData.get('price')),
         stock: Number(formData.get('stock')),
-        imageUrl: imageUrl,
+        imageUrl: imageUrl!,
         aiHint: (formData.get('name') as string).toLowerCase().split(' ').slice(0,2).join(' ') || 'new decor',
       };
 
@@ -116,11 +115,14 @@ export default function DecorsAdmin() {
       } else {
         await addDecorProduct(productData);
       }
-      closeForm();
+      
+      closeForm(); // Close form only on success
+
     } catch (error) {
-      // Error toast is handled by the context
+      // Error toast is handled by the context, but we can log it here too.
       console.error("Error saving product:", error);
     } finally {
+      // This will run whether the try block succeeded or failed.
       setIsSubmitting(false);
     }
   };
@@ -239,7 +241,7 @@ export default function DecorsAdmin() {
             </CardFooter>
         </Card>
 
-        <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+        <Dialog open={isFormOpen} onOpenChange={(open) => !isSubmitting && setIsFormOpen(open)}>
             <DialogContent className="sm:max-w-[425px]">
                 <form onSubmit={handleSubmit}>
                     <DialogHeader>
@@ -288,7 +290,7 @@ export default function DecorsAdmin() {
                     </div>
                     <DialogFooter>
                          <DialogClose asChild>
-                            <Button type="button" variant="secondary" onClick={closeForm}>Cancel</Button>
+                            <Button type="button" variant="secondary" onClick={closeForm} disabled={isSubmitting}>Cancel</Button>
                         </DialogClose>
                         <Button type="submit" disabled={isSubmitting}>
                             {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
