@@ -135,10 +135,10 @@ export default function InteriorsAdmin() {
       ]);
       
       const afterImageUrl = afterImageUrlResult || editingItem?.imageUrl;
+      const beforeImageUrl = beforeImageUrlResult || editingItem?.beforeImageUrl;
 
       if (!afterImageUrl) {
           toast({ variant: 'destructive', title: 'Image Required', description: "The 'After' image is required." });
-          setIsSubmitting(false);
           return;
       }
       
@@ -147,7 +147,7 @@ export default function InteriorsAdmin() {
         location: formData.get('location') as string,
         description: formData.get('description') as string,
         imageUrl: afterImageUrl,
-        beforeImageUrl: beforeImageUrlResult || editingItem?.beforeImageUrl || undefined,
+        beforeImageUrl: beforeImageUrl || undefined,
         aiHint: (formData.get('title') as string).toLowerCase().split(' ').slice(0,2).join(' ') || "new interior"
       };
 

@@ -60,11 +60,7 @@ export default function DecorsAdmin() {
       try {
         const compressedFile = await imageCompression(file, options);
         setImageFile(compressedFile);
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          setImagePreview(reader.result as string);
-        };
-        reader.readAsDataURL(compressedFile);
+        setImagePreview(URL.createObjectURL(compressedFile));
       } catch (error) {
         console.error('Error compressing image:', error);
         setImageFile(file); // Fallback to original file
@@ -116,10 +112,9 @@ export default function DecorsAdmin() {
         imageUrl = await uploadImage(imageFile);
       }
 
-      if (!imageUrl && !editingProduct) {
+      if (!imageUrl) {
         toast({ variant: 'destructive', title: 'Image Required', description: 'Please select an image for the product.' });
-        setIsSubmitting(false);
-        return;
+        return; // No need for finally, just return
       }
       
       const productData = {
