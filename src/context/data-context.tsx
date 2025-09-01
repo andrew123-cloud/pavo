@@ -65,12 +65,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const settingsDoc = doc(db, 'settings', 'site');
 
     const unsubs: (() => void)[] = [];
-    let loadedParts = 0;
-    const totalParts = 6; // The number of collections we are loading
+    const partsToLoad = {
+        portfolio: false,
+        decors: false,
+        homes: false,
+        orders: false,
+        bookings: false,
+        settings: false
+    };
 
-    const checkAllLoaded = () => {
-        loadedParts++;
-        if (loadedParts === totalParts) {
+    const checkLoading = () => {
+        // We consider the app "loaded" when essential public data is ready.
+        // Admin data can continue to load in the background.
+        if (partsToLoad.portfolio && partsToLoad.decors && partsToLoad.homes && partsToLoad.settings) {
             setLoading(false);
         }
     };
@@ -78,42 +85,47 @@ export function DataProvider({ children }: { children: ReactNode }) {
     unsubs.push(onSnapshot(portfolioQuery, (snapshot) => {
         const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as PortfolioItem));
         setData(prev => ({...prev, portfolioItems: items}));
-        checkAllLoaded();
-    }, (error) => { console.error("Portfolio listener failed: ", error); checkAllLoaded(); }));
+        partsToLoad.portfolio = true;
+        checkLoading();
+    }, (error) => { console.error("Portfolio listener failed: ", error); partsToLoad.portfolio = true; checkLoading(); }));
 
     unsubs.push(onSnapshot(decorsQuery, (snapshot) => {
         const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
         setData(prev => ({...prev, decorProducts: items}));
-        checkAllLoaded();
-    }, (error) => { console.error("Decor listener failed: ", error); checkAllLoaded(); }));
+        partsToLoad.decors = true;
+        checkLoading();
+    }, (error) => { console.error("Decor listener failed: ", error); partsToLoad.decors = true; checkLoading(); }));
 
     unsubs.push(onSnapshot(homesQuery, (snapshot) => {
         const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Property));
         setData(prev => ({...prev, rentalProperties: items}));
-        checkAllLoaded();
-    }, (error) => { console.error("Homes listener failed: ", error); checkAllLoaded(); }));
+        partsToLoad.homes = true;
+        checkLoading();
+    }, (error) => { console.error("Homes listener failed: ", error); partsToLoad.homes = true; checkLoading(); }));
 
     unsubs.push(onSnapshot(ordersQuery, (snapshot) => {
         const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
         setData(prev => ({...prev, orders: items}));
-        checkAllLoaded();
-    }, (error) => { console.error("Orders listener failed: ", error); checkAllLoaded(); }));
+        partsToLoad.orders = true;
+        checkLoading();
+    }, (error) => { console.error("Orders listener failed: ", error); partsToLoad.orders = true; checkLoading(); }));
     
     unsubs.push(onSnapshot(bookingsQuery, (snapshot) => {
         const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Booking));
         setData(prev => ({...prev, bookings: items}));
-        checkAllLoaded();
-    }, (error) => { console.error("Bookings listener failed: ", error); checkAllLoaded(); }));
+        partsToLoad.bookings = true;
+        checkLoading();
+    }, (error) => { console.error("Bookings listener failed: ", error); partsToLoad.bookings = true; checkLoading(); }));
 
     unsubs.push(onSnapshot(settingsDoc, async (doc) => {
         if (doc.exists()) {
             setData(prev => ({...prev, siteSettings: doc.data() as SiteSettings}));
         } else {
-            // If settings don't exist, create them with initial data
             await setDoc(settingsDoc, initialSiteSettings).catch(e => console.error("Failed to set initial site settings", e));
         }
-        checkAllLoaded();
-    }, (error) => { console.error("Settings listener failed: ", error); checkAllLoaded(); }));
+        partsToLoad.settings = true;
+        checkLoading();
+    }, (error) => { console.error("Settings listener failed: ", error); partsToLoad.settings = true; checkLoading(); }));
 
     // Unsubscribe from listeners on cleanup
     return () => {
