@@ -1,3 +1,4 @@
+
 // src/app/admin/interiors/page.tsx
 'use client';
 
@@ -109,18 +110,26 @@ export default function InteriorsAdmin() {
     try {
       toast({ title: 'Saving portfolio item...' });
       
-      const [beforeImageUrl, afterImageUrl] = await Promise.all([
+      const [beforeImageUrlResult, afterImageUrlResult] = await Promise.all([
         uploadImage(beforeImageFile, 'before'),
         uploadImage(afterImageFile, 'after')
       ]);
+      
+      const afterImageUrl = afterImageUrlResult || editingItem?.imageUrl;
+
+      if (!afterImageUrl) {
+          toast({ variant: 'destructive', title: 'Image Required', description: "The 'After' image is required." });
+          setIsSubmitting(false);
+          return;
+      }
       
       const itemData = {
         title: formData.get('title') as string,
         location: formData.get('location') as string,
         description: formData.get('description') as string,
-        imageUrl: afterImageUrl || editingItem?.imageUrl || 'https://placehold.co/600x400.png',
-        beforeImageUrl: beforeImageUrl || editingItem?.beforeImageUrl || undefined,
-        aiHint: formData.get('title')?.toString().toLowerCase().split(' ').slice(0,2).join(' ') || "new interior"
+        imageUrl: afterImageUrl,
+        beforeImageUrl: beforeImageUrlResult || editingItem?.beforeImageUrl || undefined,
+        aiHint: (formData.get('title') as string).toLowerCase().split(' ').slice(0,2).join(' ') || "new interior"
       };
 
       if (editingItem) {
@@ -283,7 +292,7 @@ export default function InteriorsAdmin() {
                                 </div>
                             </div>
                         )}
-                        {isSubmitting && uploadProgress.before > 0 && (
+                        {isSubmitting && uploadProgress.before > 0 && uploadProgress.before < 100 && (
                             <div className="grid grid-cols-4 items-center gap-4">
                                <Label className="text-right">Progress</Label>
                                <div className="col-span-3"><Progress value={uploadProgress.before} /></div>
@@ -304,7 +313,7 @@ export default function InteriorsAdmin() {
                                 </div>
                             </div>
                         )}
-                        {isSubmitting && uploadProgress.after > 0 && (
+                        {isSubmitting && uploadProgress.after > 0 && uploadProgress.after < 100 && (
                             <div className="grid grid-cols-4 items-center gap-4">
                                <Label className="text-right">Progress</Label>
                                <div className="col-span-3"><Progress value={uploadProgress.after} /></div>

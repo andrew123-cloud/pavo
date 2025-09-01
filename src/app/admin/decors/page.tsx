@@ -1,3 +1,4 @@
+
 // src/app/admin/decors/page.tsx
 'use client';
 
@@ -96,13 +97,19 @@ export default function DecorsAdmin() {
         imageUrl = await uploadImage(imageFile);
       }
 
+      if (!imageUrl) {
+        toast({ variant: 'destructive', title: 'Image Required', description: 'Please select an image for the product.' });
+        setIsSubmitting(false);
+        return;
+      }
+      
       const productData = {
         name: formData.get('name') as string,
         category: formData.get('category') as string,
         price: Number(formData.get('price')),
         stock: Number(formData.get('stock')),
-        imageUrl: imageUrl || 'https://placehold.co/600x400.png',
-        aiHint: formData.get('name')?.toString().toLowerCase().split(' ').slice(0,2).join(' ') || 'new decor',
+        imageUrl: imageUrl,
+        aiHint: (formData.get('name') as string).toLowerCase().split(' ').slice(0,2).join(' ') || 'new decor',
       };
 
       if (editingProduct) {
@@ -273,7 +280,7 @@ export default function DecorsAdmin() {
                                 </div>
                             </div>
                         )}
-                        {isSubmitting && uploadProgress > 0 && (
+                        {isSubmitting && uploadProgress > 0 && uploadProgress < 100 && (
                              <div className="grid grid-cols-4 items-center gap-4">
                                 <Label className="text-right">Progress</Label>
                                 <div className="col-span-3">

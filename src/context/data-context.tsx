@@ -6,7 +6,7 @@ import React, { createContext, useContext, useState, ReactNode, useEffect } from
 import type { PavoData, PortfolioItem, Product, Property, Order, SiteSettings, Booking } from '@/lib/types';
 import { siteSettings as initialSiteSettings } from '@/lib/data';
 import { db } from '@/lib/firebase';
-import { collection, doc, setDoc, deleteDoc, writeBatch, getDoc, orderBy, query, onSnapshot, addDoc } from 'firebase/firestore';
+import { collection, doc, setDoc, deleteDoc, writeBatch, getDoc, orderBy, query, onSnapshot, addDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
 
 interface CartItem extends Product {
   quantity: number;
@@ -65,19 +65,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const settingsDoc = doc(db, 'settings', 'site');
 
     const unsubs: (() => void)[] = [];
-    const partsToLoad = {
-        portfolio: false,
-        decors: false,
-        homes: false,
-        orders: false,
-        bookings: false,
-        settings: false
-    };
+    
+    // Counter to track if initial load is complete for essential collections
+    let essentialLoads = 0;
+    const essentialCollectionsCount = 4; // portfolio, decors, homes, settings
 
     const checkLoading = () => {
-        // We consider the app "loaded" when essential public data is ready.
-        // Admin data can continue to load in the background.
-        if (partsToLoad.portfolio && partsToLoad.decors && partsToLoad.homes && partsToLoad.settings) {
+        essentialLoads++;
+        if (essentialLoads >= essentialCollectionsCount) {
             setLoading(false);
         }
     };
@@ -85,37 +80,37 @@ export function DataProvider({ children }: { children: ReactNode }) {
     unsubs.push(onSnapshot(portfolioQuery, (snapshot) => {
         const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as PortfolioItem));
         setData(prev => ({...prev, portfolioItems: items}));
-        partsToLoad.portfolio = true;
-        checkLoading();
-    }, (error) => { console.error("Portfolio listener failed: ", error); partsToLoad.portfolio = true; checkLoading(); }));
+        if(!loading) checkLoading(); else if (essentialLoads < essentialCollectionsCount) checkLoading();
+    }, (error) => { console.error("Portfolio listener failed: ", error); checkLoading(); }));
 
     unsubs.push(onSnapshot(decorsQuery, (snapshot) => {
         const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
         setData(prev => ({...prev, decorProducts: items}));
-        partsToLoad.decors = true;
-        checkLoading();
-    }, (error) => { console.error("Decor listener failed: ", error); partsToLoad.decors = true; checkLoading(); }));
+        if(!loading) checkLoading(); else if (essentialLoads < essentialCollectionsCount) checkLoading();
+    }, (error) => { console.error("Decor listener failed: ", error); checkLoading(); }));
 
     unsubs.push(onSnapshot(homesQuery, (snapshot) => {
         const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Property));
         setData(prev => ({...prev, rentalProperties: items}));
-        partsToLoad.homes = true;
-        checkLoading();
-    }, (error) => { console.error("Homes listener failed: ", error); partsToLoad.homes = true; checkLoading(); }));
+        if(!loading) checkLoading(); else if (essentialLoads < essentialCollectionsCount) checkLoading();
+    }, (error) => { console.error("Homes listener failed: ", error); checkLoading(); }));
 
     unsubs.push(onSnapshot(ordersQuery, (snapshot) => {
         const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
         setData(prev => ({...prev, orders: items}));
-        partsToLoad.orders = true;
-        checkLoading();
-    }, (error) => { console.error("Orders listener failed: ", error); partsToLoad.orders = true; checkLoading(); }));
+    }, (error) => console.error("Orders listener failed: ", error)));
     
     unsubs.push(onSnapshot(bookingsQuery, (snapshot) => {
-        const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Booking));
-        setData(prev => ({...prev, bookings: items}));
-        partsToLoad.bookings = true;
-        checkLoading();
-    }, (error) => { console.error("Bookings listener failed: ", error); partsToLoad.bookings = true; checkLoading(); }));
+        const bookingsData = snapshot.docs.map(doc => {
+            const data = doc.data();
+            return { 
+                id: doc.id, 
+                ...data,
+                createdAt: (data.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString()
+            } as Booking;
+        });
+        setData(prev => ({...prev, bookings: bookingsData}));
+    }, (error) => console.error("Bookings listener failed: ", error)));
 
     unsubs.push(onSnapshot(settingsDoc, async (doc) => {
         if (doc.exists()) {
@@ -123,9 +118,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
         } else {
             await setDoc(settingsDoc, initialSiteSettings).catch(e => console.error("Failed to set initial site settings", e));
         }
-        partsToLoad.settings = true;
-        checkLoading();
-    }, (error) => { console.error("Settings listener failed: ", error); partsToLoad.settings = true; checkLoading(); }));
+        if(!loading) checkLoading(); else if (essentialLoads < essentialCollectionsCount) checkLoading();
+    }, (error) => { console.error("Settings listener failed: ", error); checkLoading(); }));
 
     // Unsubscribe from listeners on cleanup
     return () => {
@@ -209,36 +203,31 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const addOrder = async (order: Order) => {
     const docRef = doc(db, 'orders', order.id);
     await setDoc(docRef, order);
-    // Realtime listener will update state
   };
 
   const updateOrder = async (updatedOrder: Order) => {
     const docRef = doc(db, 'orders', updatedOrder.id);
-    const { id, ...orderData } = updatedOrder; // Omit id
+    const { id, ...orderData } = updatedOrder;
     await setDoc(docRef, orderData, { merge: true });
-    // Realtime listener will update state
   };
   
   const updateSiteSettings = async (settings: SiteSettings) => {
     const docRef = doc(db, 'settings', 'site');
     await setDoc(docRef, settings);
-    // Realtime listener will update state
   };
 
   const addBooking = async (booking: Omit<Booking, 'id' | 'createdAt' | 'isRead'>) => {
-    const newBooking: Omit<Booking, 'id'> = {
+    const newBooking = {
       ...booking,
-      createdAt: new Date().toISOString(),
+      createdAt: serverTimestamp(),
       isRead: false,
     };
     await addDoc(collection(db, 'bookings'), newBooking);
-    // Realtime listener will update state
   };
 
   const markBookingAsRead = async (id: string) => {
     const docRef = doc(db, 'bookings', id);
     await setDoc(docRef, { isRead: true }, { merge: true });
-    // Realtime listener will update state
   };
 
   const markAllBookingsAsRead = async () => {
@@ -249,7 +238,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
       batch.update(docRef, { isRead: true });
     });
     await batch.commit();
-    // Realtime listener will update state
   };
 
   const addToCart = (product: Product) => {
@@ -287,7 +275,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const cartCount = cart.reduce((count, item) => count + item.quantity, 0);
 
   if (loading || !isCartLoaded) {
-    return null; // Return null or a loading spinner while data is loading
+    return null;
   }
 
   return (

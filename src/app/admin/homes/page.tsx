@@ -1,3 +1,4 @@
+
 // src/app/admin/homes/page.tsx
 'use client';
 
@@ -95,13 +96,19 @@ export default function HomesAdmin() {
         imageUrl = await uploadImage(imageFile);
       }
 
+      if (!imageUrl) {
+        toast({ variant: 'destructive', title: 'Image Required', description: 'Please select an image for the property.' });
+        setIsSubmitting(false);
+        return;
+      }
+
       const propertyData = {
         title: formData.get('title') as string,
         location: formData.get('location') as string,
         pricePerNight: Number(formData.get('pricePerNight')),
         rating: editingProperty?.rating || 0, // Keep existing rating or default to 0
-        imageUrl: imageUrl || 'https://placehold.co/600x400.png',
-        aiHint: formData.get('title')?.toString().toLowerCase().split(' ').slice(0,2).join(' ') || 'new home',
+        imageUrl: imageUrl,
+        aiHint: (formData.get('title') as string).toLowerCase().split(' ').slice(0,2).join(' ') || 'new home',
       };
 
       if (editingProperty) {
@@ -262,7 +269,7 @@ export default function HomesAdmin() {
                                 </div>
                             </div>
                         )}
-                        {isSubmitting && uploadProgress > 0 && (
+                        {isSubmitting && uploadProgress > 0 && uploadProgress < 100 && (
                              <div className="grid grid-cols-4 items-center gap-4">
                                 <Label className="text-right">Progress</Label>
                                 <div className="col-span-3">
