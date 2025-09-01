@@ -1,4 +1,3 @@
-
 // src/app/admin/homes/page.tsx
 'use client';
 
@@ -113,15 +112,13 @@ export default function HomesAdmin() {
 
       if (editingProperty) {
         await updateRentalProperty({ ...propertyData, id: editingProperty.id });
-        toast({ title: 'Property Updated' });
       } else {
         await addRentalProperty(propertyData);
-        toast({ title: 'Property Added' });
       }
       closeForm();
     } catch (error) {
+      // Error toast is handled by context
       console.error("Error saving property:", error);
-      toast({ variant: 'destructive', title: 'Save Failed' });
     } finally {
       setIsSubmitting(false);
     }
@@ -130,9 +127,8 @@ export default function HomesAdmin() {
   const handleDelete = async (id: string) => {
     try {
       await deleteRentalProperty(id);
-      toast({ title: 'Property Deleted' });
     } catch (error) {
-      toast({ variant: 'destructive', title: 'Delete Failed' });
+      // Error toast is handled by context
     }
   };
 

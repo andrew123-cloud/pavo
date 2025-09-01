@@ -1,4 +1,3 @@
-
 // src/app/admin/decors/page.tsx
 'use client';
 
@@ -114,15 +113,13 @@ export default function DecorsAdmin() {
 
       if (editingProduct) {
         await updateDecorProduct({ ...productData, id: editingProduct.id });
-        toast({ title: 'Product Updated', description: `${productData.name} has been updated successfully.` });
       } else {
         await addDecorProduct(productData);
-        toast({ title: 'Product Added', description: `${productData.name} has been added to your catalog.` });
       }
       closeForm();
     } catch (error) {
+      // Error toast is handled by the context
       console.error("Error saving product:", error);
-      toast({ variant: 'destructive', title: 'Save Failed', description: 'There was an error saving the product.' });
     } finally {
       setIsSubmitting(false);
     }
@@ -131,9 +128,8 @@ export default function DecorsAdmin() {
   const handleDelete = async (id: string) => {
     try {
       await deleteDecorProduct(id);
-      toast({ title: 'Product Deleted', description: 'The product has been removed.' });
     } catch (error) {
-       toast({ variant: 'destructive', title: 'Delete Failed', description: 'There was an error deleting the product.' });
+       // Error toast is handled by context
     }
   };
 

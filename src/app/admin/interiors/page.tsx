@@ -1,4 +1,3 @@
-
 // src/app/admin/interiors/page.tsx
 'use client';
 
@@ -134,15 +133,13 @@ export default function InteriorsAdmin() {
 
       if (editingItem) {
         await updatePortfolioItem({ ...itemData, id: editingItem.id });
-        toast({ title: 'Portfolio Item Updated' });
       } else {
         await addPortfolioItem(itemData);
-        toast({ title: 'Portfolio Item Added' });
       }
       closeForm();
     } catch (error) {
+      // Error toast is handled by context
       console.error("Error saving portfolio item:", error);
-      toast({ variant: 'destructive', title: 'Save Failed' });
     } finally {
       setIsSubmitting(false);
     }
@@ -151,9 +148,8 @@ export default function InteriorsAdmin() {
   const handleDelete = async (id: string) => {
     try {
       await deletePortfolioItem(id);
-      toast({ title: 'Item Deleted' });
     } catch(e) {
-      toast({ variant: 'destructive', title: 'Delete Failed' });
+      // Error toast is handled by context
     }
   };
 
