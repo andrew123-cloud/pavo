@@ -18,6 +18,7 @@ import { storage } from '@/lib/firebase';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { useToast } from '@/hooks/use-toast';
 import { Progress } from '@/components/ui/progress';
+import imageCompression from 'browser-image-compression';
 
 export default function HomesAdmin() {
   const { rentalProperties, addRentalProperty, updateRentalProperty, deleteRentalProperty, loading } = usePavoData();
@@ -33,6 +34,7 @@ export default function HomesAdmin() {
     setEditingProperty(property || null);
     setImageFile(null);
     setImagePreview(property?.imageUrl || null);
+    setUploadProgress(0);
     setIsFormOpen(true);
   };
 
@@ -45,15 +47,28 @@ export default function HomesAdmin() {
     setIsFormOpen(false);
   };
 
-  const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files[0]) {
       const file = event.target.files[0];
-      setImageFile(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+       const options = {
+        maxSizeMB: 1,
+        maxWidthOrHeight: 1024,
+        useWebWorker: true,
+      }
+      try {
+        const compressedFile = await imageCompression(file, options);
+        setImageFile(compressedFile);
+        setImagePreview(URL.createObjectURL(compressedFile));
+      } catch (error) {
+        console.error('Error compressing image:', error);
+        setImageFile(file); // Fallback to original file
+        setImagePreview(URL.createObjectURL(file));
+        toast({
+          variant: 'destructive',
+          title: 'Image Compression Failed',
+          description: 'The original image will be used, which may result in a slower upload.',
+        });
+      }
     }
   };
 
@@ -95,7 +110,7 @@ export default function HomesAdmin() {
         imageUrl = await uploadImage(imageFile);
       }
 
-      if (!imageUrl) {
+      if (!imageUrl && !editingProperty) {
         toast({ variant: 'destructive', title: 'Image Required', description: 'Please select an image for the property.' });
         setIsSubmitting(false);
         return;
@@ -106,7 +121,7 @@ export default function HomesAdmin() {
         location: formData.get('location') as string,
         pricePerNight: Number(formData.get('pricePerNight')),
         rating: editingProperty?.rating || 0, // Keep existing rating or default to 0
-        imageUrl: imageUrl,
+        imageUrl: imageUrl!,
         aiHint: (formData.get('title') as string).toLowerCase().split(' ').slice(0,2).join(' ') || 'new home',
       };
 
@@ -117,8 +132,8 @@ export default function HomesAdmin() {
       }
       closeForm();
     } catch (error) {
-      // Error toast is handled by context
       console.error("Error saving property:", error);
+      toast({ variant: 'destructive', title: 'Save Failed', description: 'Could not save the property. Please try again.' });
     } finally {
       setIsSubmitting(false);
     }
@@ -232,7 +247,7 @@ export default function HomesAdmin() {
             </CardFooter>
         </Card>
 
-         <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+         <Dialog open={isFormOpen} onOpenChange={(open) => !isSubmitting && setIsFormOpen(open)}>
             <DialogContent className="sm:max-w-[425px]">
                 <form onSubmit={handleSubmit}>
                     <DialogHeader>
@@ -271,13 +286,14 @@ export default function HomesAdmin() {
                                 <Label className="text-right">Progress</Label>
                                 <div className="col-span-3">
                                     <Progress value={uploadProgress} />
+                                    <span className="text-xs text-muted-foreground">Compressing & Uploading...</span>
                                 </div>
                              </div>
                         )}
                     </div>
                     <DialogFooter>
                          <DialogClose asChild>
-                            <Button type="button" variant="secondary" onClick={closeForm}>Cancel</Button>
+                            <Button type="button" variant="secondary" onClick={closeForm} disabled={isSubmitting}>Cancel</Button>
                         </DialogClose>
                         <Button type="submit" disabled={isSubmitting}>
                             {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

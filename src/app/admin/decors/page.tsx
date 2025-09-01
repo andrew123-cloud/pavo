@@ -19,6 +19,7 @@ import { storage } from '@/lib/firebase';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { useToast } from '@/hooks/use-toast';
 import { Progress } from '@/components/ui/progress';
+import imageCompression from 'browser-image-compression';
 
 export default function DecorsAdmin() {
   const { decorProducts, addDecorProduct, updateDecorProduct, deleteDecorProduct, loading } = usePavoData();
@@ -34,6 +35,7 @@ export default function DecorsAdmin() {
     setEditingProduct(product || null);
     setImageFile(null);
     setImagePreview(product?.imageUrl || null);
+    setUploadProgress(0);
     setIsFormOpen(true);
   };
 
@@ -46,15 +48,33 @@ export default function DecorsAdmin() {
     setIsFormOpen(false);
   };
 
-  const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files[0]) {
       const file = event.target.files[0];
-      setImageFile(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+      
+      const options = {
+        maxSizeMB: 1,
+        maxWidthOrHeight: 1024,
+        useWebWorker: true,
+      }
+      try {
+        const compressedFile = await imageCompression(file, options);
+        setImageFile(compressedFile);
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setImagePreview(reader.result as string);
+        };
+        reader.readAsDataURL(compressedFile);
+      } catch (error) {
+        console.error('Error compressing image:', error);
+        setImageFile(file); // Fallback to original file
+        setImagePreview(URL.createObjectURL(file));
+        toast({
+          variant: 'destructive',
+          title: 'Image Compression Failed',
+          description: 'The original image will be used, which may result in a slower upload.',
+        });
+      }
     }
   };
 
@@ -98,7 +118,8 @@ export default function DecorsAdmin() {
 
       if (!imageUrl && !editingProduct) {
         toast({ variant: 'destructive', title: 'Image Required', description: 'Please select an image for the product.' });
-        return; // Early return
+        setIsSubmitting(false);
+        return;
       }
       
       const productData = {
@@ -116,13 +137,12 @@ export default function DecorsAdmin() {
         await addDecorProduct(productData);
       }
       
-      closeForm(); // Close form only on success
+      closeForm();
 
     } catch (error) {
-      // Error toast is handled by the context, but we can log it here too.
       console.error("Error saving product:", error);
+       toast({ variant: 'destructive', title: 'Save Failed', description: 'Could not save the product. Please try again.' });
     } finally {
-      // This will run whether the try block succeeded or failed.
       setIsSubmitting(false);
     }
   };
@@ -284,6 +304,7 @@ export default function DecorsAdmin() {
                                 <Label className="text-right">Progress</Label>
                                 <div className="col-span-3">
                                     <Progress value={uploadProgress} />
+                                    <span className="text-xs text-muted-foreground">Compressing & Uploading...</span>
                                 </div>
                              </div>
                         )}

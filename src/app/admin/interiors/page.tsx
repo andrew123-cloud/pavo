@@ -19,6 +19,7 @@ import { storage } from '@/lib/firebase';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { useToast } from '@/hooks/use-toast';
 import { Progress } from '@/components/ui/progress';
+import imageCompression from 'browser-image-compression';
 
 export default function InteriorsAdmin() {
   const { portfolioItems, addPortfolioItem, updatePortfolioItem, deletePortfolioItem, loading } = usePavoData();
@@ -54,20 +55,39 @@ export default function InteriorsAdmin() {
     setIsFormOpen(false);
   };
 
-  const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>, type: 'after' | 'before') => {
+  const handleImageChange = async (event: React.ChangeEvent<HTMLInputElement>, type: 'after' | 'before') => {
     if (event.target.files && event.target.files[0]) {
       const file = event.target.files[0];
-      const reader = new FileReader();
-      reader.onloadend = () => {
+      const options = {
+        maxSizeMB: 1,
+        maxWidthOrHeight: 1024,
+        useWebWorker: true,
+      }
+      try {
+        const compressedFile = await imageCompression(file, options);
+        if (type === 'after') {
+          setAfterImageFile(compressedFile);
+          setAfterImagePreview(URL.createObjectURL(compressedFile));
+        } else {
+          setBeforeImageFile(compressedFile);
+          setBeforeImagePreview(URL.createObjectURL(compressedFile));
+        }
+      } catch (error) {
+        console.error('Error compressing image:', error);
+        toast({
+          variant: 'destructive',
+          title: 'Image Compression Failed',
+          description: 'The original image will be used, which may result in a slower upload.',
+        });
+        // Fallback to original file
         if (type === 'after') {
           setAfterImageFile(file);
-          setAfterImagePreview(reader.result as string);
+          setAfterImagePreview(URL.createObjectURL(file));
         } else {
           setBeforeImageFile(file);
-          setBeforeImagePreview(reader.result as string);
+          setBeforeImagePreview(URL.createObjectURL(file));
         }
-      };
-      reader.readAsDataURL(file);
+      }
     }
   };
   
@@ -138,8 +158,8 @@ export default function InteriorsAdmin() {
       }
       closeForm();
     } catch (error) {
-      // Error toast is handled by context
       console.error("Error saving portfolio item:", error);
+      toast({ variant: 'destructive', title: 'Save Failed', description: 'Could not save the portfolio item. Please try again.' });
     } finally {
       setIsSubmitting(false);
     }
@@ -247,7 +267,7 @@ export default function InteriorsAdmin() {
             </CardFooter>
         </Card>
 
-        <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+        <Dialog open={isFormOpen} onOpenChange={(open) => !isSubmitting && setIsFormOpen(open)}>
             <DialogContent className="sm:max-w-2xl">
                  <form onSubmit={handleSubmit}>
                     <DialogHeader>
@@ -289,7 +309,7 @@ export default function InteriorsAdmin() {
                                 </div>
                             </div>
                         )}
-                        {isSubmitting && uploadProgress.before > 0 && uploadProgress.before < 100 && (
+                        {isSubmitting && uploadProgress.before > 0 && (
                             <div className="grid grid-cols-4 items-center gap-4">
                                <Label className="text-right">Progress</Label>
                                <div className="col-span-3"><Progress value={uploadProgress.before} /></div>
@@ -310,7 +330,7 @@ export default function InteriorsAdmin() {
                                 </div>
                             </div>
                         )}
-                        {isSubmitting && uploadProgress.after > 0 && uploadProgress.after < 100 && (
+                        {isSubmitting && uploadProgress.after > 0 && (
                             <div className="grid grid-cols-4 items-center gap-4">
                                <Label className="text-right">Progress</Label>
                                <div className="col-span-3"><Progress value={uploadProgress.after} /></div>
@@ -319,7 +339,7 @@ export default function InteriorsAdmin() {
                     </div>
                     <DialogFooter>
                         <DialogClose asChild>
-                            <Button type="button" variant="secondary" onClick={closeForm}>Cancel</Button>
+                            <Button type="button" variant="secondary" onClick={closeForm} disabled={isSubmitting}>Cancel</Button>
                         </DialogClose>
                         <Button type="submit" disabled={isSubmitting || isAnyImageUploading}>
                             {(isSubmitting || isAnyImageUploading) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
