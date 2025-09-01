@@ -123,6 +123,7 @@ export default function DecorsAdmin() {
     } catch (error) {
       console.error("Error saving product:", error);
       toast({ variant: 'destructive', title: 'Save Failed', description: 'There was an error saving the product.' });
+    } finally {
       setIsSubmitting(false);
     }
   };

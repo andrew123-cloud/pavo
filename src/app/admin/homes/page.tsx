@@ -122,6 +122,7 @@ export default function HomesAdmin() {
     } catch (error) {
       console.error("Error saving property:", error);
       toast({ variant: 'destructive', title: 'Save Failed' });
+    } finally {
       setIsSubmitting(false);
     }
   };

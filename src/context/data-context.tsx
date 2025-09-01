@@ -6,7 +6,7 @@ import React, { createContext, useContext, useState, ReactNode, useEffect } from
 import type { PavoData, PortfolioItem, Product, Property, Order, SiteSettings, Booking } from '@/lib/types';
 import { siteSettings as initialSiteSettings } from '@/lib/data';
 import { db } from '@/lib/firebase';
-import { collection, doc, setDoc, deleteDoc, writeBatch, getDoc, orderBy, query, onSnapshot, addDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
+import { collection, doc, setDoc, deleteDoc, writeBatch, getDoc, orderBy, query, onSnapshot, addDoc, serverTimestamp, Timestamp, getDocs } from 'firebase/firestore';
 
 interface CartItem extends Product {
   quantity: number;
@@ -54,80 +54,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [isCartLoaded, setIsCartLoaded] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // Fetch initial data from Firestore using onSnapshot for real-time updates
-  useEffect(() => {
-    setLoading(true);
-    const portfolioQuery = query(collection(db, 'portfolioItems'), orderBy('title'));
-    const decorsQuery = query(collection(db, 'decorProducts'), orderBy('name'));
-    const homesQuery = query(collection(db, 'rentalProperties'), orderBy('title'));
-    const ordersQuery = query(collection(db, 'orders'), orderBy('created_at', 'desc'));
-    const bookingsQuery = query(collection(db, 'bookings'), orderBy('createdAt', 'desc'));
-    const settingsDoc = doc(db, 'settings', 'site');
-
-    const unsubs: (() => void)[] = [];
-    
-    // Counter to track if initial load is complete for essential collections
-    let essentialLoads = 0;
-    const essentialCollectionsCount = 4; // portfolio, decors, homes, settings
-
-    const checkLoading = () => {
-        essentialLoads++;
-        if (essentialLoads >= essentialCollectionsCount) {
-            setLoading(false);
-        }
-    };
-    
-    unsubs.push(onSnapshot(portfolioQuery, (snapshot) => {
-        const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as PortfolioItem));
-        setData(prev => ({...prev, portfolioItems: items}));
-        if(!loading) checkLoading(); else if (essentialLoads < essentialCollectionsCount) checkLoading();
-    }, (error) => { console.error("Portfolio listener failed: ", error); checkLoading(); }));
-
-    unsubs.push(onSnapshot(decorsQuery, (snapshot) => {
-        const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
-        setData(prev => ({...prev, decorProducts: items}));
-        if(!loading) checkLoading(); else if (essentialLoads < essentialCollectionsCount) checkLoading();
-    }, (error) => { console.error("Decor listener failed: ", error); checkLoading(); }));
-
-    unsubs.push(onSnapshot(homesQuery, (snapshot) => {
-        const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Property));
-        setData(prev => ({...prev, rentalProperties: items}));
-        if(!loading) checkLoading(); else if (essentialLoads < essentialCollectionsCount) checkLoading();
-    }, (error) => { console.error("Homes listener failed: ", error); checkLoading(); }));
-
-    unsubs.push(onSnapshot(ordersQuery, (snapshot) => {
-        const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
-        setData(prev => ({...prev, orders: items}));
-    }, (error) => console.error("Orders listener failed: ", error)));
-    
-    unsubs.push(onSnapshot(bookingsQuery, (snapshot) => {
-        const bookingsData = snapshot.docs.map(doc => {
-            const data = doc.data();
-            return { 
-                id: doc.id, 
-                ...data,
-                createdAt: (data.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString()
-            } as Booking;
-        });
-        setData(prev => ({...prev, bookings: bookingsData}));
-    }, (error) => console.error("Bookings listener failed: ", error)));
-
-    unsubs.push(onSnapshot(settingsDoc, async (doc) => {
-        if (doc.exists()) {
-            setData(prev => ({...prev, siteSettings: doc.data() as SiteSettings}));
-        } else {
-            await setDoc(settingsDoc, initialSiteSettings).catch(e => console.error("Failed to set initial site settings", e));
-        }
-        if(!loading) checkLoading(); else if (essentialLoads < essentialCollectionsCount) checkLoading();
-    }, (error) => { console.error("Settings listener failed: ", error); checkLoading(); }));
-
-    // Unsubscribe from listeners on cleanup
-    return () => {
-        unsubs.forEach(unsub => unsub());
-    };
-
-  }, []);
-
   // Load cart from localStorage on initial render
   useEffect(() => {
     try {
@@ -147,6 +73,88 @@ export function DataProvider({ children }: { children: ReactNode }) {
       localStorage.setItem('pavo-cart', JSON.stringify(cart));
     }
   }, [cart, isCartLoaded]);
+  
+  // This effect now correctly uses onSnapshot for real-time updates after an initial fetch.
+  useEffect(() => {
+    const collections = {
+        portfolioItems: 'portfolioItems',
+        decorProducts: 'decorProducts',
+        rentalProperties: 'rentalProperties',
+        orders: 'orders',
+        bookings: 'bookings',
+    };
+
+    const unsubs: (() => void)[] = [];
+
+    // Set up real-time listeners for all collections
+    for (const [key, collectionName] of Object.entries(collections)) {
+        let q;
+        if (collectionName === 'orders') {
+            q = query(collection(db, collectionName), orderBy('created_at', 'desc'));
+        } else if (collectionName === 'bookings') {
+            q = query(collection(db, collectionName), orderBy('createdAt', 'desc'));
+        } else if (collectionName === 'decorProducts') {
+            q = query(collection(db, collectionName), orderBy('name'));
+        } else {
+             q = query(collection(db, collectionName), orderBy('title'));
+        }
+        
+        const unsub = onSnapshot(q, (snapshot) => {
+            const items = snapshot.docs.map(doc => {
+                const docData = doc.data();
+                if (collectionName === 'bookings') {
+                    return { 
+                        id: doc.id, 
+                        ...docData,
+                        createdAt: (docData.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString()
+                    }
+                }
+                return { id: doc.id, ...docData };
+            });
+            setData(prev => ({ ...prev, [key]: items as any }));
+        }, (error) => console.error(`Error listening to ${collectionName}:`, error));
+        unsubs.push(unsub);
+    }
+
+    // Listener for site settings
+    const settingsDocRef = doc(db, 'settings', 'site');
+    const settingsUnsub = onSnapshot(settingsDocRef, (doc) => {
+        if (doc.exists()) {
+            setData(prev => ({ ...prev, siteSettings: doc.data() as SiteSettings }));
+        }
+    }, (error) => console.error("Error listening to site settings:", error));
+    unsubs.push(settingsUnsub);
+    
+    // Initial fetch to combat cold start loading issues.
+    const fetchInitialData = async () => {
+        try {
+            const portfolioSnapshot = await getDocs(query(collection(db, 'portfolioItems'), orderBy('title')));
+            const decorSnapshot = await getDocs(query(collection(db, 'decorProducts'), orderBy('name')));
+            const homesSnapshot = await getDocs(query(collection(db, 'rentalProperties'), orderBy('title')));
+            const settingsSnapshot = await getDoc(doc(db, 'settings', 'site'));
+
+            setData(prev => ({
+                ...prev,
+                portfolioItems: portfolioSnapshot.docs.map(d => ({id: d.id, ...d.data()}) as PortfolioItem),
+                decorProducts: decorSnapshot.docs.map(d => ({id: d.id, ...d.data()}) as Product),
+                rentalProperties: homesSnapshot.docs.map(d => ({id: d.id, ...d.data()}) as Property),
+                siteSettings: settingsSnapshot.exists() ? settingsSnapshot.data() as SiteSettings : initialSiteSettings,
+            }));
+
+        } catch (error) {
+            console.error("Failed to fetch initial data:", error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    fetchInitialData();
+
+    // Unsubscribe from all listeners on cleanup
+    return () => {
+        unsubs.forEach(unsub => unsub());
+    };
+  }, []);
 
   // Firestore operations
   const addPortfolioItem = async (item: Omit<PortfolioItem, 'id'>) => {
@@ -155,7 +163,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const updatePortfolioItem = async (updatedItem: PortfolioItem) => {
     const docRef = doc(db, 'portfolioItems', updatedItem.id);
-    const { id, ...itemData } = updatedItem; // Omit id from data
+    const { id, ...itemData } = updatedItem;
     await setDoc(docRef, itemData, { merge: true });
   };
 
@@ -169,7 +177,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const updateDecorProduct = async (updatedProduct: Product) => {
     const docRef = doc(db, 'decorProducts', updatedProduct.id);
-    const { id, ...productData } = updatedProduct; // Omit id
+    const { id, ...productData } = updatedProduct;
     await setDoc(docRef, productData, { merge: true });
   };
 
@@ -192,7 +200,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const updateRentalProperty = async (updatedProperty: Property) => {
     const docRef = doc(db, 'rentalProperties', updatedProperty.id);
-    const { id, ...propertyData } = updatedProperty; // Omit id
+    const { id, ...propertyData } = updatedProperty;
     await setDoc(docRef, propertyData, { merge: true });
   };
 
@@ -213,7 +221,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   
   const updateSiteSettings = async (settings: SiteSettings) => {
     const docRef = doc(db, 'settings', 'site');
-    await setDoc(docRef, settings);
+    await setDoc(docRef, settings, { merge: true });
   };
 
   const addBooking = async (booking: Omit<Booking, 'id' | 'createdAt' | 'isRead'>) => {
@@ -274,12 +282,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const cartTotal = cart.reduce((total, item) => total + item.price * item.quantity, 0);
   const cartCount = cart.reduce((count, item) => count + item.quantity, 0);
 
-  if (loading || !isCartLoaded) {
-    return null;
-  }
-
-  return (
-    <DataContext.Provider value={{ 
+  const providerValue = { 
       ...data,
       loading,
       addPortfolioItem, 
@@ -305,7 +308,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
       clearCart,
       cartTotal,
       cartCount
-    }}>
+    };
+    
+  if (loading && !Object.values(data).flat().length) {
+    return null;
+  }
+
+  return (
+    <DataContext.Provider value={providerValue}>
       {children}
     </DataContext.Provider>
   );

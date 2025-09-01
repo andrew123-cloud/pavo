@@ -143,6 +143,7 @@ export default function InteriorsAdmin() {
     } catch (error) {
       console.error("Error saving portfolio item:", error);
       toast({ variant: 'destructive', title: 'Save Failed' });
+    } finally {
       setIsSubmitting(false);
     }
   };
