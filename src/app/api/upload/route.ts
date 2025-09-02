@@ -11,12 +11,11 @@ export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
     
+    // Let Axios set the Content-Type header with the correct boundary
     const response = await axios.post(UPLOAD_FUNCTION_URL, formData, {
       headers: {
-        // Axios will automatically set the 'Content-Type' to 'multipart/form-data'
-        // and include the correct boundary, so we don't need to set it manually.
+        // Axios will set the 'Content-Type' to 'multipart/form-data' automatically
       },
-      // It's important to set the max body length to handle larger file uploads
       maxBodyLength: Infinity,
       maxContentLength: Infinity,
     });
