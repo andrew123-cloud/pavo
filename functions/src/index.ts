@@ -12,6 +12,8 @@ const corsHandler = cors({ origin: true });
 export const uploadProduct = functions
   .runWith({ memory: '512MB' })
   .https.onRequest((req, res) => {
+    // By wrapping the function in corsHandler, we enable it to handle
+    // pre-flight (OPTIONS) requests and sets the correct headers on the actual request.
     corsHandler(req, res, () => {
       if (req.method !== 'POST') {
         res.status(405).send('Method Not Allowed');
@@ -28,7 +30,8 @@ export const uploadProduct = functions
 
       const firestore = admin.firestore();
       const storage = admin.storage();
-      const bucket = storage.bucket('pavo-suite.appspot.com');
+      const bucketName = 'pavo-suite.appspot.com';
+      const bucket = storage.bucket(bucketName);
 
       bb.on('field', (fieldname, val) => {
         fields[fieldname] = val;
@@ -55,13 +58,14 @@ export const uploadProduct = functions
         
         try {
           if (upload.file && upload.filename) {
+            const fileUuid = uuidv4();
             const filePath = `${fields.collection}/${Date.now()}-${upload.filename}`;
             const file = bucket.file(filePath);
             const stream = file.createWriteStream({
               metadata: {
                 contentType: upload.mimetype,
                 metadata: {
-                  firebaseStorageDownloadTokens: uuidv4(),
+                  firebaseStorageDownloadTokens: fileUuid,
                 },
               },
               resumable: false,
@@ -77,11 +81,9 @@ export const uploadProduct = functions
                 .on('finish', resolve);
             });
             
-            // Construct the public URL manually
-            docData.imageUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(filePath)}?alt=media&token=${file.metadata.metadata.firebaseStorageDownloadTokens}`;
+            docData.imageUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(filePath)}?alt=media&token=${fileUuid}`;
 
           } else if (fields.imageUrl) {
-            // Keep the existing image if no new one is uploaded
             docData.imageUrl = fields.imageUrl;
           }
 
@@ -89,11 +91,11 @@ export const uploadProduct = functions
             // Update existing document
             const docRef = firestore.collection(fields.collection).doc(fields.id);
             await docRef.set(docData, { merge: true });
-            res.status(200).json({ message: 'Product updated successfully!', id: fields.id, ...docData });
+            res.status(200).json({ message: 'Item updated successfully!', id: fields.id, ...docData });
           } else {
             // Create new document
             const docRef = await firestore.collection(fields.collection).add(docData);
-            res.status(201).json({ message: 'Product added successfully!', id: docRef.id, ...docData });
+            res.status(201).json({ message: 'Item added successfully!', id: docRef.id, ...docData });
           }
         } catch (error: any) {
           console.error('Backend error:', error);

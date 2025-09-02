@@ -19,7 +19,8 @@ import { useToast } from '@/hooks/use-toast';
 import axios from 'axios';
 import imageCompression from 'browser-image-compression';
 
-const UPLOAD_FUNCTION_URL = 'https://us-central1-pavo-suite.cloudfunctions.net/uploadProduct';
+// Use the local proxy API route
+const UPLOAD_PROXY_URL = '/api/upload';
 
 export default function InteriorsAdmin() {
   const { portfolioItems, loading, deletePortfolioItem } = usePavoData();
@@ -28,17 +29,21 @@ export default function InteriorsAdmin() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingItem, setEditingItem] = useState<PortfolioItem | null>(null);
 
-  const [beforeImageFile, setBeforeImageFile] = useState<File | null>(null);
   const [afterImageFile, setAfterImageFile] = useState<File | null>(null);
-  const [beforeImagePreview, setBeforeImagePreview] = useState<string | null>(null);
   const [afterImagePreview, setAfterImagePreview] = useState<string | null>(null);
+
+  // Note: The current backend function only supports one file upload at a time.
+  // We will only handle the "After Image" for now. A more advanced backend function
+  // would be needed to handle multiple files in a single request.
+  const [beforeImageUrl, setBeforeImageUrl] = useState<string | null>(null);
+
 
   const openForm = (item?: PortfolioItem) => {
     setEditingItem(item || null);
-    setBeforeImageFile(null);
     setAfterImageFile(null);
     setAfterImagePreview(item?.imageUrl || null);
-    setBeforeImagePreview(item?.beforeImageUrl || null);
+    // For simplicity, we just store the 'before' URL text.
+    setBeforeImageUrl(item?.beforeImageUrl || null);
     setIsFormOpen(true);
   };
 
@@ -46,15 +51,14 @@ export default function InteriorsAdmin() {
     setIsFormOpen(false);
     setTimeout(() => {
         setEditingItem(null);
-        setBeforeImageFile(null);
         setAfterImageFile(null);
         setAfterImagePreview(null);
-        setBeforeImagePreview(null);
+        setBeforeImageUrl(null);
         setIsSubmitting(false);
     }, 300);
   };
 
-  const handleImageChange = async (event: React.ChangeEvent<HTMLInputElement>, type: 'after' | 'before') => {
+  const handleAfterImageChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files[0]) {
       const file = event.target.files[0];
       const options = {
@@ -64,13 +68,8 @@ export default function InteriorsAdmin() {
       }
       try {
         const compressedFile = await imageCompression(file, options);
-        if (type === 'after') {
-          setAfterImageFile(compressedFile);
-          setAfterImagePreview(URL.createObjectURL(compressedFile));
-        } else {
-          setBeforeImageFile(compressedFile);
-          setBeforeImagePreview(URL.createObjectURL(compressedFile));
-        }
+        setAfterImageFile(compressedFile);
+        setAfterImagePreview(URL.createObjectURL(compressedFile));
       } catch (error) {
         console.error('Error compressing image:', error);
         toast({
@@ -78,13 +77,8 @@ export default function InteriorsAdmin() {
           title: 'Image Compression Failed',
           description: 'The original image will be used, which may result in a slower upload.',
         });
-        if (type === 'after') {
-          setAfterImageFile(file);
-          setAfterImagePreview(URL.createObjectURL(file));
-        } else {
-          setBeforeImageFile(file);
-          setBeforeImagePreview(URL.createObjectURL(file));
-        }
+        setAfterImageFile(file);
+        setAfterImagePreview(URL.createObjectURL(file));
       }
     }
   };
@@ -101,14 +95,9 @@ export default function InteriorsAdmin() {
         if (editingItem.imageUrl && !afterImageFile) {
             formData.append('imageUrl', editingItem.imageUrl);
         }
-        if (editingItem.beforeImageUrl && !beforeImageFile) {
-            formData.append('beforeImageUrl', editingItem.beforeImageUrl);
-        }
     }
     
-    // We will need a more complex function that can handle multiple file uploads
-    // For now, let's simplify and handle only the 'after' image via the function
-    // and assume 'before' is manually set or not changed. This is a limitation to revisit.
+    // The server function only accepts one file named 'file', which we use for the main 'after' image.
     if (afterImageFile) {
       formData.append('file', afterImageFile);
     } else if (!editingItem?.imageUrl) {
@@ -122,9 +111,7 @@ export default function InteriorsAdmin() {
     formData.append('aiHint', title.toLowerCase().split(' ').slice(0, 2).join(' '));
 
     try {
-      // NOTE: Current cloud function only supports one file upload named 'file'.
-      // We are prioritizing the 'after' image.
-      const response = await axios.post(UPLOAD_FUNCTION_URL, formData, {
+      const response = await axios.post(UPLOAD_PROXY_URL, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       toast({ title: 'Success!', description: response.data.message });
@@ -267,16 +254,23 @@ export default function InteriorsAdmin() {
                             <Textarea id="description" name="description" defaultValue={editingItem?.description} className="col-span-3" rows={4} required/>
                         </div>
                         <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="beforeImage" className="text-right">
-                                Before Image
+                            <Label htmlFor="beforeImageUrl" className="text-right">
+                                Before Image URL
                             </Label>
-                            <Input id="beforeImage" name="beforeImage" type="file" accept="image/*" onChange={(e) => handleImageChange(e, 'before')} className="col-span-3" />
+                            <Input 
+                                id="beforeImageUrl" 
+                                name="beforeImageUrl" 
+                                defaultValue={beforeImageUrl ?? ''}
+                                onChange={(e) => setBeforeImageUrl(e.target.value)}
+                                className="col-span-3" 
+                                placeholder="Optional: Paste direct URL to 'before' image"
+                            />
                         </div>
-                         {beforeImagePreview && (
+                         {beforeImageUrl && (
                             <div className="grid grid-cols-4 items-start gap-4">
                                 <Label className="text-right pt-2">Preview</Label>
                                 <div className="col-span-3">
-                                     <Image src={beforeImagePreview} alt="Before image preview" width={100} height={100} className="rounded-md object-cover"/>
+                                     <Image src={beforeImageUrl} alt="Before image preview" width={100} height={100} className="rounded-md object-cover"/>
                                 </div>
                             </div>
                         )}
@@ -285,7 +279,7 @@ export default function InteriorsAdmin() {
                             <Label htmlFor="afterImage" className="text-right">
                                 After Image
                             </Label>
-                            <Input id="afterImage" name="afterImage" type="file" accept="image/*" onChange={(e) => handleImageChange(e, 'after')} className="col-span-3" />
+                            <Input id="afterImage" name="afterImage" type="file" accept="image/*" onChange={handleAfterImageChange} className="col-span-3" />
                         </div>
                          {afterImagePreview && (
                             <div className="grid grid-cols-4 items-start gap-4">
