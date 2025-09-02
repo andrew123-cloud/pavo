@@ -46,7 +46,6 @@ export default function DecorsAdmin() {
         setEditingProduct(null);
         setImageFile(null);
         setImagePreview(null);
-        setIsSubmitting(false);
     }, 300);
   };
 
@@ -80,25 +79,29 @@ export default function DecorsAdmin() {
     event.preventDefault();
     setIsSubmitting(true);
 
-    const formData = new FormData(event.currentTarget);
+    const form = event.currentTarget;
+    const formData = new FormData(form);
     formData.append('collection', 'decorProducts');
     
     if (editingProduct?.id) {
         formData.append('id', editingProduct.id);
     }
     
+    // If we are editing and have an existing imageUrl, and no new file has been selected,
+    // we need to pass the existing URL to the backend.
     if (editingProduct?.imageUrl && !imageFile) {
         formData.append('imageUrl', editingProduct.imageUrl);
     }
     
     if (imageFile) {
+      // The name of the file input in the form is 'image', but we want to send it as 'file'
+      formData.delete('image');
       formData.append('file', imageFile);
     }
     
     // Add aiHint
     const name = formData.get('name') as string;
     formData.append('aiHint', name.toLowerCase().split(' ').slice(0, 2).join(' '));
-
 
     try {
       const response = await axios.post(UPLOAD_PROXY_URL, formData, {
@@ -118,6 +121,10 @@ export default function DecorsAdmin() {
   const handleDelete = async (id: string) => {
     try {
       await deleteDecorProduct(id);
+      toast({
+        title: 'Product Deleted',
+        description: 'The product has been successfully deleted.',
+      });
     } catch (error) {
        // Error toast is handled by context
     }

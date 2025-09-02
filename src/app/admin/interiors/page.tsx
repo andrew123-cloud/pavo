@@ -32,10 +32,6 @@ export default function InteriorsAdmin() {
 
   const [afterImageFile, setAfterImageFile] = useState<File | null>(null);
   const [afterImagePreview, setAfterImagePreview] = useState<string | null>(null);
-
-  // Note: The current backend function only supports one file upload at a time.
-  // We will only handle the "After Image" for now. A more advanced backend function
-  // would be needed to handle multiple files in a single request.
   const [beforeImageUrl, setBeforeImageUrl] = useState<string | null>(null);
 
 
@@ -43,7 +39,6 @@ export default function InteriorsAdmin() {
     setEditingItem(item || null);
     setAfterImageFile(null);
     setAfterImagePreview(item?.imageUrl || null);
-    // For simplicity, we just store the 'before' URL text.
     setBeforeImageUrl(item?.beforeImageUrl || null);
     setIsFormOpen(true);
   };
@@ -55,7 +50,6 @@ export default function InteriorsAdmin() {
         setAfterImageFile(null);
         setAfterImagePreview(null);
         setBeforeImageUrl(null);
-        setIsSubmitting(false);
     }, 300);
   };
 
@@ -88,23 +82,21 @@ export default function InteriorsAdmin() {
     event.preventDefault();
     setIsSubmitting(true);
 
-    const formData = new FormData(event.currentTarget);
+    const form = event.currentTarget;
+    const formData = new FormData(form);
     formData.append('collection', 'portfolioItems');
 
-    if (editingItem) {
+    if (editingItem?.id) {
         formData.append('id', editingItem.id);
-        if (editingItem.imageUrl && !afterImageFile) {
-            formData.append('imageUrl', editingItem.imageUrl);
-        }
     }
     
-    // The server function only accepts one file named 'file', which we use for the main 'after' image.
+    if (editingItem?.imageUrl && !afterImageFile) {
+        formData.append('imageUrl', editingItem.imageUrl);
+    }
+    
     if (afterImageFile) {
+      formData.delete('afterImage');
       formData.append('file', afterImageFile);
-    } else if (!editingItem?.imageUrl) {
-        toast({ variant: 'destructive', title: 'Image Required', description: "The 'After' image is required." });
-        setIsSubmitting(false);
-        return;
     }
     
     // Add aiHint
@@ -129,6 +121,10 @@ export default function InteriorsAdmin() {
   const handleDelete = async (id: string) => {
     try {
       await deletePortfolioItem(id);
+      toast({
+        title: 'Portfolio Item Deleted',
+        description: 'The item has been successfully deleted.',
+      });
     } catch(e) {
       // Error toast is handled by context
     }

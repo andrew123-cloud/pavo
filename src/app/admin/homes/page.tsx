@@ -44,7 +44,6 @@ export default function HomesAdmin() {
         setEditingProperty(null);
         setImageFile(null);
         setImagePreview(null);
-        setIsSubmitting(false);
     }, 300);
   };
 
@@ -77,7 +76,8 @@ export default function HomesAdmin() {
     event.preventDefault();
     setIsSubmitting(true);
     
-    const formData = new FormData(event.currentTarget);
+    const form = event.currentTarget;
+    const formData = new FormData(form);
     formData.append('collection', 'rentalProperties');
     
     if (editingProperty?.id) {
@@ -89,6 +89,7 @@ export default function HomesAdmin() {
     }
 
     if (imageFile) {
+      formData.delete('image');
       formData.append('file', imageFile);
     }
 
@@ -117,6 +118,10 @@ export default function HomesAdmin() {
   const handleDelete = async (id: string) => {
     try {
       await deleteRentalProperty(id);
+      toast({
+        title: 'Property Deleted',
+        description: 'The property has been successfully deleted.',
+      });
     } catch (error) {
       // Error toast is handled by context
     }
