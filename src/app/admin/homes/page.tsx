@@ -110,8 +110,9 @@ export default function HomesAdmin() {
         imageUrl = await uploadImage(imageFile);
       }
 
-      if (!imageUrl) {
+      if (!imageUrl && !editingProperty) {
         toast({ variant: 'destructive', title: 'Image Required', description: 'Please select an image for the property.' });
+        setIsSubmitting(false);
         return;
       }
 

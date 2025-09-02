@@ -134,11 +134,12 @@ export default function InteriorsAdmin() {
         uploadImage(afterImageFile, 'after')
       ]);
       
-      const afterImageUrl = afterImageUrlResult || editingItem?.imageUrl;
-      const beforeImageUrl = beforeImageUrlResult || editingItem?.beforeImageUrl;
+      let afterImageUrl = afterImageUrlResult || editingItem?.imageUrl;
+      let beforeImageUrl = beforeImageUrlResult || editingItem?.beforeImageUrl;
 
-      if (!afterImageUrl) {
+      if (!afterImageUrl && !editingItem) {
           toast({ variant: 'destructive', title: 'Image Required', description: "The 'After' image is required." });
+          setIsSubmitting(false);
           return;
       }
       
@@ -146,7 +147,7 @@ export default function InteriorsAdmin() {
         title: formData.get('title') as string,
         location: formData.get('location') as string,
         description: formData.get('description') as string,
-        imageUrl: afterImageUrl,
+        imageUrl: afterImageUrl!,
         beforeImageUrl: beforeImageUrl || undefined,
         aiHint: (formData.get('title') as string).toLowerCase().split(' ').slice(0,2).join(' ') || "new interior"
       };

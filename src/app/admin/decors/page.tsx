@@ -112,9 +112,10 @@ export default function DecorsAdmin() {
         imageUrl = await uploadImage(imageFile);
       }
 
-      if (!imageUrl) {
+      if (!imageUrl && !editingProduct) {
         toast({ variant: 'destructive', title: 'Image Required', description: 'Please select an image for the product.' });
-        return; // No need for finally, just return
+        setIsSubmitting(false); // Stop submission
+        return;
       }
       
       const productData = {
