@@ -15,18 +15,17 @@ import { Label } from '@/components/ui/label';
 import type { PortfolioItem } from '@/lib/types';
 import { usePavoData } from '@/context/data-context';
 import { Textarea } from '@/components/ui/textarea';
-import { storage } from '@/lib/firebase';
-import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { useToast } from '@/hooks/use-toast';
-import { Progress } from '@/components/ui/progress';
+import axios from 'axios';
 import imageCompression from 'browser-image-compression';
 
+const UPLOAD_FUNCTION_URL = 'https://us-central1-pavo-suite.cloudfunctions.net/uploadProduct';
+
 export default function InteriorsAdmin() {
-  const { portfolioItems, addPortfolioItem, updatePortfolioItem, deletePortfolioItem, loading } = usePavoData();
+  const { portfolioItems, loading, deletePortfolioItem } = usePavoData();
   const { toast } = useToast();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState<{ [key: string]: number }>({});
   const [editingItem, setEditingItem] = useState<PortfolioItem | null>(null);
 
   const [beforeImageFile, setBeforeImageFile] = useState<File | null>(null);
@@ -40,19 +39,19 @@ export default function InteriorsAdmin() {
     setAfterImageFile(null);
     setAfterImagePreview(item?.imageUrl || null);
     setBeforeImagePreview(item?.beforeImageUrl || null);
-    setUploadProgress({});
     setIsFormOpen(true);
   };
 
   const closeForm = () => {
-    setEditingItem(null);
-    setBeforeImageFile(null);
-    setAfterImageFile(null);
-    setAfterImagePreview(null);
-    setBeforeImagePreview(null);
-    setUploadProgress({});
-    setIsSubmitting(false);
     setIsFormOpen(false);
+    setTimeout(() => {
+        setEditingItem(null);
+        setBeforeImageFile(null);
+        setAfterImageFile(null);
+        setAfterImagePreview(null);
+        setBeforeImagePreview(null);
+        setIsSubmitting(false);
+    }, 300);
   };
 
   const handleImageChange = async (event: React.ChangeEvent<HTMLInputElement>, type: 'after' | 'before') => {
@@ -79,7 +78,6 @@ export default function InteriorsAdmin() {
           title: 'Image Compression Failed',
           description: 'The original image will be used, which may result in a slower upload.',
         });
-        // Fallback to original file
         if (type === 'after') {
           setAfterImageFile(file);
           setAfterImagePreview(URL.createObjectURL(file));
@@ -91,76 +89,50 @@ export default function InteriorsAdmin() {
     }
   };
   
-  const uploadImage = (file: File | null, path: 'before' | 'after'): Promise<string | null> => {
-    return new Promise((resolve, reject) => {
-      if (!file) {
-        return resolve(null);
-      }
-      setUploadProgress(prev => ({ ...prev, [path]: 0 }));
-
-      const storageRef = ref(storage, `portfolio/${path}/${Date.now()}-${file.name}`);
-      const uploadTask = uploadBytesResumable(storageRef, file);
-
-      uploadTask.on('state_changed',
-        (snapshot) => {
-          const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-          setUploadProgress(prev => ({...prev, [path]: progress}));
-        },
-        (error) => {
-          console.error(`Upload of ${path} image failed:`, error);
-          reject(error);
-        },
-        () => {
-          getDownloadURL(uploadTask.snapshot.ref).then((downloadURL) => {
-            setUploadProgress(prev => ({...prev, [path]: 100}));
-            resolve(downloadURL);
-          });
-        }
-      );
-    });
-  };
-
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setIsSubmitting(true);
 
     const formData = new FormData(event.currentTarget);
+    formData.append('collection', 'portfolioItems');
+
+    if (editingItem) {
+        formData.append('id', editingItem.id);
+        if (editingItem.imageUrl && !afterImageFile) {
+            formData.append('imageUrl', editingItem.imageUrl);
+        }
+        if (editingItem.beforeImageUrl && !beforeImageFile) {
+            formData.append('beforeImageUrl', editingItem.beforeImageUrl);
+        }
+    }
+    
+    // We will need a more complex function that can handle multiple file uploads
+    // For now, let's simplify and handle only the 'after' image via the function
+    // and assume 'before' is manually set or not changed. This is a limitation to revisit.
+    if (afterImageFile) {
+      formData.append('file', afterImageFile);
+    } else if (!editingItem?.imageUrl) {
+        toast({ variant: 'destructive', title: 'Image Required', description: "The 'After' image is required." });
+        setIsSubmitting(false);
+        return;
+    }
+    
+    // Add aiHint
+    const title = formData.get('title') as string;
+    formData.append('aiHint', title.toLowerCase().split(' ').slice(0, 2).join(' '));
 
     try {
-      toast({ title: 'Saving portfolio item...' });
-      
-      const [beforeImageUrlResult, afterImageUrlResult] = await Promise.all([
-        uploadImage(beforeImageFile, 'before'),
-        uploadImage(afterImageFile, 'after')
-      ]);
-      
-      let afterImageUrl = afterImageUrlResult || editingItem?.imageUrl;
-      let beforeImageUrl = beforeImageUrlResult || editingItem?.beforeImageUrl;
-
-      if (!afterImageUrl && !editingItem) {
-          toast({ variant: 'destructive', title: 'Image Required', description: "The 'After' image is required." });
-          setIsSubmitting(false);
-          return;
-      }
-      
-      const itemData = {
-        title: formData.get('title') as string,
-        location: formData.get('location') as string,
-        description: formData.get('description') as string,
-        imageUrl: afterImageUrl!,
-        beforeImageUrl: beforeImageUrl || undefined,
-        aiHint: (formData.get('title') as string).toLowerCase().split(' ').slice(0,2).join(' ') || "new interior"
-      };
-
-      if (editingItem) {
-        await updatePortfolioItem({ ...itemData, id: editingItem.id });
-      } else {
-        await addPortfolioItem(itemData);
-      }
+      // NOTE: Current cloud function only supports one file upload named 'file'.
+      // We are prioritizing the 'after' image.
+      const response = await axios.post(UPLOAD_FUNCTION_URL, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      toast({ title: 'Success!', description: response.data.message });
       closeForm();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error saving portfolio item:", error);
-      toast({ variant: 'destructive', title: 'Save Failed', description: 'Could not save the portfolio item. Please try again.' });
+       const errorMsg = error.response?.data?.error || 'Could not save the portfolio item. Please try again.';
+      toast({ variant: 'destructive', title: 'Save Failed', description: errorMsg });
     } finally {
       setIsSubmitting(false);
     }
@@ -173,8 +145,6 @@ export default function InteriorsAdmin() {
       // Error toast is handled by context
     }
   };
-
-  const isAnyImageUploading = Object.values(uploadProgress).some(p => p > 0 && p < 100);
 
   return (
     <div>
@@ -268,7 +238,7 @@ export default function InteriorsAdmin() {
             </CardFooter>
         </Card>
 
-        <Dialog open={isFormOpen} onOpenChange={(open) => !isSubmitting && setIsFormOpen(open)}>
+        <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
             <DialogContent className="sm:max-w-2xl">
                  <form onSubmit={handleSubmit}>
                     <DialogHeader>
@@ -310,13 +280,7 @@ export default function InteriorsAdmin() {
                                 </div>
                             </div>
                         )}
-                        {isSubmitting && uploadProgress.before > 0 && (
-                            <div className="grid grid-cols-4 items-center gap-4">
-                               <Label className="text-right">Progress</Label>
-                               <div className="col-span-3"><Progress value={uploadProgress.before} /></div>
-                            </div>
-                        )}
-
+                        
                         <div className="grid grid-cols-4 items-center gap-4">
                             <Label htmlFor="afterImage" className="text-right">
                                 After Image
@@ -331,19 +295,13 @@ export default function InteriorsAdmin() {
                                 </div>
                             </div>
                         )}
-                        {isSubmitting && uploadProgress.after > 0 && (
-                            <div className="grid grid-cols-4 items-center gap-4">
-                               <Label className="text-right">Progress</Label>
-                               <div className="col-span-3"><Progress value={uploadProgress.after} /></div>
-                            </div>
-                        )}
                     </div>
                     <DialogFooter>
                         <DialogClose asChild>
                             <Button type="button" variant="secondary" onClick={closeForm} disabled={isSubmitting}>Cancel</Button>
                         </DialogClose>
-                        <Button type="submit" disabled={isSubmitting || isAnyImageUploading}>
-                            {(isSubmitting || isAnyImageUploading) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        <Button type="submit" disabled={isSubmitting}>
+                            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                             {editingItem ? 'Save Changes' : 'Add Item'}
                         </Button>
                     </DialogFooter>

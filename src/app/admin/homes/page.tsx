@@ -14,18 +14,17 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import type { Property } from '@/lib/types';
 import { usePavoData } from '@/context/data-context';
-import { storage } from '@/lib/firebase';
-import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { useToast } from '@/hooks/use-toast';
-import { Progress } from '@/components/ui/progress';
+import axios from 'axios';
 import imageCompression from 'browser-image-compression';
 
+const UPLOAD_FUNCTION_URL = 'https://us-central1-pavo-suite.cloudfunctions.net/uploadProduct';
+
 export default function HomesAdmin() {
-  const { rentalProperties, addRentalProperty, updateRentalProperty, deleteRentalProperty, loading } = usePavoData();
+  const { rentalProperties, loading, deleteRentalProperty } = usePavoData();
   const { toast } = useToast();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
   const [editingProperty, setEditingProperty] = useState<Property | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -34,17 +33,17 @@ export default function HomesAdmin() {
     setEditingProperty(property || null);
     setImageFile(null);
     setImagePreview(property?.imageUrl || null);
-    setUploadProgress(0);
     setIsFormOpen(true);
   };
 
   const closeForm = () => {
-    setEditingProperty(null);
-    setImageFile(null);
-    setImagePreview(null);
-    setUploadProgress(0);
-    setIsSubmitting(false);
     setIsFormOpen(false);
+    setTimeout(() => {
+        setEditingProperty(null);
+        setImageFile(null);
+        setImagePreview(null);
+        setIsSubmitting(false);
+    }, 300);
   };
 
   const handleImageChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -72,68 +71,42 @@ export default function HomesAdmin() {
     }
   };
 
-  const uploadImage = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      setUploadProgress(0);
-      const storageRef = ref(storage, `rental-properties/${Date.now()}-${file.name}`);
-      const uploadTask = uploadBytesResumable(storageRef, file);
-
-      uploadTask.on('state_changed',
-        (snapshot) => {
-          const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-          setUploadProgress(progress);
-        },
-        (error) => {
-          console.error("Upload failed:", error);
-          reject(error);
-        },
-        () => {
-          getDownloadURL(uploadTask.snapshot.ref).then((downloadURL) => {
-            setUploadProgress(100);
-            resolve(downloadURL);
-          });
-        }
-      );
-    });
-  };
-
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setIsSubmitting(true);
     
     const formData = new FormData(event.currentTarget);
-    let imageUrl = editingProperty?.imageUrl;
+    formData.append('collection', 'rentalProperties');
+    
+    if (editingProperty?.id) {
+        formData.append('id', editingProperty.id);
+    }
+    
+    if (editingProperty?.imageUrl && !imageFile) {
+        formData.append('imageUrl', editingProperty.imageUrl);
+    }
+
+    if (imageFile) {
+      formData.append('file', imageFile);
+    }
+
+    // Keep existing rating or default to 0
+    formData.append('rating', String(editingProperty?.rating || 0)); 
+    
+    // Add aiHint
+    const title = formData.get('title') as string;
+    formData.append('aiHint', title.toLowerCase().split(' ').slice(0, 2).join(' '));
 
     try {
-      if (imageFile) {
-        toast({ title: 'Uploading image...' });
-        imageUrl = await uploadImage(imageFile);
-      }
-
-      if (!imageUrl && !editingProperty) {
-        toast({ variant: 'destructive', title: 'Image Required', description: 'Please select an image for the property.' });
-        setIsSubmitting(false);
-        return;
-      }
-
-      const propertyData = {
-        title: formData.get('title') as string,
-        location: formData.get('location') as string,
-        pricePerNight: Number(formData.get('pricePerNight')),
-        rating: editingProperty?.rating || 0, // Keep existing rating or default to 0
-        imageUrl: imageUrl!,
-        aiHint: (formData.get('title') as string).toLowerCase().split(' ').slice(0,2).join(' ') || 'new home',
-      };
-
-      if (editingProperty) {
-        await updateRentalProperty({ ...propertyData, id: editingProperty.id });
-      } else {
-        await addRentalProperty(propertyData);
-      }
+      const response = await axios.post(UPLOAD_FUNCTION_URL, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      toast({ title: 'Success!', description: response.data.message });
       closeForm();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error saving property:", error);
-      toast({ variant: 'destructive', title: 'Save Failed', description: 'Could not save the property. Please try again.' });
+      const errorMsg = error.response?.data?.error || 'Could not save the property. Please try again.';
+      toast({ variant: 'destructive', title: 'Save Failed', description: errorMsg });
     } finally {
       setIsSubmitting(false);
     }
@@ -247,7 +220,7 @@ export default function HomesAdmin() {
             </CardFooter>
         </Card>
 
-         <Dialog open={isFormOpen} onOpenChange={(open) => !isSubmitting && setIsFormOpen(open)}>
+         <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
             <DialogContent className="sm:max-w-[425px]">
                 <form onSubmit={handleSubmit}>
                     <DialogHeader>
@@ -280,15 +253,6 @@ export default function HomesAdmin() {
                                      <Image src={imagePreview} alt="Image preview" width={100} height={100} className="rounded-md object-cover"/>
                                 </div>
                             </div>
-                        )}
-                        {isSubmitting && uploadProgress > 0 && uploadProgress < 100 && (
-                             <div className="grid grid-cols-4 items-center gap-4">
-                                <Label className="text-right">Progress</Label>
-                                <div className="col-span-3">
-                                    <Progress value={uploadProgress} />
-                                    <span className="text-xs text-muted-foreground">Compressing & Uploading...</span>
-                                </div>
-                             </div>
                         )}
                     </div>
                     <DialogFooter>

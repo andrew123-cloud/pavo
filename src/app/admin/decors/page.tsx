@@ -15,18 +15,17 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import type { Product } from '@/lib/types';
 import { usePavoData } from '@/context/data-context';
-import { storage } from '@/lib/firebase';
-import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { useToast } from '@/hooks/use-toast';
-import { Progress } from '@/components/ui/progress';
+import axios from 'axios';
 import imageCompression from 'browser-image-compression';
 
+const UPLOAD_FUNCTION_URL = 'https://us-central1-pavo-suite.cloudfunctions.net/uploadProduct';
+
 export default function DecorsAdmin() {
-  const { decorProducts, addDecorProduct, updateDecorProduct, deleteDecorProduct, loading } = usePavoData();
+  const { decorProducts, loading, deleteDecorProduct } = usePavoData();
   const { toast } = useToast();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -35,17 +34,18 @@ export default function DecorsAdmin() {
     setEditingProduct(product || null);
     setImageFile(null);
     setImagePreview(product?.imageUrl || null);
-    setUploadProgress(0);
     setIsFormOpen(true);
   };
 
   const closeForm = () => {
-    setEditingProduct(null);
-    setImageFile(null);
-    setImagePreview(null);
-    setUploadProgress(0);
-    setIsSubmitting(false);
     setIsFormOpen(false);
+    // Add a small delay to allow dialog to close before resetting state
+    setTimeout(() => {
+        setEditingProduct(null);
+        setImageFile(null);
+        setImagePreview(null);
+        setIsSubmitting(false);
+    }, 300);
   };
 
   const handleImageChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -74,70 +74,40 @@ export default function DecorsAdmin() {
     }
   };
 
-  const uploadImage = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      setUploadProgress(0);
-      const storageRef = ref(storage, `decor-products/${Date.now()}-${file.name}`);
-      const uploadTask = uploadBytesResumable(storageRef, file);
-
-      uploadTask.on('state_changed',
-        (snapshot) => {
-          const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-          setUploadProgress(progress);
-        },
-        (error) => {
-          console.error("Upload failed:", error);
-          reject(error);
-        },
-        () => {
-          getDownloadURL(uploadTask.snapshot.ref).then((downloadURL) => {
-            setUploadProgress(100);
-            resolve(downloadURL);
-          });
-        }
-      );
-    });
-  };
-
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setIsSubmitting(true);
 
     const formData = new FormData(event.currentTarget);
-    let imageUrl = editingProduct?.imageUrl;
+    formData.append('collection', 'decorProducts');
+    
+    if (editingProduct?.id) {
+        formData.append('id', editingProduct.id);
+    }
+    
+    if (editingProduct?.imageUrl && !imageFile) {
+        formData.append('imageUrl', editingProduct.imageUrl);
+    }
+    
+    if (imageFile) {
+      formData.append('file', imageFile);
+    }
+    
+    // Add aiHint
+    const name = formData.get('name') as string;
+    formData.append('aiHint', name.toLowerCase().split(' ').slice(0, 2).join(' '));
+
 
     try {
-      if (imageFile) {
-        toast({ title: 'Uploading image...', description: 'Please wait.' });
-        imageUrl = await uploadImage(imageFile);
-      }
-
-      if (!imageUrl && !editingProduct) {
-        toast({ variant: 'destructive', title: 'Image Required', description: 'Please select an image for the product.' });
-        setIsSubmitting(false); // Stop submission
-        return;
-      }
-      
-      const productData = {
-        name: formData.get('name') as string,
-        category: formData.get('category') as string,
-        price: Number(formData.get('price')),
-        stock: Number(formData.get('stock')),
-        imageUrl: imageUrl!,
-        aiHint: (formData.get('name') as string).toLowerCase().split(' ').slice(0,2).join(' ') || 'new decor',
-      };
-
-      if (editingProduct) {
-        await updateDecorProduct({ ...productData, id: editingProduct.id });
-      } else {
-        await addDecorProduct(productData);
-      }
-      
+      const response = await axios.post(UPLOAD_FUNCTION_URL, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      toast({ title: 'Success!', description: response.data.message });
       closeForm();
-
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error saving product:", error);
-       toast({ variant: 'destructive', title: 'Save Failed', description: 'Could not save the product. Please try again.' });
+      const errorMsg = error.response?.data?.error || "Could not save the product. Please try again.";
+      toast({ variant: 'destructive', title: 'Save Failed', description: errorMsg });
     } finally {
       setIsSubmitting(false);
     }
@@ -257,7 +227,7 @@ export default function DecorsAdmin() {
             </CardFooter>
         </Card>
 
-        <Dialog open={isFormOpen} onOpenChange={(open) => !isSubmitting && setIsFormOpen(open)}>
+        <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
             <DialogContent className="sm:max-w-[425px]">
                 <form onSubmit={handleSubmit}>
                     <DialogHeader>
@@ -294,15 +264,6 @@ export default function DecorsAdmin() {
                                      <Image src={imagePreview} alt="Image preview" width={100} height={100} className="rounded-md object-cover"/>
                                 </div>
                             </div>
-                        )}
-                        {isSubmitting && uploadProgress > 0 && uploadProgress < 100 && (
-                             <div className="grid grid-cols-4 items-center gap-4">
-                                <Label className="text-right">Progress</Label>
-                                <div className="col-span-3">
-                                    <Progress value={uploadProgress} />
-                                    <span className="text-xs text-muted-foreground">Compressing & Uploading...</span>
-                                </div>
-                             </div>
                         )}
                     </div>
                     <DialogFooter>

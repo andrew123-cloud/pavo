@@ -14,14 +14,11 @@ interface CartItem extends Product {
 
 interface DataContextType extends PavoData {
   loading: boolean;
-  addPortfolioItem: (item: Omit<PortfolioItem, 'id'>) => Promise<void>;
-  updatePortfolioItem: (item: PortfolioItem) => Promise<void>;
+  // This context will no longer handle direct mutations for products/properties/portfolio
+  // It will only be responsible for reading data and optimistic UI updates for deletes.
+  // Adds/Updates are now handled by the serverless function.
   deletePortfolioItem: (id: string) => Promise<void>;
-  addDecorProduct: (product: Omit<Product, 'id'>) => Promise<void>;
-  updateDecorProduct: (product: Product) => Promise<void>;
   deleteDecorProduct: (id: string) => Promise<void>;
-  addRentalProperty: (property: Omit<Property, 'id'>) => Promise<void>;
-  updateRentalProperty: (property: Property) => Promise<void>;
   deleteRentalProperty: (id: string) => Promise<void>;
   addOrder: (order: Order) => Promise<void>;
   updateOrder: (order: Order) => Promise<void>;
@@ -55,7 +52,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [isCartLoaded, setIsCartLoaded] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // Load cart from localStorage on initial render
   useEffect(() => {
     try {
       const storedCart = localStorage.getItem('pavo-cart');
@@ -68,14 +64,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setIsCartLoaded(true);
   }, []);
 
-  // Save cart to localStorage whenever it changes
   useEffect(() => {
     if (isCartLoaded) {
       localStorage.setItem('pavo-cart', JSON.stringify(cart));
     }
   }, [cart, isCartLoaded]);
   
-  // Real-time data fetching from Firestore
   useEffect(() => {
     setLoading(true);
     const collections = {
@@ -90,37 +84,35 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
     const fetchInitialDataAndListen = async () => {
         try {
-            // Set up real-time listeners for all collections
             for (const [key, collectionName] of Object.entries(collections)) {
-                let q;
+                let q = query(collection(db, collectionName));
                 if (collectionName === 'orders') {
                     q = query(collection(db, collectionName), orderBy('created_at', 'desc'));
                 } else if (collectionName === 'bookings') {
                     q = query(collection(db, collectionName), orderBy('createdAt', 'desc'));
-                } else if (collectionName === 'decorProducts') {
-                    q = query(collection(db, collectionName), orderBy('name'));
-                } else {
-                    q = query(collection(db, collectionName), orderBy('title'));
                 }
                 
                 const unsub = onSnapshot(q, (snapshot) => {
                     const items = snapshot.docs.map(doc => {
                         const docData = doc.data();
-                        if (collectionName === 'bookings') {
-                            return { 
-                                id: doc.id, 
-                                ...docData,
-                                createdAt: (docData.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString()
-                            }
+                        const id = doc.id;
+                        // Handle date serialization properly
+                        if (docData.createdAt && docData.createdAt instanceof Timestamp) {
+                            return { id, ...docData, createdAt: docData.createdAt.toDate().toISOString() };
                         }
-                        return { id: doc.id, ...docData };
+                        if (docData.created_at && typeof docData.created_at === 'string') {
+                           return { id, ...docData };
+                        }
+                         if (docData.created_at) { // Assume it could be a Timestamp from older data
+                            return { id, ...docData, created_at: new Date(docData.created_at).toISOString() };
+                        }
+                        return { id, ...docData };
                     });
                     setData(prev => ({ ...prev, [key]: items as any }));
                 }, (error) => console.error(`Error listening to ${collectionName}:`, error));
                 unsubs.push(unsub);
             }
 
-            // Listener for site settings
             const settingsDocRef = doc(db, 'settings', 'site');
             const settingsUnsub = onSnapshot(settingsDocRef, (doc) => {
                 if (doc.exists()) {
@@ -133,14 +125,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
             console.error("Failed to set up listeners:", error);
             toast({ variant: 'destructive', title: 'Error', description: 'Could not connect to the database.' });
         } finally {
-            // Set loading to false only after listeners are attached
             setLoading(false);
         }
     };
     
     fetchInitialDataAndListen();
 
-    // Unsubscribe from all listeners on cleanup
     return () => {
         unsubs.forEach(unsub => unsub());
     };
@@ -153,7 +143,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error(`Error adding to ${collectionName}:`, error);
       toast({ variant: 'destructive', title: 'Error', description: `Could not save the item. Please check your connection and try again.` });
-      throw error; // Re-throw to be caught by the form handler
+      throw error;
     }
   };
 
@@ -180,17 +170,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // Firestore operations using helpers
-  const addPortfolioItem = async (item: Omit<PortfolioItem, 'id'>) => addOperation('portfolioItems', item, 'Portfolio item added successfully.');
-  const updatePortfolioItem = async (item: PortfolioItem) => updateOperation('portfolioItems', item.id, item, 'Portfolio item updated successfully.');
   const deletePortfolioItem = async (id: string) => deleteOperation('portfolioItems', id, 'Portfolio item deleted.');
-
-  const addDecorProduct = async (product: Omit<Product, 'id'>) => addOperation('decorProducts', product, 'Product added successfully.');
-  const updateDecorProduct = async (product: Product) => updateOperation('decorProducts', product.id, product, 'Product updated successfully.');
   const deleteDecorProduct = async (id: string) => deleteOperation('decorProducts', id, 'Product deleted.');
-  
-  const addRentalProperty = async (property: Omit<Property, 'id'>) => addOperation('rentalProperties', property, 'Property added successfully.');
-  const updateRentalProperty = async (property: Property) => updateOperation('rentalProperties', property.id, property, 'Property updated successfully.');
   const deleteRentalProperty = async (id: string) => deleteOperation('rentalProperties', id, 'Property deleted.');
 
   const decreaseStock = async (productId: string, amount: number) => {
@@ -235,7 +216,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // Cart logic
   const addToCart = (product: Product) => {
     setCart(prevCart => {
       const existingItem = prevCart.find(item => item.id === product.id);
@@ -273,9 +253,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const providerValue = { 
       ...data,
       loading,
-      addPortfolioItem, updatePortfolioItem, deletePortfolioItem,
-      addDecorProduct, updateDecorProduct, deleteDecorProduct,
-      addRentalProperty, updateRentalProperty, deleteRentalProperty,
+      deletePortfolioItem,
+      deleteDecorProduct,
+      deleteRentalProperty,
       addOrder, updateOrder, decreaseStock,
       addBooking, markBookingAsRead, markAllBookingsAsRead,
       updateSiteSettings,
@@ -283,7 +263,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       cartTotal, cartCount
     };
     
-  if (loading) {
+  if (loading && !Object.values(data).some(arr => Array.isArray(arr) && arr.length > 0)) {
     return null; // Render nothing until initial data is loaded
   }
 
