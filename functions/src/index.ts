@@ -1,3 +1,4 @@
+
 // functions/src/index.ts
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
@@ -71,14 +72,16 @@ export const uploadProduct = functions
               resumable: false,
             });
 
-            await new Promise((resolve, reject) => {
+            await new Promise<void>((resolve, reject) => {
               upload.file
                 .pipe(stream)
                 .on('error', (err) => {
                   console.error('File stream error:', err);
                   reject(new Error('Failed to upload image.'));
                 })
-                .on('finish', resolve);
+                .on('finish', () => {
+                   resolve();
+                });
             });
             
             docData.imageUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(filePath)}?alt=media&token=${fileUuid}`;

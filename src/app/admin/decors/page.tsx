@@ -1,3 +1,4 @@
+
 // src/app/admin/decors/page.tsx
 'use client';
 
