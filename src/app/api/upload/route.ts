@@ -6,9 +6,14 @@ import axios from 'axios';
 
 // This is the actual URL of your deployed Cloud Function.
 // It's kept here on the server-side, hidden from the client.
-const UPLOAD_FUNCTION_URL = 'https://us-central1-pavo-suite.cloudfunctions.net/uploadProduct';
+const UPLOAD_FUNCTION_URL = process.env.NEXT_PUBLIC_UPLOAD_FUNCTION_URL;
 
 export async function POST(request: NextRequest) {
+  if (!UPLOAD_FUNCTION_URL) {
+    console.error("UPLOAD_FUNCTION_URL environment variable is not set.");
+    return NextResponse.json({ error: 'Server configuration error.' }, { status: 500 });
+  }
+
   try {
     const formData = await request.formData();
     
