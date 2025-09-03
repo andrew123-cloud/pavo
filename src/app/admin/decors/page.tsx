@@ -103,9 +103,7 @@ export default function DecorsAdmin() {
     formData.append('aiHint', name.toLowerCase().split(' ').slice(0, 2).join(' '));
 
     try {
-      const response = await axios.post(UPLOAD_URL, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+      const response = await axios.post(UPLOAD_URL, formData);
       toast({ title: 'Success!', description: response.data.message });
       closeForm();
     } catch (error: any) {
