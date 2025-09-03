@@ -31,8 +31,7 @@ export const uploadProduct = functions
 
       const firestore = admin.firestore();
       const storage = admin.storage();
-      const bucketName = 'pavo-suite.appspot.com';
-      const bucket = storage.bucket(bucketName);
+      const bucket = storage.bucket(); // Use default bucket - THIS IS THE FIX
 
       bb.on('field', (fieldname, val) => {
         fields[fieldname] = val;
