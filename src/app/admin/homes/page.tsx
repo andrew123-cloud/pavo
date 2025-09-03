@@ -1,4 +1,3 @@
-
 // src/app/admin/homes/page.tsx
 'use client';
 
@@ -20,7 +19,7 @@ import axios from 'axios';
 import imageCompression from 'browser-image-compression';
 
 // Use the local proxy API route
-const UPLOAD_PROXY_URL = '/api/upload';
+const UPLOAD_URL = '/api/upload';
 
 export default function HomesAdmin() {
   const { rentalProperties, loading, deleteRentalProperty } = usePavoData();
@@ -101,7 +100,7 @@ export default function HomesAdmin() {
     formData.append('aiHint', title.toLowerCase().split(' ').slice(0, 2).join(' '));
 
     try {
-      const response = await axios.post(UPLOAD_PROXY_URL, formData, {
+      const response = await axios.post(UPLOAD_URL, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       toast({ title: 'Success!', description: response.data.message });
