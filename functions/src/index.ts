@@ -1,3 +1,4 @@
+
 // functions/src/index.ts
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
@@ -12,6 +13,8 @@ const corsHandler = cors({ origin: true });
 export const uploadProduct = functions
   .runWith({ memory: '512MB' })
   .https.onRequest((req, res) => {
+    // No need for CORS with the proxy architecture
+    // but keeping it doesn't hurt and allows direct testing if needed.
     corsHandler(req, res, () => {
       if (req.method !== 'POST') {
         res.status(405).send('Method Not Allowed');
@@ -108,3 +111,5 @@ export const uploadProduct = functions
       }
     });
   });
+
+    

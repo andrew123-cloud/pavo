@@ -18,11 +18,8 @@ import { usePavoData } from '@/context/data-context';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import axios from 'axios';
-import imageCompression from 'browser-image-compression';
-import { storage } from '@/lib/firebase';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
-const SAVE_METADATA_URL = process.env.NEXT_PUBLIC_SAVE_METADATA_URL;
+const UPLOAD_URL = '/api/upload';
 
 export default function InteriorsAdmin() {
   const { portfolioItems, loading, deletePortfolioItem } = usePavoData();
@@ -33,14 +30,11 @@ export default function InteriorsAdmin() {
 
   const [afterImageFile, setAfterImageFile] = useState<File | null>(null);
   const [afterImagePreview, setAfterImagePreview] = useState<string | null>(null);
-  const [localBeforeImageUrl, setLocalBeforeImageUrl] = useState<string | null>(null);
-
 
   const openForm = (item?: PortfolioItem) => {
     setEditingItem(item || null);
     setAfterImageFile(null);
     setAfterImagePreview(item?.imageUrl || null);
-    setLocalBeforeImageUrl(item?.beforeImageUrl || null);
     setIsFormOpen(true);
   };
 
@@ -50,32 +44,14 @@ export default function InteriorsAdmin() {
         setEditingItem(null);
         setAfterImageFile(null);
         setAfterImagePreview(null);
-        setLocalBeforeImageUrl(null);
     }, 300);
   };
 
-  const handleAfterImageChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAfterImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files[0]) {
       const file = event.target.files[0];
-      const options = {
-        maxSizeMB: 1,
-        maxWidthOrHeight: 1024,
-        useWebWorker: true,
-      }
-      try {
-        const compressedFile = await imageCompression(file, options);
-        setAfterImageFile(compressedFile);
-        setAfterImagePreview(URL.createObjectURL(compressedFile));
-      } catch (error) {
-        console.error('Error compressing image:', error);
-        toast({
-          variant: 'destructive',
-          title: 'Image Compression Failed',
-          description: 'The original image will be used, which may result in a slower upload.',
-        });
-        setAfterImageFile(file);
-        setAfterImagePreview(URL.createObjectURL(file));
-      }
+      setAfterImageFile(file);
+      setAfterImagePreview(URL.createObjectURL(file));
     }
   };
   
@@ -83,41 +59,32 @@ export default function InteriorsAdmin() {
     event.preventDefault();
     setIsSubmitting(true);
     
-    if (!SAVE_METADATA_URL) {
-        toast({ variant: 'destructive', title: 'Error', description: 'Server configuration is missing.'});
-        setIsSubmitting(false);
-        return;
+    const form = event.currentTarget;
+    const formData = new FormData();
+    const title = form.title.value;
+
+    formData.append('collection', 'portfolioItems');
+    formData.append('title', title);
+    formData.append('location', form.location.value);
+    formData.append('description', form.description.value);
+    formData.append('beforeImageUrl', form.beforeImageUrl.value || '');
+    formData.append('aiHint', title.toLowerCase().split(' ').slice(0, 2).join(' '));
+
+    if (editingItem?.id) {
+        formData.append('id', editingItem.id);
+    }
+    
+    if (afterImageFile) {
+        formData.append('file', afterImageFile);
+    } else if (editingItem?.imageUrl) {
+        formData.append('imageUrl', editingItem.imageUrl);
     }
 
-    const form = event.currentTarget;
-    const formData = new FormData(form);
-    let imageUrl = editingItem?.imageUrl || '';
-
     try {
-        if (afterImageFile) {
-            const filePath = `portfolioItems/${Date.now()}-${afterImageFile.name}`;
-            const storageRef = ref(storage, filePath);
-            await uploadBytes(storageRef, afterImageFile);
-            imageUrl = await getDownloadURL(storageRef);
-        }
-
-        if (!imageUrl) {
-            throw new Error("After Image is required. Please select an image to upload.");
-        }
-
-        const title = formData.get('title') as string;
-        const metadata = {
-            collection: 'portfolioItems',
-            id: editingItem?.id,
-            title,
-            location: formData.get('location') as string,
-            description: formData.get('description') as string,
-            beforeImageUrl: formData.get('beforeImageUrl') as string || '',
-            aiHint: title.toLowerCase().split(' ').slice(0, 2).join(' '),
-            imageUrl: imageUrl,
-        };
-        
-        const response = await axios.post(SAVE_METADATA_URL, metadata);
+        const response = await axios.post(UPLOAD_URL, formData, {
+            maxBodyLength: Infinity,
+            maxContentLength: Infinity,
+        });
 
         toast({ title: 'Success!', description: response.data.message });
         closeForm();
@@ -270,20 +237,11 @@ export default function InteriorsAdmin() {
                             <Input 
                                 id="beforeImageUrl" 
                                 name="beforeImageUrl" 
-                                defaultValue={localBeforeImageUrl ?? ''}
-                                onChange={(e) => setLocalBeforeImageUrl(e.target.value)}
+                                defaultValue={editingItem?.beforeImageUrl ?? ''}
                                 className="col-span-3" 
                                 placeholder="Optional: Paste direct URL to 'before' image"
                             />
                         </div>
-                         {localBeforeImageUrl && (
-                            <div className="grid grid-cols-4 items-start gap-4">
-                                <Label className="text-right pt-2">Preview</Label>
-                                <div className="col-span-3">
-                                     <Image src={localBeforeImageUrl} alt="Before image preview" width={100} height={100} className="rounded-md object-cover"/>
-                                </div>
-                            </div>
-                        )}
                         
                         <div className="grid grid-cols-4 items-center gap-4">
                             <Label htmlFor="afterImage" className="text-right">

@@ -17,11 +17,8 @@ import type { Property } from '@/lib/types';
 import { usePavoData } from '@/context/data-context';
 import { useToast } from '@/hooks/use-toast';
 import axios from 'axios';
-import imageCompression from 'browser-image-compression';
-import { storage } from '@/lib/firebase';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
-const SAVE_METADATA_URL = process.env.NEXT_PUBLIC_SAVE_METADATA_URL;
+const UPLOAD_URL = '/api/upload';
 
 export default function HomesAdmin() {
   const { rentalProperties, loading, deleteRentalProperty } = usePavoData();
@@ -48,28 +45,11 @@ export default function HomesAdmin() {
     }, 300);
   };
 
-  const handleImageChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files[0]) {
       const file = event.target.files[0];
-       const options = {
-        maxSizeMB: 1,
-        maxWidthOrHeight: 1024,
-        useWebWorker: true,
-      }
-      try {
-        const compressedFile = await imageCompression(file, options);
-        setImageFile(compressedFile);
-        setImagePreview(URL.createObjectURL(compressedFile));
-      } catch (error) {
-        console.error('Error compressing image:', error);
-        setImageFile(file); // Fallback to original file
-        setImagePreview(URL.createObjectURL(file));
-        toast({
-          variant: 'destructive',
-          title: 'Image Compression Failed',
-          description: 'The original image will be used, which may result in a slower upload.',
-        });
-      }
+      setImageFile(file);
+      setImagePreview(URL.createObjectURL(file));
     }
   };
 
@@ -77,41 +57,32 @@ export default function HomesAdmin() {
     event.preventDefault();
     setIsSubmitting(true);
     
-    if (!SAVE_METADATA_URL) {
-        toast({ variant: 'destructive', title: 'Error', description: 'Server configuration is missing.'});
-        setIsSubmitting(false);
-        return;
+    const form = event.currentTarget;
+    const formData = new FormData();
+    const title = form.title.value;
+    
+    formData.append('collection', 'rentalProperties');
+    formData.append('title', title);
+    formData.append('location', form.location.value);
+    formData.append('pricePerNight', form.pricePerNight.value);
+    formData.append('rating', editingProperty?.rating?.toString() || '0');
+    formData.append('aiHint', title.toLowerCase().split(' ').slice(0, 2).join(' '));
+
+    if (editingProperty?.id) {
+        formData.append('id', editingProperty.id);
+    }
+    
+    if (imageFile) {
+        formData.append('file', imageFile);
+    } else if (editingProperty?.imageUrl) {
+        formData.append('imageUrl', editingProperty.imageUrl);
     }
 
-    const form = event.currentTarget;
-    const formData = new FormData(form);
-    let imageUrl = editingProperty?.imageUrl || '';
-
     try {
-        if (imageFile) {
-            const filePath = `rentalProperties/${Date.now()}-${imageFile.name}`;
-            const storageRef = ref(storage, filePath);
-            await uploadBytes(storageRef, imageFile);
-            imageUrl = await getDownloadURL(storageRef);
-        }
-
-        if (!imageUrl) {
-            throw new Error("Image is required. Please select an image to upload.");
-        }
-
-        const title = formData.get('title') as string;
-        const metadata = {
-            collection: 'rentalProperties',
-            id: editingProperty?.id,
-            title,
-            location: formData.get('location') as string,
-            pricePerNight: Number(formData.get('pricePerNight')),
-            rating: Number(editingProperty?.rating || 0), // Keep existing rating or default
-            aiHint: title.toLowerCase().split(' ').slice(0, 2).join(' '),
-            imageUrl: imageUrl,
-        };
-        
-        const response = await axios.post(SAVE_METADATA_URL, metadata);
+        const response = await axios.post(UPLOAD_URL, formData, {
+            maxBodyLength: Infinity,
+            maxContentLength: Infinity,
+        });
 
         toast({ title: 'Success!', description: response.data.message });
         closeForm();

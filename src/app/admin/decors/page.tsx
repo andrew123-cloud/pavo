@@ -18,13 +18,8 @@ import type { Product } from '@/lib/types';
 import { usePavoData } from '@/context/data-context';
 import { useToast } from '@/hooks/use-toast';
 import axios from 'axios';
-import imageCompression from 'browser-image-compression';
-import { storage } from '@/lib/firebase';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { v4 as uuidv4 } from 'uuid';
 
-
-const SAVE_METADATA_URL = process.env.NEXT_PUBLIC_SAVE_METADATA_URL;
+const UPLOAD_URL = '/api/upload';
 
 export default function DecorsAdmin() {
   const { decorProducts, loading, deleteDecorProduct } = usePavoData();
@@ -44,7 +39,6 @@ export default function DecorsAdmin() {
 
   const closeForm = () => {
     setIsFormOpen(false);
-    // Add a small delay to allow dialog to close before resetting state
     setTimeout(() => {
         setEditingProduct(null);
         setImageFile(null);
@@ -52,29 +46,11 @@ export default function DecorsAdmin() {
     }, 300);
   };
 
-  const handleImageChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files[0]) {
       const file = event.target.files[0];
-      
-      const options = {
-        maxSizeMB: 1,
-        maxWidthOrHeight: 1024,
-        useWebWorker: true,
-      }
-      try {
-        const compressedFile = await imageCompression(file, options);
-        setImageFile(compressedFile);
-        setImagePreview(URL.createObjectURL(compressedFile));
-      } catch (error) {
-        console.error('Error compressing image:', error);
-        setImageFile(file); // Fallback to original file
-        setImagePreview(URL.createObjectURL(file));
-        toast({
-          variant: 'destructive',
-          title: 'Image Compression Failed',
-          description: 'The original image will be used, which may result in a slower upload.',
-        });
-      }
+      setImageFile(file);
+      setImagePreview(URL.createObjectURL(file));
     }
   };
 
@@ -82,46 +58,37 @@ export default function DecorsAdmin() {
     event.preventDefault();
     setIsSubmitting(true);
 
-    if (!SAVE_METADATA_URL) {
-        toast({ variant: 'destructive', title: 'Error', description: 'Server configuration is missing.'});
-        setIsSubmitting(false);
-        return;
+    const form = event.currentTarget;
+    const formData = new FormData();
+    const name = form.name.value;
+    
+    // Append all form fields
+    formData.append('collection', 'decorProducts');
+    formData.append('name', name);
+    formData.append('category', form.category.value);
+    formData.append('price', form.price.value);
+    formData.append('stock', form.stock.value);
+    formData.append('aiHint', name.toLowerCase().split(' ').slice(0, 2).join(' '));
+
+    if (editingProduct?.id) {
+      formData.append('id', editingProduct.id);
+    }
+    
+    // Append the file if it exists
+    if (imageFile) {
+        formData.append('file', imageFile);
+    } else if (editingProduct?.imageUrl) {
+        // If not editing image, pass existing URL
+        formData.append('imageUrl', editingProduct.imageUrl);
     }
 
-    const form = event.currentTarget;
-    const formData = new FormData(form);
-    
-    let imageUrl = editingProduct?.imageUrl || '';
 
     try {
-        // 1. Upload image if a new one is selected
-        if (imageFile) {
-            const filePath = `decorProducts/${Date.now()}-${imageFile.name}`;
-            const storageRef = ref(storage, filePath);
-            await uploadBytes(storageRef, imageFile);
-            imageUrl = await getDownloadURL(storageRef);
-        }
+        const response = await axios.post(UPLOAD_URL, formData, {
+            maxBodyLength: Infinity,
+            maxContentLength: Infinity,
+        });
 
-        if (!imageUrl) {
-            throw new Error("Image is required. Please select an image to upload.");
-        }
-
-        // 2. Prepare data for Firestore
-        const name = formData.get('name') as string;
-        const metadata = {
-            collection: 'decorProducts',
-            id: editingProduct?.id,
-            name,
-            category: formData.get('category') as string,
-            price: Number(formData.get('price')),
-            stock: Number(formData.get('stock')),
-            aiHint: name.toLowerCase().split(' ').slice(0, 2).join(' '),
-            imageUrl: imageUrl,
-        };
-
-        // 3. Save metadata to Firestore via Cloud Function
-        const response = await axios.post(SAVE_METADATA_URL, metadata);
-        
         toast({ title: 'Success!', description: response.data.message });
         closeForm();
     } catch (error: any) {
