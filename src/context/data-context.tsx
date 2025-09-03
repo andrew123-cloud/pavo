@@ -51,51 +51,67 @@ export function DataProvider({ children }: { children: ReactNode }) {
   ), [portfolioItems, decorProducts, rentalProperties, orders, bookings, siteSettings, cart]);
 
 
-  // Effect to sync Firestore with Dexie
+   // Effect to sync Firestore with Dexie only once per session
   useEffect(() => {
-    const syncFirestoreToDexie = <T extends {id: string}>(collectionName: string, table: Dexie.Table<T, any>) => {
-      const q = query(collection(firestoreDB, collectionName), orderBy('createdAt', 'desc'));
-      const unsub = onSnapshot(q, async (snapshot) => {
-        const firestoreData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as T));
-        try {
-          await table.bulkPut(firestoreData);
-          console.log(`Synced ${collectionName} to Dexie.`);
-        } catch (error) {
-          console.error(`Failed to sync ${collectionName} to Dexie:`, error);
-        }
-      }, error => {
-        console.error(`Error listening to Firestore collection ${collectionName}:`, error);
-      });
-      return unsub;
-    };
-    
-    // Sync for collections with a 'createdAt' field
-    const unsubs = [
-      syncFirestoreToDexie('bookings', dexieDB.bookings),
-    ];
-    
-     // Custom sync for collections without 'createdAt' or with different sorting
-    const syncCollection = (name:string, table: Dexie.Table<any,any>, sortField?:string) => {
-        const q = sortField 
-            ? query(collection(firestoreDB, name), orderBy(sortField, 'desc'))
-            : query(collection(firestoreDB, name));
-        return onSnapshot(q, (snapshot) => table.bulkPut(snapshot.docs.map(d => ({id:d.id, ...d.data()}))));
-    };
-
-    unsubs.push(syncCollection('portfolioItems', dexieDB.portfolioItems));
-    unsubs.push(syncCollection('decorProducts', dexieDB.decorProducts));
-    unsubs.push(syncCollection('rentalProperties', dexieDB.rentalProperties));
-    unsubs.push(syncCollection('orders', dexieDB.orders, 'created_at'));
-    
-    // Sync for site settings (single document)
-    const settingsUnsub = onSnapshot(doc(firestoreDB, 'settings', 'site'), (doc) => {
-      if (doc.exists()) {
-        dexieDB.siteSettings.put({ ...doc.data() as SiteSettings, id: 'default' });
+    const syncFirestoreToDexie = async () => {
+      // Use sessionStorage to prevent re-syncing on every component mount in the same session
+      if (sessionStorage.getItem('synced')) {
+          console.log('Data already synced in this session.');
+          return;
       }
-    });
-    unsubs.push(settingsUnsub);
+      
+      console.log('Starting Firestore to Dexie sync...');
+      
+      try {
+        const syncCollection = async (name: string, table: Dexie.Table<any, any>, sortField?: string, sortDirection: 'asc' | 'desc' = 'desc') => {
+            const q = sortField ? query(collection(firestoreDB, name), orderBy(sortField, sortDirection)) : query(collection(firestoreDB, name));
+            const snapshot = await getDocs(q);
+            const data = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+            if (data.length > 0) {
+              await table.bulkPut(data);
+            }
+            console.log(`Synced ${data.length} docs from ${name}`);
+        };
 
-    return () => unsubs.forEach(unsub => unsub());
+        const settingsDoc = await getDoc(doc(firestoreDB, 'settings', 'site'));
+        if (settingsDoc.exists()) {
+            await dexieDB.siteSettings.put({ ...settingsDoc.data() as SiteSettings, id: 'default' });
+            console.log('Synced site settings.');
+        }
+
+        await Promise.all([
+          syncCollection('portfolioItems', dexieDB.portfolioItems),
+          syncCollection('decorProducts', dexieDB.decorProducts),
+          syncCollection('rentalProperties', dexieDB.rentalProperties),
+          syncCollection('orders', dexieDB.orders, 'created_at'),
+          syncCollection('bookings', dexieDB.bookings, 'createdAt'),
+        ]);
+
+        sessionStorage.setItem('synced', 'true');
+        console.log('Firestore to Dexie sync complete.');
+
+      } catch (error) {
+        console.error("Firestore sync failed:", error);
+      }
+    };
+    
+    // Real-time listener only for bookings, as they are time-sensitive
+    const listenForBookings = () => {
+       const q = query(collection(firestoreDB, 'bookings'), orderBy('createdAt', 'desc'));
+       return onSnapshot(q, async (snapshot) => {
+         const firestoreData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Booking));
+         await dexieDB.bookings.bulkPut(firestoreData);
+       }, error => {
+         console.error(`Error listening to bookings:`, error);
+       });
+    };
+
+    syncFirestoreToDexie();
+    const unsubscribeBookings = listenForBookings();
+
+    return () => {
+      unsubscribeBookings();
+    };
   }, []);
 
 
