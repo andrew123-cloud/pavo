@@ -230,9 +230,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
     cartCount,
   };
 
-  if (loading) {
-      return null;
-  }
 
   return (
     <DataContext.Provider value={providerValue}>
