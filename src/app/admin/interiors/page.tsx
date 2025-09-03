@@ -1,3 +1,4 @@
+
 // src/app/admin/interiors/page.tsx
 'use client';
 
@@ -18,9 +19,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import axios from 'axios';
 import imageCompression from 'browser-image-compression';
+import { storage } from '@/lib/firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
-// Use the local proxy API route
-const UPLOAD_URL = '/api/upload';
+const SAVE_METADATA_URL = process.env.NEXT_PUBLIC_SAVE_METADATA_URL;
 
 export default function InteriorsAdmin() {
   const { portfolioItems, loading, deletePortfolioItem } = usePavoData();
@@ -31,14 +33,14 @@ export default function InteriorsAdmin() {
 
   const [afterImageFile, setAfterImageFile] = useState<File | null>(null);
   const [afterImagePreview, setAfterImagePreview] = useState<string | null>(null);
-  const [beforeImageUrl, setBeforeImageUrl] = useState<string | null>(null);
+  const [localBeforeImageUrl, setLocalBeforeImageUrl] = useState<string | null>(null);
 
 
   const openForm = (item?: PortfolioItem) => {
     setEditingItem(item || null);
     setAfterImageFile(null);
     setAfterImagePreview(item?.imageUrl || null);
-    setBeforeImageUrl(item?.beforeImageUrl || null);
+    setLocalBeforeImageUrl(item?.beforeImageUrl || null);
     setIsFormOpen(true);
   };
 
@@ -48,7 +50,7 @@ export default function InteriorsAdmin() {
         setEditingItem(null);
         setAfterImageFile(null);
         setAfterImagePreview(null);
-        setBeforeImageUrl(null);
+        setLocalBeforeImageUrl(null);
     }, 300);
   };
 
@@ -80,32 +82,45 @@ export default function InteriorsAdmin() {
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setIsSubmitting(true);
+    
+    if (!SAVE_METADATA_URL) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Server configuration is missing.'});
+        setIsSubmitting(false);
+        return;
+    }
 
     const form = event.currentTarget;
     const formData = new FormData(form);
-    formData.append('collection', 'portfolioItems');
-
-    if (editingItem?.id) {
-        formData.append('id', editingItem.id);
-    }
-    
-    if (editingItem?.imageUrl && !afterImageFile) {
-        formData.append('imageUrl', editingItem.imageUrl);
-    }
-    
-    if (afterImageFile) {
-      formData.delete('afterImage');
-      formData.append('file', afterImageFile);
-    }
-    
-    // Add aiHint
-    const title = formData.get('title') as string;
-    formData.append('aiHint', title.toLowerCase().split(' ').slice(0, 2).join(' '));
+    let imageUrl = editingItem?.imageUrl || '';
 
     try {
-      const response = await axios.post(UPLOAD_URL, formData);
-      toast({ title: 'Success!', description: response.data.message });
-      closeForm();
+        if (afterImageFile) {
+            const filePath = `portfolioItems/${Date.now()}-${afterImageFile.name}`;
+            const storageRef = ref(storage, filePath);
+            await uploadBytes(storageRef, afterImageFile);
+            imageUrl = await getDownloadURL(storageRef);
+        }
+
+        if (!imageUrl) {
+            throw new Error("After Image is required. Please select an image to upload.");
+        }
+
+        const title = formData.get('title') as string;
+        const metadata = {
+            collection: 'portfolioItems',
+            id: editingItem?.id,
+            title,
+            location: formData.get('location') as string,
+            description: formData.get('description') as string,
+            beforeImageUrl: formData.get('beforeImageUrl') as string || '',
+            aiHint: title.toLowerCase().split(' ').slice(0, 2).join(' '),
+            imageUrl: imageUrl,
+        };
+        
+        const response = await axios.post(SAVE_METADATA_URL, metadata);
+
+        toast({ title: 'Success!', description: response.data.message });
+        closeForm();
     } catch (error: any) {
       console.error("Error saving portfolio item:", error);
        const errorMsg = error.response?.data?.error || 'Could not save the portfolio item. Please try again.';
@@ -114,6 +129,7 @@ export default function InteriorsAdmin() {
       setIsSubmitting(false);
     }
   };
+
 
   const handleDelete = async (id: string) => {
     try {
@@ -254,17 +270,17 @@ export default function InteriorsAdmin() {
                             <Input 
                                 id="beforeImageUrl" 
                                 name="beforeImageUrl" 
-                                defaultValue={beforeImageUrl ?? ''}
-                                onChange={(e) => setBeforeImageUrl(e.target.value)}
+                                defaultValue={localBeforeImageUrl ?? ''}
+                                onChange={(e) => setLocalBeforeImageUrl(e.target.value)}
                                 className="col-span-3" 
                                 placeholder="Optional: Paste direct URL to 'before' image"
                             />
                         </div>
-                         {beforeImageUrl && (
+                         {localBeforeImageUrl && (
                             <div className="grid grid-cols-4 items-start gap-4">
                                 <Label className="text-right pt-2">Preview</Label>
                                 <div className="col-span-3">
-                                     <Image src={beforeImageUrl} alt="Before image preview" width={100} height={100} className="rounded-md object-cover"/>
+                                     <Image src={localBeforeImageUrl} alt="Before image preview" width={100} height={100} className="rounded-md object-cover"/>
                                 </div>
                             </div>
                         )}
@@ -299,3 +315,5 @@ export default function InteriorsAdmin() {
     </div>
   )
 }
+
+    

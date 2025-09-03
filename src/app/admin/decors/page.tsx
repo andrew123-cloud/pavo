@@ -1,3 +1,4 @@
+
 // src/app/admin/decors/page.tsx
 'use client';
 
@@ -18,9 +19,12 @@ import { usePavoData } from '@/context/data-context';
 import { useToast } from '@/hooks/use-toast';
 import axios from 'axios';
 import imageCompression from 'browser-image-compression';
+import { storage } from '@/lib/firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { v4 as uuidv4 } from 'uuid';
 
-// Use the local proxy API route
-const UPLOAD_URL = '/api/upload';
+
+const SAVE_METADATA_URL = process.env.NEXT_PUBLIC_SAVE_METADATA_URL;
 
 export default function DecorsAdmin() {
   const { decorProducts, loading, deleteDecorProduct } = usePavoData();
@@ -78,42 +82,57 @@ export default function DecorsAdmin() {
     event.preventDefault();
     setIsSubmitting(true);
 
+    if (!SAVE_METADATA_URL) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Server configuration is missing.'});
+        setIsSubmitting(false);
+        return;
+    }
+
     const form = event.currentTarget;
     const formData = new FormData(form);
-    formData.append('collection', 'decorProducts');
     
-    if (editingProduct?.id) {
-        formData.append('id', editingProduct.id);
-    }
-    
-    // If we are editing and have an existing imageUrl, and no new file has been selected,
-    // we need to pass the existing URL to the backend.
-    if (editingProduct?.imageUrl && !imageFile) {
-        formData.append('imageUrl', editingProduct.imageUrl);
-    }
-    
-    if (imageFile) {
-      // The name of the file input in the form is 'image', but we want to send it as 'file'
-      formData.delete('image');
-      formData.append('file', imageFile);
-    }
-    
-    // Add aiHint
-    const name = formData.get('name') as string;
-    formData.append('aiHint', name.toLowerCase().split(' ').slice(0, 2).join(' '));
+    let imageUrl = editingProduct?.imageUrl || '';
 
     try {
-      const response = await axios.post(UPLOAD_URL, formData);
-      toast({ title: 'Success!', description: response.data.message });
-      closeForm();
+        // 1. Upload image if a new one is selected
+        if (imageFile) {
+            const filePath = `decorProducts/${Date.now()}-${imageFile.name}`;
+            const storageRef = ref(storage, filePath);
+            await uploadBytes(storageRef, imageFile);
+            imageUrl = await getDownloadURL(storageRef);
+        }
+
+        if (!imageUrl) {
+            throw new Error("Image is required. Please select an image to upload.");
+        }
+
+        // 2. Prepare data for Firestore
+        const name = formData.get('name') as string;
+        const metadata = {
+            collection: 'decorProducts',
+            id: editingProduct?.id,
+            name,
+            category: formData.get('category') as string,
+            price: Number(formData.get('price')),
+            stock: Number(formData.get('stock')),
+            aiHint: name.toLowerCase().split(' ').slice(0, 2).join(' '),
+            imageUrl: imageUrl,
+        };
+
+        // 3. Save metadata to Firestore via Cloud Function
+        const response = await axios.post(SAVE_METADATA_URL, metadata);
+        
+        toast({ title: 'Success!', description: response.data.message });
+        closeForm();
     } catch (error: any) {
-      console.error("Error saving product:", error);
-      const errorMsg = error.response?.data?.error || "Could not save the product. Please try again.";
-      toast({ variant: 'destructive', title: 'Save Failed', description: errorMsg });
+        console.error("Error saving product:", error);
+        const errorMsg = error.response?.data?.error || error.message || "Could not save the product. Please try again.";
+        toast({ variant: 'destructive', title: 'Save Failed', description: errorMsg });
     } finally {
-      setIsSubmitting(false);
+        setIsSubmitting(false);
     }
   };
+
 
   const handleDelete = async (id: string) => {
     try {
@@ -287,3 +306,5 @@ export default function DecorsAdmin() {
     </div>
   )
 }
+
+    

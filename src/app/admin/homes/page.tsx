@@ -1,3 +1,4 @@
+
 // src/app/admin/homes/page.tsx
 'use client';
 
@@ -17,9 +18,10 @@ import { usePavoData } from '@/context/data-context';
 import { useToast } from '@/hooks/use-toast';
 import axios from 'axios';
 import imageCompression from 'browser-image-compression';
+import { storage } from '@/lib/firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
-// Use the local proxy API route
-const UPLOAD_URL = '/api/upload';
+const SAVE_METADATA_URL = process.env.NEXT_PUBLIC_SAVE_METADATA_URL;
 
 export default function HomesAdmin() {
   const { rentalProperties, loading, deleteRentalProperty } = usePavoData();
@@ -75,34 +77,44 @@ export default function HomesAdmin() {
     event.preventDefault();
     setIsSubmitting(true);
     
+    if (!SAVE_METADATA_URL) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Server configuration is missing.'});
+        setIsSubmitting(false);
+        return;
+    }
+
     const form = event.currentTarget;
     const formData = new FormData(form);
-    formData.append('collection', 'rentalProperties');
-    
-    if (editingProperty?.id) {
-        formData.append('id', editingProperty.id);
-    }
-    
-    if (editingProperty?.imageUrl && !imageFile) {
-        formData.append('imageUrl', editingProperty.imageUrl);
-    }
-
-    if (imageFile) {
-      formData.delete('image');
-      formData.append('file', imageFile);
-    }
-
-    // Keep existing rating or default to 0
-    formData.append('rating', String(editingProperty?.rating || 0)); 
-    
-    // Add aiHint
-    const title = formData.get('title') as string;
-    formData.append('aiHint', title.toLowerCase().split(' ').slice(0, 2).join(' '));
+    let imageUrl = editingProperty?.imageUrl || '';
 
     try {
-      const response = await axios.post(UPLOAD_URL, formData);
-      toast({ title: 'Success!', description: response.data.message });
-      closeForm();
+        if (imageFile) {
+            const filePath = `rentalProperties/${Date.now()}-${imageFile.name}`;
+            const storageRef = ref(storage, filePath);
+            await uploadBytes(storageRef, imageFile);
+            imageUrl = await getDownloadURL(storageRef);
+        }
+
+        if (!imageUrl) {
+            throw new Error("Image is required. Please select an image to upload.");
+        }
+
+        const title = formData.get('title') as string;
+        const metadata = {
+            collection: 'rentalProperties',
+            id: editingProperty?.id,
+            title,
+            location: formData.get('location') as string,
+            pricePerNight: Number(formData.get('pricePerNight')),
+            rating: Number(editingProperty?.rating || 0), // Keep existing rating or default
+            aiHint: title.toLowerCase().split(' ').slice(0, 2).join(' '),
+            imageUrl: imageUrl,
+        };
+        
+        const response = await axios.post(SAVE_METADATA_URL, metadata);
+
+        toast({ title: 'Success!', description: response.data.message });
+        closeForm();
     } catch (error: any) {
       console.error("Error saving property:", error);
       const errorMsg = error.response?.data?.error || 'Could not save the property. Please try again.';
@@ -111,6 +123,7 @@ export default function HomesAdmin() {
       setIsSubmitting(false);
     }
   };
+
 
   const handleDelete = async (id: string) => {
     try {
@@ -274,3 +287,5 @@ export default function HomesAdmin() {
     </div>
   )
 }
+
+    
