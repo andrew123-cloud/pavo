@@ -1,4 +1,3 @@
-
 // functions/src/index.ts
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
@@ -13,8 +12,6 @@ const corsHandler = cors({ origin: true });
 export const uploadProduct = functions
   .runWith({ memory: '512MB' })
   .https.onRequest((req, res) => {
-    // By wrapping the function in corsHandler, we enable it to handle
-    // pre-flight (OPTIONS) requests and sets the correct headers on the actual request.
     corsHandler(req, res, () => {
       if (req.method !== 'POST') {
         res.status(405).send('Method Not Allowed');
@@ -30,8 +27,7 @@ export const uploadProduct = functions
       } = {};
 
       const firestore = admin.firestore();
-      const storage = admin.storage();
-      const bucket = storage.bucket(); // Use default bucket - THIS IS THE FIX
+      const bucket = admin.storage().bucket();
 
       bb.on('field', (fieldname, val) => {
         fields[fieldname] = val;
@@ -90,12 +86,10 @@ export const uploadProduct = functions
           }
 
           if (fields.id) {
-            // Update existing document
             const docRef = firestore.collection(fields.collection).doc(fields.id);
             await docRef.set(docData, { merge: true });
             res.status(200).json({ message: 'Item updated successfully!', id: fields.id, ...docData });
           } else {
-            // Create new document
             const docRef = await firestore.collection(fields.collection).add(docData);
             res.status(201).json({ message: 'Item added successfully!', id: docRef.id, ...docData });
           }
@@ -105,6 +99,12 @@ export const uploadProduct = functions
         }
       });
 
-      bb.end(req.rawBody);
+      // The 'end' method on busboy is for Node.js standard streams, 
+      // but for Cloud Functions, we need to pass the raw request body.
+      if (req.rawBody) {
+        bb.end(req.rawBody);
+      } else {
+        req.pipe(bb);
+      }
     });
   });
