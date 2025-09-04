@@ -18,14 +18,16 @@ export class PavoDexie extends Dexie {
   constructor() {
     super('pavoDB');
     // Incrementing version number to fix the upgrade error
-    this.version(6).stores({
+    // Re-stabilizing the schema to use 'id' as the primary key consistently
+    // and adding other fields as indexes.
+    this.version(7).stores({
       portfolioItems: 'id, title', 
       decorProducts: 'id, category, name',
       rentalProperties: 'id, location',
       orders: 'id, pesapal_order_tracking_id, created_at',
       bookings: 'id, createdAt, isRead',
-      siteSettings: 'id', // 'id' will be the primary key, typically 'default'
-      cart: 'id', // product id
+      siteSettings: 'id',
+      cart: 'id',
     });
   }
 }
