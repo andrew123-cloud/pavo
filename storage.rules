@@ -1,13 +1,11 @@
 rules_version = '2';
-
-// Caution: These rules are permissive and are meant for initial development.
-// For a production application, you should implement more granular security
-// rules to protect your data, for example by restricting write access to
-// authenticated admin users.
 service firebase.storage {
   match /b/{bucket}/o {
+    // Allow read and write access to all paths
+    // WARNING: This is a permissive rule for development.
+    // You should secure your data further for a production environment.
     match /{allPaths=**} {
-      allow read, write;
+      allow read, write: if true;
     }
   }
 }

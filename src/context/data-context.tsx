@@ -64,24 +64,27 @@ export function DataProvider({ children }: { children: ReactNode }) {
       return onSnapshot(collRef, async (querySnapshot) => {
         console.log(`[Firestore Sync] Received update for ${collectionName}`);
         const dexieTable = dexieDB[collectionName as keyof typeof dexieDB] as Dexie.Table;
-        const batch = dexieDB.transaction('rw', dexieTable, async () => {
-          const allKeys = await dexieTable.toCollection().keys();
-          const firestoreIds = new Set(querySnapshot.docs.map(d => d.id));
-          
-          // Delete local items no longer in Firestore
-          const keysToDelete = (allKeys as string[]).filter(k => !firestoreIds.has(k) && k !== 'default');
-          if (keysToDelete.length > 0) {
-            await dexieTable.bulkDelete(keysToDelete);
-          }
-          
-          // Add/update items from Firestore
-          if (!querySnapshot.empty) {
-            const itemsToAdd = querySnapshot.docs.map(d => ({ ...d.data(), id: d.id }));
-            await dexieTable.bulkPut(itemsToAdd);
-          }
-        });
-        await batch;
-        console.log(`[Firestore Sync] Successfully synced ${collectionName}`);
+        try {
+            await dexieDB.transaction('rw', dexieTable, async () => {
+              const allKeys = await dexieTable.toCollection().keys();
+              const firestoreIds = new Set(querySnapshot.docs.map(d => d.id));
+
+              // Delete local items no longer in Firestore
+              const keysToDelete = (allKeys as string[]).filter(k => !firestoreIds.has(k) && k !== 'default');
+              if (keysToDelete.length > 0) {
+                await dexieTable.bulkDelete(keysToDelete);
+              }
+
+              // Add/update items from Firestore
+              if (!querySnapshot.empty) {
+                const itemsToAdd = querySnapshot.docs.map(d => ({ ...d.data(), id: d.id }));
+                await dexieTable.bulkPut(itemsToAdd);
+              }
+            });
+             console.log(`[Firestore Sync] Successfully synced ${collectionName}`);
+        } catch (error) {
+             console.error(`[Dexie Error] Failed to transact for ${collectionName}:`, error);
+        }
       }, (error) => {
         console.error(`[Firestore Sync] Error listening to ${collectionName}:`, error);
         toast({ variant: 'destructive', title: 'Network Error', description: `Could not sync ${collectionName}. Using local data.`});
@@ -99,13 +102,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const uploadImage = async (path: string, file: File, id: string): Promise<string> => {
     const storageRef = ref(storage, `${path}/${id}/${file.name}`);
-    await uploadBytes(storageRef, file);
+    await uploadBytes(storageRef, file, { contentType: file.type });
     return getDownloadURL(storageRef);
   };
   
   const deleteImage = async (imageUrl: string) => {
     try {
-        if (imageUrl) {
+        if (imageUrl && imageUrl.includes('firebasestorage.googleapis.com')) {
             const imageRef = ref(storage, imageUrl);
             await deleteObject(imageRef);
         }
@@ -114,6 +117,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
             console.error("Error deleting image from storage:", error);
             throw error; // re-throw if it's not a 'not found' error
         }
+        console.warn(`Image at ${imageUrl} not found in storage, skipping deletion.`);
     }
   }
 
@@ -126,7 +130,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     if (imageFile) finalItem.imageUrl = await uploadImage('portfolioItems', imageFile, docId);
     if (beforeImageFile) finalItem.beforeImageUrl = await uploadImage('portfolioItems', beforeImageFile, docId);
 
-    await setDoc(docRef, finalItem);
+    await setDoc(docRef, finalItem, { merge: true });
     toast({ title: 'Success', description: 'Portfolio item saved.' });
   };
 
@@ -147,7 +151,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
      let finalProduct = { ...product };
      if (imageFile) finalProduct.imageUrl = await uploadImage('decorProducts', imageFile, docId);
 
-     await setDoc(docRef, finalProduct);
+     await setDoc(docRef, finalProduct, { merge: true });
      toast({ title: 'Success', description: 'Product saved.' });
   };
 
@@ -165,7 +169,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
      let finalProperty = { ...property };
      if (imageFile) finalProperty.imageUrl = await uploadImage('rentalProperties', imageFile, docId);
 
-     await setDoc(docRef, finalProperty);
+     await setDoc(docRef, finalProperty, { merge: true });
      toast({ title: 'Success', description: 'Property saved.' });
   };
 
@@ -192,7 +196,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   };
   
   const updateSiteSettings = async (settings: SiteSettings) => {
-    await setDoc(doc(firestoreDB, 'siteSettings', 'default'), settings);
+    await setDoc(doc(firestoreDB, 'siteSettings', 'default'), settings, { merge: true });
     toast({ title: 'Success', description: 'Site settings updated.' });
   };
 
@@ -204,7 +208,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
     } else {
       await dexieDB.cart.add({ ...product, quantity: 1 });
     }
-    toast({ title: 'Added to Cart', description: `${product.name} is in your cart.` });
   };
   const updateCartQuantity = async (productId: string, quantity: number) => {
     if (quantity <= 0) {
@@ -218,10 +221,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const cartTotal = (cart || []).reduce((total, item) => total + item.price * item.quantity, 0);
   const cartCount = (cart || []).reduce((count, item) => count + item.quantity, 0);
   const decreaseStock = async (productId: string, amount: number) => {
-    const product = await dexieDB.decorProducts.get(productId);
-    if(product) {
-        const newStock = Math.max(0, product.stock - amount);
-        await setDoc(doc(firestoreDB, 'decorProducts', productId), { stock: newStock }, { merge: true });
+    const productRef = doc(firestoreDB, 'decorProducts', productId);
+    try {
+        const product = await dexieDB.decorProducts.get(productId);
+        if(product) {
+            const newStock = Math.max(0, product.stock - amount);
+            await setDoc(productRef, { stock: newStock }, { merge: true });
+        }
+    } catch (e) {
+        console.error("Failed to decrease stock", e);
     }
   };
   const markBookingAsRead = async (id: string) => {
@@ -242,8 +250,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
     portfolioItems: portfolioItems || [],
     decorProducts: decorProducts || [],
     rentalProperties: rentalProperties || [],
-    orders: orders || [],
-    bookings: bookings || [],
+    orders: (orders || []).sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
+    bookings: (bookings || []).sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
     siteSettings: siteSettings || initialSiteSettings,
     testimonials: testimonials,
     loading: loading || portfolioItems === undefined || decorProducts === undefined || rentalProperties === undefined,
