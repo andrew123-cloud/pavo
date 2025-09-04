@@ -16,24 +16,16 @@ import type { PortfolioItem } from '@/lib/types';
 import { usePavoData } from '@/context/data-context';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import axios from 'axios';
-
-const UPLOAD_URL = '/api/upload';
 
 export default function InteriorsAdmin() {
-  const { portfolioItems, loading, deletePortfolioItem } = usePavoData();
+  const { portfolioItems, loading, addOrUpdatePortfolioItem, deletePortfolioItem } = usePavoData();
   const { toast } = useToast();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingItem, setEditingItem] = useState<PortfolioItem | null>(null);
 
-  const [afterImageFile, setAfterImageFile] = useState<File | null>(null);
-  const [afterImagePreview, setAfterImagePreview] = useState<string | null>(null);
-
   const openForm = (item?: PortfolioItem) => {
     setEditingItem(item || null);
-    setAfterImageFile(null);
-    setAfterImagePreview(item?.imageUrl || null);
     setIsFormOpen(true);
   };
 
@@ -41,17 +33,7 @@ export default function InteriorsAdmin() {
     setIsFormOpen(false);
     setTimeout(() => {
         setEditingItem(null);
-        setAfterImageFile(null);
-        setAfterImagePreview(null);
     }, 300);
-  };
-
-  const handleAfterImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (event.target.files && event.target.files[0]) {
-      const file = event.target.files[0];
-      setAfterImageFile(file);
-      setAfterImagePreview(URL.createObjectURL(file));
-    }
   };
   
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -59,50 +41,35 @@ export default function InteriorsAdmin() {
     setIsSubmitting(true);
     
     const form = event.currentTarget;
-    const formData = new FormData();
     const title = form.title.value;
 
-    formData.append('collection', 'portfolioItems');
-    formData.append('title', title);
-    formData.append('location', form.location.value);
-    formData.append('description', form.description.value);
-    formData.append('beforeImageUrl', form.beforeImageUrl.value || '');
-    formData.append('aiHint', title.toLowerCase().split(' ').slice(0, 2).join(' '));
-
-    if (editingItem?.id) {
-        formData.append('id', editingItem.id);
-    }
-    
-    if (afterImageFile) {
-        formData.append('file', afterImageFile);
-    } else if (editingItem?.imageUrl) {
-        formData.append('imageUrl', editingItem.imageUrl);
-    }
+    const portfolioData: Omit<PortfolioItem, 'id'> = {
+      title,
+      location: form.location.value,
+      description: form.description.value,
+      imageUrl: form.imageUrl.value,
+      beforeImageUrl: form.beforeImageUrl.value || '',
+      aiHint: title.toLowerCase().split(' ').slice(0, 2).join(' '),
+    };
 
     try {
-        const response = await axios.post(UPLOAD_URL, formData, {
-            maxBodyLength: Infinity,
-            maxContentLength: Infinity,
-        });
-
-        toast({ title: 'Success!', description: response.data.message });
+        await addOrUpdatePortfolioItem(portfolioData, editingItem?.id);
+        toast({ title: 'Success!', description: 'Portfolio item saved locally.' });
         closeForm();
     } catch (error: any) {
       console.error("Error saving portfolio item:", error);
-       const errorMsg = error.response?.data?.error || 'Could not save the portfolio item. Please try again.';
-      toast({ variant: 'destructive', title: 'Save Failed', description: errorMsg });
+      toast({ variant: 'destructive', title: 'Save Failed', description: error.message });
     } finally {
       setIsSubmitting(false);
     }
   };
-
 
   const handleDelete = async (id: string) => {
     try {
       await deletePortfolioItem(id);
       toast({
         title: 'Portfolio Item Deleted',
-        description: 'The item has been successfully deleted.',
+        description: 'The item has been successfully deleted from your local database.',
       });
     } catch(e) {
       // Error toast is handled by context
@@ -123,7 +90,7 @@ export default function InteriorsAdmin() {
         <Card className="mt-4">
             <CardHeader>
                 <CardTitle>Portfolio Items</CardTitle>
-                <CardDescription>Manage your interior design portfolio.</CardDescription>
+                <CardDescription>Manage your interior design portfolio. Data is stored locally in your browser.</CardDescription>
             </CardHeader>
             <CardContent>
                 {loading ? (
@@ -150,7 +117,7 @@ export default function InteriorsAdmin() {
                                         alt={item.title}
                                         className="aspect-square rounded-md object-cover"
                                         height="64"
-                                        src={item.imageUrl}
+                                        src={item.imageUrl || 'https://placehold.co/64x64/png'}
                                         width="64"
                                         data-ai-hint={item.aiHint}
                                     />
@@ -176,7 +143,7 @@ export default function InteriorsAdmin() {
                                                 <AlertDialogHeader>
                                                 <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                                                 <AlertDialogDescription>
-                                                    This action cannot be undone. This will permanently delete the portfolio item.
+                                                    This action cannot be undone. This will permanently delete the portfolio item from your local database.
                                                 </AlertDialogDescription>
                                                 </AlertDialogHeader>
                                                 <AlertDialogFooter>
@@ -231,31 +198,22 @@ export default function InteriorsAdmin() {
                         </div>
                         <div className="grid grid-cols-4 items-center gap-4">
                             <Label htmlFor="beforeImageUrl" className="text-right">
-                                Before Image URL
+                                'Before' Image URL
                             </Label>
                             <Input 
                                 id="beforeImageUrl" 
                                 name="beforeImageUrl" 
                                 defaultValue={editingItem?.beforeImageUrl ?? ''}
                                 className="col-span-3" 
-                                placeholder="Optional: Paste direct URL to 'before' image"
+                                placeholder="Optional: https://example.com/before.png"
                             />
                         </div>
-                        
                         <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="afterImage" className="text-right">
-                                After Image
+                            <Label htmlFor="imageUrl" className="text-right">
+                                'After' Image URL
                             </Label>
-                            <Input id="afterImage" name="afterImage" type="file" accept="image/*" onChange={handleAfterImageChange} className="col-span-3" />
+                            <Input id="imageUrl" name="imageUrl" defaultValue={editingItem?.imageUrl} className="col-span-3" placeholder="https://example.com/after.png" required/>
                         </div>
-                         {afterImagePreview && (
-                            <div className="grid grid-cols-4 items-start gap-4">
-                                <Label className="text-right pt-2">Preview</Label>
-                                <div className="col-span-3">
-                                     <Image src={afterImagePreview} alt="After image preview" width={100} height={100} className="rounded-md object-cover"/>
-                                </div>
-                            </div>
-                        )}
                     </div>
                     <DialogFooter>
                         <DialogClose asChild>

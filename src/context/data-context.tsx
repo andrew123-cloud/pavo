@@ -3,20 +3,22 @@
 
 import React, { createContext, useContext, ReactNode, useEffect, useMemo } from 'react';
 import type { PavoData, PortfolioItem, Product, Property, Order, SiteSettings, Booking } from '@/lib/types';
-import { siteSettings as initialSiteSettings } from '@/lib/data';
-import { db as firestoreDB } from '@/lib/firebase';
-import { collection, doc, setDoc, deleteDoc, writeBatch, getDoc, orderBy, query, onSnapshot, addDoc, serverTimestamp, Timestamp, getDocs } from 'firebase/firestore';
+import { siteSettings as initialSiteSettings, testimonials } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db as dexieDB, CartItem } from '@/lib/db';
+import { v4 as uuidv4 } from 'uuid';
+
 
 interface DataContextType extends PavoData {
   loading: boolean;
+  addOrUpdatePortfolioItem: (item: Omit<PortfolioItem, 'id'>, id?: string) => Promise<void>;
   deletePortfolioItem: (id: string) => Promise<void>;
+  addOrUpdateDecorProduct: (product: Omit<Product, 'id'>, id?: string) => Promise<void>;
   deleteDecorProduct: (id: string) => Promise<void>;
+  addOrUpdateRentalProperty: (property: Omit<Property, 'id'>, id?: string) => Promise<void>;
   deleteRentalProperty: (id: string) => Promise<void>;
   addOrder: (order: Order) => Promise<void>;
-  updateOrder: (order: Order) => Promise<void>;
   decreaseStock: (productId: string, amount: number) => Promise<void>;
   addBooking: (booking: Omit<Booking, 'id' | 'createdAt' | 'isRead'>) => Promise<void>;
   markBookingAsRead: (id: string) => Promise<void>;
@@ -36,7 +38,6 @@ const DataContext = createContext<DataContextType | undefined>(undefined);
 export function DataProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
 
-  // Use Dexie's useLiveQuery for reactive data
   const portfolioItems = useLiveQuery(() => dexieDB.portfolioItems.toArray(), []);
   const decorProducts = useLiveQuery(() => dexieDB.decorProducts.toArray(), []);
   const rentalProperties = useLiveQuery(() => dexieDB.rentalProperties.toArray(), []);
@@ -49,158 +50,86 @@ export function DataProvider({ children }: { children: ReactNode }) {
     [portfolioItems, decorProducts, rentalProperties, orders, bookings, siteSettings, cart].some(data => data === undefined)
   ), [portfolioItems, decorProducts, rentalProperties, orders, bookings, siteSettings, cart]);
 
-
-   // Effect to sync Firestore with Dexie only once per session
   useEffect(() => {
-    const syncFirestoreToDexie = async () => {
-      // Use sessionStorage to prevent re-syncing on every component mount in the same session
-      if (sessionStorage.getItem('synced')) {
-          console.log('Data already synced in this session.');
-          return;
-      }
-      
-      console.log('Starting Firestore to Dexie sync...');
-      
-      try {
-        const syncCollection = async (name: string, table: Dexie.Table<any, any>, sortField?: string, sortDirection: 'asc' | 'desc' = 'desc') => {
-            const q = sortField ? query(collection(firestoreDB, name), orderBy(sortField, sortDirection)) : query(collection(firestoreDB, name));
-            const snapshot = await getDocs(q);
-            const data = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-            if (data.length > 0) {
-              await table.bulkPut(data);
-            }
-            console.log(`Synced ${data.length} docs from ${name}`);
-        };
-
-        const settingsDoc = await getDoc(doc(firestoreDB, 'settings', 'site'));
-        if (settingsDoc.exists()) {
-            await dexieDB.siteSettings.put({ ...settingsDoc.data() as SiteSettings, id: 'default' });
-            console.log('Synced site settings.');
+    const seedInitialData = async () => {
+        const settingsCount = await dexieDB.siteSettings.count();
+        if (settingsCount === 0) {
+            console.log("Seeding initial site settings to Dexie.");
+            await dexieDB.siteSettings.put({ ...initialSiteSettings, id: 'default' });
         }
-
-        await Promise.all([
-          syncCollection('portfolioItems', dexieDB.portfolioItems),
-          syncCollection('decorProducts', dexieDB.decorProducts),
-          syncCollection('rentalProperties', dexieDB.rentalProperties),
-          syncCollection('orders', dexieDB.orders, 'created_at'),
-          syncCollection('bookings', dexieDB.bookings, 'createdAt'),
-        ]);
-
-        sessionStorage.setItem('synced', 'true');
-        console.log('Firestore to Dexie sync complete.');
-
-      } catch (error: any) {
-        console.error("Firestore sync failed, will rely on local data:", error);
-        // Do not crash the app, just log the error. The app will run with existing Dexie data.
-        if (error.code === 'unavailable') {
-            toast({
-                title: "You are offline",
-                description: "Displaying local data. Changes will sync when you're back online.",
-                variant: "default"
-            });
-        }
-      }
     };
-    
-    // Real-time listener only for bookings, as they are time-sensitive
-    const listenForBookings = () => {
-       const q = query(collection(firestoreDB, 'bookings'), orderBy('createdAt', 'desc'));
-       return onSnapshot(q, async (snapshot) => {
-         const firestoreData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Booking));
-         await dexieDB.bookings.bulkPut(firestoreData);
-       }, error => {
-         console.error(`Error listening to bookings:`, error);
-       });
-    };
-
-    syncFirestoreToDexie();
-    const unsubscribeBookings = listenForBookings();
-
-    return () => {
-      unsubscribeBookings();
-    };
+    seedInitialData();
   }, []);
 
-
-  const deleteOperation = async (table: Dexie.Table, collectionName: string, id: string, successMsg: string) => {
+  const addOrUpdate = async (table: Dexie.Table, data: any, id?: string) => {
     try {
-      // Optimistic UI update
-      await table.delete(id);
-      await deleteDoc(doc(firestoreDB, collectionName, id));
-      toast({ title: 'Success', description: successMsg });
+      const payload = { ...data, id: id || uuidv4() };
+      await table.put(payload);
+      toast({ title: 'Success', description: 'Your data has been saved locally.' });
     } catch (error) {
-      console.error(`Error deleting from ${collectionName}:`, error);
-      toast({ variant: 'destructive', title: 'Error', description: 'Could not delete the item. Please try again.' });
-      // Re-fetch from firestore to revert optimistic update if needed, though Dexie sync should handle it
+      console.error('Dexie save error:', error);
+      toast({ variant: 'destructive', title: 'Error', description: 'Could not save data to the local database.' });
       throw error;
     }
   };
 
-  const deletePortfolioItem = async (id: string) => deleteOperation(dexieDB.portfolioItems, 'portfolioItems', id, 'Portfolio item deleted.');
-  const deleteDecorProduct = async (id: string) => deleteOperation(dexieDB.decorProducts, 'decorProducts', id, 'Product deleted.');
-  const deleteRentalProperty = async (id: string) => deleteOperation(dexieDB.rentalProperties, 'rentalProperties', id, 'Property deleted.');
-
-  const updateOperation = async (table: Dexie.Table, collectionName: string, id: string, data: any, successMsg: string) => {
-      try {
-        await table.put({...data, id});
-        await setDoc(doc(firestoreDB, collectionName, id), data, { merge: true });
-        toast({ title: 'Success', description: successMsg });
-      } catch (error) {
-         console.error(`Error updating ${collectionName}:`, error);
-         toast({ variant: 'destructive', title: 'Error', description: 'Could not update the item. Please try again.' });
-         throw error;
-      }
+  const deleteOperation = async (table: Dexie.Table, id: string) => {
+    try {
+      await table.delete(id);
+      toast({ title: 'Success', description: 'Item deleted from the local database.' });
+    } catch (error) {
+      console.error('Dexie delete error:', error);
+      toast({ variant: 'destructive', title: 'Error', description: 'Could not delete the item.' });
+      throw error;
+    }
   };
+
+  const addOrUpdatePortfolioItem = async (item: Omit<PortfolioItem, 'id'>, id?: string) => addOrUpdate(dexieDB.portfolioItems, item, id);
+  const deletePortfolioItem = async (id: string) => deleteOperation(dexieDB.portfolioItems, id);
+
+  const addOrUpdateDecorProduct = async (product: Omit<Product, 'id'>, id?: string) => addOrUpdate(dexieDB.decorProducts, product, id);
+  const deleteDecorProduct = async (id: string) => deleteOperation(dexieDB.decorProducts, id);
   
+  const addOrUpdateRentalProperty = async (property: Omit<Property, 'id'>, id?: string) => addOrUpdate(dexieDB.rentalProperties, property, id);
+  const deleteRentalProperty = async (id: string) => deleteOperation(dexieDB.rentalProperties, id);
+
+  const addOrder = async (order: Order) => addOrUpdate(dexieDB.orders, order, order.id);
+
   const decreaseStock = async (productId: string, amount: number) => {
     const product = await dexieDB.decorProducts.get(productId);
     if(product) {
       const newStock = Math.max(0, product.stock - amount);
-      await updateOperation(dexieDB.decorProducts, 'decorProducts', productId, { stock: newStock }, 'Stock updated.');
+      await dexieDB.decorProducts.update(productId, { stock: newStock });
     }
   };
-  
-  const addOrder = async (order: Order) => updateOperation(dexieDB.orders, 'orders', order.id, order, 'Order added.');
-  const updateOrder = async (order: Order) => updateOperation(dexieDB.orders, 'orders', order.id, order, 'Order updated.');
-  const updateSiteSettings = async (settings: SiteSettings) => updateOperation(dexieDB.siteSettings, 'settings', 'site', settings, 'Site settings updated.');
 
   const addBooking = async (booking: Omit<Booking, 'id' | 'createdAt' | 'isRead'>) => {
-    try {
-      const newBooking = { ...booking, createdAt: serverTimestamp(), isRead: false };
-      const docRef = await addDoc(collection(firestoreDB, 'bookings'), newBooking);
-      // Dexie will be updated by the onSnapshot listener, no need for manual put
-      toast({ title: 'Success', description: 'Your booking request has been sent.' });
-    } catch (error) {
-      console.error(`Error adding booking:`, error);
-      toast({ variant: 'destructive', title: 'Error', description: `Could not save the booking. Please check your connection and try again.` });
-      throw error;
-    }
+     await addOrUpdate(dexieDB.bookings, {
+       ...booking,
+       createdAt: new Date().toISOString(),
+       isRead: false
+     });
   };
 
-  const markBookingAsRead = async (id: string) => updateOperation(dexieDB.bookings, 'bookings', id, { isRead: true }, 'Booking marked as read.');
-
-  const markAllBookingsAsRead = async () => {
-    try {
-      const unread = (bookings || []).filter(b => !b.isRead);
-      if (unread.length === 0) return;
-      
-      const batch = writeBatch(firestoreDB);
-      unread.forEach(booking => {
-        const docRef = doc(firestoreDB, 'bookings', booking.id);
-        batch.update(docRef, { isRead: true });
-      });
-      await batch.commit();
-      // Dexie updates via listener
-    } catch(error) {
-       console.error(`Error marking all as read:`, error);
-    }
+  const markBookingAsRead = async (id: string) => {
+    await dexieDB.bookings.update(id, { isRead: true });
   };
   
-  // Cart Logic using Dexie
+  const markAllBookingsAsRead = async () => {
+     const unread = (bookings || []).filter(b => !b.isRead);
+     if (unread.length === 0) return;
+     const unreadIds = unread.map(b => b.id);
+     await dexieDB.bookings.where('id').anyOf(unreadIds).modify({ isRead: true });
+  };
+
+  const updateSiteSettings = async (settings: SiteSettings) => {
+     await addOrUpdate(dexieDB.siteSettings, settings, 'default');
+  };
+
   const addToCart = async (product: Product) => {
-    const existingItem = await dexieDB.cart.where({ id: product.id }).first();
+    const existingItem = await dexieDB.cart.get(product.id);
     if (existingItem) {
-      await dexieDB.cart.update(existingItem.id, { quantity: existingItem.quantity + 1 });
+      await dexieDB.cart.update(product.id, { quantity: existingItem.quantity + 1 });
     } else {
       await dexieDB.cart.add({ ...product, quantity: 1 });
     }
@@ -214,17 +143,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const removeFromCart = async (productId: string) => {
-    await dexieDB.cart.delete(productId);
-  };
-  
-  const clearCart = async () => {
-    await dexieDB.cart.clear();
-  };
-  
+  const removeFromCart = (productId: string) => dexieDB.cart.delete(productId);
+  const clearCart = () => dexieDB.cart.clear();
+
   const cartTotal = (cart || []).reduce((total, item) => total + item.price * item.quantity, 0);
   const cartCount = (cart || []).reduce((count, item) => count + item.quantity, 0);
-
 
   const providerValue: DataContextType = {
     portfolioItems: portfolioItems || [],
@@ -233,12 +156,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
     orders: orders || [],
     bookings: bookings || [],
     siteSettings: siteSettings || initialSiteSettings,
+    testimonials: testimonials,
     loading,
+    addOrUpdatePortfolioItem,
     deletePortfolioItem,
+    addOrUpdateDecorProduct,
     deleteDecorProduct,
+    addOrUpdateRentalProperty,
     deleteRentalProperty,
     addOrder,
-    updateOrder,
     decreaseStock,
     addBooking,
     markBookingAsRead,
@@ -253,12 +179,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     cartCount,
   };
 
-
-  return (
-    <DataContext.Provider value={providerValue}>
-      {children}
-    </DataContext.Provider>
-  );
+  return <DataContext.Provider value={providerValue}>{children}</DataContext.Provider>;
 }
 
 export function usePavoData() {

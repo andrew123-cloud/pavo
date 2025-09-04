@@ -16,23 +16,16 @@ import { Label } from '@/components/ui/label';
 import type { Product } from '@/lib/types';
 import { usePavoData } from '@/context/data-context';
 import { useToast } from '@/hooks/use-toast';
-import axios from 'axios';
-
-const UPLOAD_URL = '/api/upload';
 
 export default function DecorsAdmin() {
-  const { decorProducts, loading, deleteDecorProduct } = usePavoData();
+  const { decorProducts, loading, addOrUpdateDecorProduct, deleteDecorProduct } = usePavoData();
   const { toast } = useToast();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
 
   const openForm = (product?: Product) => {
     setEditingProduct(product || null);
-    setImageFile(null);
-    setImagePreview(product?.imageUrl || null);
     setIsFormOpen(true);
   };
 
@@ -40,17 +33,7 @@ export default function DecorsAdmin() {
     setIsFormOpen(false);
     setTimeout(() => {
         setEditingProduct(null);
-        setImageFile(null);
-        setImagePreview(null);
     }, 300);
-  };
-
-  const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (event.target.files && event.target.files[0]) {
-      const file = event.target.files[0];
-      setImageFile(file);
-      setImagePreview(URL.createObjectURL(file));
-    }
   };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -58,54 +41,35 @@ export default function DecorsAdmin() {
     setIsSubmitting(true);
 
     const form = event.currentTarget;
-    const formData = new FormData();
     const name = form.name.value;
     
-    // Append all form fields
-    formData.append('collection', 'decorProducts');
-    formData.append('name', name);
-    formData.append('category', form.category.value);
-    formData.append('price', form.price.value);
-    formData.append('stock', form.stock.value);
-    formData.append('aiHint', name.toLowerCase().split(' ').slice(0, 2).join(' '));
-
-    if (editingProduct?.id) {
-      formData.append('id', editingProduct.id);
-    }
-    
-    // Append the file if it exists
-    if (imageFile) {
-        formData.append('file', imageFile);
-    } else if (editingProduct?.imageUrl) {
-        // If not editing image, pass existing URL
-        formData.append('imageUrl', editingProduct.imageUrl);
-    }
-
+    const productData: Omit<Product, 'id'> = {
+        name,
+        category: form.category.value,
+        price: Number(form.price.value),
+        stock: Number(form.stock.value),
+        imageUrl: form.imageUrl.value,
+        aiHint: name.toLowerCase().split(' ').slice(0, 2).join(' '),
+    };
 
     try {
-        const response = await axios.post(UPLOAD_URL, formData, {
-            maxBodyLength: Infinity,
-            maxContentLength: Infinity,
-        });
-
-        toast({ title: 'Success!', description: response.data.message });
+        await addOrUpdateDecorProduct(productData, editingProduct?.id);
+        toast({ title: 'Success!', description: 'Product saved locally.' });
         closeForm();
     } catch (error: any) {
         console.error("Error saving product:", error);
-        const errorMsg = error.response?.data?.error || error.message || "Could not save the product. Please try again.";
-        toast({ variant: 'destructive', title: 'Save Failed', description: errorMsg });
+        toast({ variant: 'destructive', title: 'Save Failed', description: error.message });
     } finally {
         setIsSubmitting(false);
     }
   };
-
 
   const handleDelete = async (id: string) => {
     try {
       await deleteDecorProduct(id);
       toast({
         title: 'Product Deleted',
-        description: 'The product has been successfully deleted.',
+        description: 'The product has been successfully deleted from the local database.',
       });
     } catch (error) {
        // Error toast is handled by context
@@ -126,7 +90,7 @@ export default function DecorsAdmin() {
         <Card className="mt-4">
             <CardHeader>
                 <CardTitle>Products</CardTitle>
-                <CardDescription>Manage your decor products and inventory.</CardDescription>
+                <CardDescription>Manage your decor products. Data is stored locally in your browser.</CardDescription>
             </CardHeader>
             <CardContent>
                 {loading ? (
@@ -155,7 +119,7 @@ export default function DecorsAdmin() {
                                         alt={product.name}
                                         className="aspect-square rounded-md object-cover"
                                         height="64"
-                                        src={product.imageUrl}
+                                        src={product.imageUrl || 'https://placehold.co/64x64/png'}
                                         width="64"
                                         data-ai-hint={product.aiHint}
                                     />
@@ -193,7 +157,7 @@ export default function DecorsAdmin() {
                                                 <AlertDialogHeader>
                                                 <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                                                 <AlertDialogDescription>
-                                                    This action cannot be undone. This will permanently delete the product.
+                                                    This action cannot be undone. This will permanently delete the product from your local database.
                                                 </AlertDialogDescription>
                                                 </AlertDialogHeader>
                                                 <AlertDialogFooter>
@@ -245,17 +209,9 @@ export default function DecorsAdmin() {
                             <Input id="stock" name="stock" type="number" defaultValue={editingProduct?.stock} className="col-span-3" required />
                         </div>
                         <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="image" className="text-right">Image</Label>
-                            <Input id="image" name="image" type="file" accept="image/*" onChange={handleImageChange} className="col-span-3" />
+                            <Label htmlFor="imageUrl" className="text-right">Image URL</Label>
+                            <Input id="imageUrl" name="imageUrl" placeholder="https://example.com/image.png" defaultValue={editingProduct?.imageUrl} className="col-span-3" required />
                         </div>
-                         {imagePreview && (
-                            <div className="grid grid-cols-4 items-start gap-4">
-                                <Label className="text-right pt-2">Preview</Label>
-                                <div className="col-span-3">
-                                     <Image src={imagePreview} alt="Image preview" width={100} height={100} className="rounded-md object-cover"/>
-                                </div>
-                            </div>
-                        )}
                     </div>
                     <DialogFooter>
                          <DialogClose asChild>
