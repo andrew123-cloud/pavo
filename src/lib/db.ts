@@ -16,11 +16,9 @@ export class PavoDexie extends Dexie {
   cart!: Table<CartItem, string>;
 
   constructor() {
-    super('pavoDB');
-    // Incrementing version number to fix the upgrade error
-    // Re-stabilizing the schema to use 'id' as the primary key consistently
-    // and adding other fields as indexes.
-    this.version(7).stores({
+    // Renaming the database to force a fresh start and bypass upgrade errors.
+    super('pavoDB_v2'); 
+    this.version(1).stores({
       portfolioItems: 'id, title', 
       decorProducts: 'id, category, name',
       rentalProperties: 'id, location',
