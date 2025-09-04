@@ -110,22 +110,25 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }, [toast]);
 
 
-  const uploadImage = (path: string, file: File, id: string): Promise<string> => {
-    return new Promise(async (resolve, reject) => {
-      if (!file) {
-        reject("No file provided");
-        return;
-      }
-      const storageRef = ref(storage, `${path}/${id}/${file.name}`);
-      try {
-        await uploadBytes(storageRef, file, { contentType: file.type });
-        const downloadURL = await getDownloadURL(storageRef);
-        resolve(downloadURL);
-      } catch (error) {
-        console.error("Error uploading image:", error);
-        reject(error);
-      }
-    });
+  const uploadImage = async (path: string, file: File, id: string): Promise<string> => {
+    if (!file) {
+      throw new Error("No file provided for upload.");
+    }
+    const storageRef = ref(storage, `${path}/${id}/${file.name}`);
+    try {
+      await uploadBytes(storageRef, file, { contentType: file.type });
+      const downloadURL = await getDownloadURL(storageRef);
+      return downloadURL;
+    } catch (error) {
+      console.error("Error uploading image:", error);
+      toast({
+          variant: 'destructive',
+          title: 'Image Upload Failed',
+          description: `There was a problem uploading your image. Please try again.`,
+      });
+      // Re-throw the error to be caught by the calling function
+      throw error;
+    }
   };
   
   const deleteImage = async (imageUrl: string) => {
