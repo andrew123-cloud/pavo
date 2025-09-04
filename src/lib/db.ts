@@ -19,7 +19,7 @@ export class PavoDexie extends Dexie {
     super('pavoDB');
     // Increment the version number to force a schema upgrade/recreation.
     // This is useful after major changes to ensure a clean state.
-    this.version(3).stores({
+    this.version(4).stores({
       portfolioItems: 'id', // Primary key
       decorProducts: 'id, category, name', // Primary key and indexes
       rentalProperties: 'id, location', // Primary key and indexes

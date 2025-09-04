@@ -89,9 +89,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
         sessionStorage.setItem('synced', 'true');
         console.log('Firestore to Dexie sync complete.');
 
-      } catch (error) {
+      } catch (error: any) {
         console.error("Firestore sync failed, will rely on local data:", error);
         // Do not crash the app, just log the error. The app will run with existing Dexie data.
+        if (error.code === 'unavailable') {
+            toast({
+                title: "You are offline",
+                description: "Displaying local data. Changes will sync when you're back online.",
+                variant: "default"
+            });
+        }
       }
     };
     
