@@ -1,4 +1,3 @@
-
 // src/app/admin/homes/page.tsx
 'use client';
 
@@ -258,6 +257,3 @@ export default function HomesAdmin() {
     </div>
   )
 }
-
-    
-    

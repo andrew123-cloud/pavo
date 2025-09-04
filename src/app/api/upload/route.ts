@@ -1,4 +1,3 @@
-
 // src/app/api/upload/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import axios from 'axios';
@@ -48,5 +47,3 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'An internal server error occurred in the proxy.' }, { status: 500 });
   }
 }
-
-    

@@ -1,4 +1,3 @@
-
 // src/app/admin/decors/page.tsx
 'use client';
 
@@ -273,6 +272,3 @@ export default function DecorsAdmin() {
     </div>
   )
 }
-
-    
-    
