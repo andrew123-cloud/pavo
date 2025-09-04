@@ -10,7 +10,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db as dexieDB, CartItem } from '@/lib/db';
 import { v4 as uuidv4 } from 'uuid';
 import { db as firestoreDB, storage } from '@/lib/firebase';
-import { collection, doc, getDocs, onSnapshot, writeBatch, deleteDoc, setDoc } from 'firebase/firestore';
+import { collection, doc, getDocs, onSnapshot, writeBatch, deleteDoc, setDoc, getDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 
 interface DataContextType extends PavoData {
@@ -38,7 +38,7 @@ interface DataContextType extends PavoData {
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
-const collectionsToSync = ['portfolioItems', 'decorProducts', 'rentalProperties', 'orders', 'bookings', 'siteSettings'] as const;
+const collectionsToSync = ['portfolioItems', 'decorProducts', 'rentalProperties', 'orders', 'bookings'] as const;
 type CollectionName = typeof collectionsToSync[number];
 
 export function DataProvider({ children }: { children: ReactNode }) {
@@ -54,16 +54,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const siteSettings = useLiveQuery(() => dexieDB.siteSettings.get('default'), undefined);
   const cart = useLiveQuery(() => dexieDB.cart.toArray(), []);
 
-
   // This effect syncs Firestore to Dexie in real-time
   useEffect(() => {
     console.log("Setting up Firestore real-time listeners...");
     setLoading(true);
+
     const unsubscribers = collectionsToSync.map((collectionName: CollectionName) => {
       const collRef = collection(firestoreDB, collectionName);
       return onSnapshot(collRef, async (querySnapshot) => {
         console.log(`[Firestore Sync] Received update for ${collectionName}`);
-        const dexieTable = dexieDB[collectionName as keyof typeof dexieDB] as Dexie.Table;
+        const dexieTable = dexieDB[collectionName as keyof typeof dexieDB] as Dexie.Table<any,any>;
         try {
             await dexieDB.transaction('rw', dexieTable, async () => {
               const allKeys = await dexieTable.toCollection().keys();
@@ -91,19 +91,41 @@ export function DataProvider({ children }: { children: ReactNode }) {
       });
     });
 
+    const settingsDocRef = doc(firestoreDB, 'siteSettings', 'default');
+    const settingsUnsubscriber = onSnapshot(settingsDocRef, async (doc) => {
+      if (doc.exists()) {
+        const settingsData = { ...doc.data(), id: 'default' } as SiteSettings;
+        await dexieDB.siteSettings.put(settingsData);
+        console.log("[Firestore Sync] Successfully synced siteSettings");
+      }
+    });
+
     setLoading(false);
     // Unsubscribe from listeners on cleanup
     return () => {
         console.log("Cleaning up Firestore listeners.");
         unsubscribers.forEach(unsub => unsub());
+        settingsUnsubscriber();
     }
   }, [toast]);
 
 
-  const uploadImage = async (path: string, file: File, id: string): Promise<string> => {
-    const storageRef = ref(storage, `${path}/${id}/${file.name}`);
-    await uploadBytes(storageRef, file, { contentType: file.type });
-    return getDownloadURL(storageRef);
+  const uploadImage = (path: string, file: File, id: string): Promise<string> => {
+    return new Promise(async (resolve, reject) => {
+      if (!file) {
+        reject("No file provided");
+        return;
+      }
+      const storageRef = ref(storage, `${path}/${id}/${file.name}`);
+      try {
+        await uploadBytes(storageRef, file, { contentType: file.type });
+        const downloadURL = await getDownloadURL(storageRef);
+        resolve(downloadURL);
+      } catch (error) {
+        console.error("Error uploading image:", error);
+        reject(error);
+      }
+    });
   };
   
   const deleteImage = async (imageUrl: string) => {
@@ -131,16 +153,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
     if (beforeImageFile) finalItem.beforeImageUrl = await uploadImage('portfolioItems', beforeImageFile, docId);
 
     await setDoc(docRef, finalItem, { merge: true });
-    toast({ title: 'Success', description: 'Portfolio item saved.' });
   };
 
   const deletePortfolioItem = async (id: string) => {
-    const item = await dexieDB.portfolioItems.get(id);
+    const docRef = doc(firestoreDB, 'portfolioItems', id);
+    const docSnap = await getDoc(docRef);
+    const item = docSnap.data() as PortfolioItem | undefined;
+
     if (!item) return;
-    await deleteImage(item.imageUrl);
+
+    if(item.imageUrl) await deleteImage(item.imageUrl);
     if(item.beforeImageUrl) await deleteImage(item.beforeImageUrl);
-    await deleteDoc(doc(firestoreDB, 'portfolioItems', id));
-    toast({ title: 'Success', description: 'Portfolio item deleted.' });
+
+    await deleteDoc(docRef);
   };
   
 
@@ -149,17 +174,21 @@ export function DataProvider({ children }: { children: ReactNode }) {
      const docRef = doc(firestoreDB, 'decorProducts', docId);
      
      let finalProduct = { ...product };
-     if (imageFile) finalProduct.imageUrl = await uploadImage('decorProducts', imageFile, docId);
+     if (imageFile) {
+        finalProduct.imageUrl = await uploadImage('decorProducts', imageFile, docId);
+     }
 
      await setDoc(docRef, finalProduct, { merge: true });
-     toast({ title: 'Success', description: 'Product saved.' });
   };
 
   const deleteDecorProduct = async (id: string) => {
-    const item = await dexieDB.decorProducts.get(id);
-    if(item) await deleteImage(item.imageUrl);
-    await deleteDoc(doc(firestoreDB, 'decorProducts', id));
-    toast({ title: 'Success', description: 'Product deleted.' });
+    const docRef = doc(firestoreDB, 'decorProducts', id);
+    const docSnap = await getDoc(docRef);
+    const item = docSnap.data() as Product | undefined;
+    
+    if(item && item.imageUrl) await deleteImage(item.imageUrl);
+
+    await deleteDoc(docRef);
   };
   
   const addOrUpdateRentalProperty = async (property: Omit<Property, 'id'>, id?: string, imageFile?: File) => {
@@ -170,14 +199,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
      if (imageFile) finalProperty.imageUrl = await uploadImage('rentalProperties', imageFile, docId);
 
      await setDoc(docRef, finalProperty, { merge: true });
-     toast({ title: 'Success', description: 'Property saved.' });
   };
 
   const deleteRentalProperty = async (id: string) => {
-    const item = await dexieDB.rentalProperties.get(id);
-    if(item) await deleteImage(item.imageUrl);
-    await deleteDoc(doc(firestoreDB, 'rentalProperties', id));
-    toast({ title: 'Success', description: 'Property deleted.' });
+    const docRef = doc(firestoreDB, 'rentalProperties', id);
+    const docSnap = await getDoc(docRef);
+    const item = docSnap.data() as Property | undefined;
+    if(item && item.imageUrl) await deleteImage(item.imageUrl);
+    await deleteDoc(docRef);
   };
 
   const addOrder = async (order: Order) => {
@@ -197,7 +226,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
   
   const updateSiteSettings = async (settings: SiteSettings) => {
     await setDoc(doc(firestoreDB, 'siteSettings', 'default'), settings, { merge: true });
-    toast({ title: 'Success', description: 'Site settings updated.' });
   };
 
   // ---- Cart functionality (purely client-side with Dexie) ----
@@ -220,11 +248,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const clearCart = () => dexieDB.cart.clear();
   const cartTotal = (cart || []).reduce((total, item) => total + item.price * item.quantity, 0);
   const cartCount = (cart || []).reduce((count, item) => count + item.quantity, 0);
+
   const decreaseStock = async (productId: string, amount: number) => {
     const productRef = doc(firestoreDB, 'decorProducts', productId);
     try {
-        const product = await dexieDB.decorProducts.get(productId);
-        if(product) {
+        const productSnap = await getDoc(productRef);
+        if(productSnap.exists()) {
+            const product = productSnap.data() as Product;
             const newStock = Math.max(0, product.stock - amount);
             await setDoc(productRef, { stock: newStock }, { merge: true });
         }
@@ -232,6 +262,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         console.error("Failed to decrease stock", e);
     }
   };
+
   const markBookingAsRead = async (id: string) => {
       await setDoc(doc(firestoreDB, 'bookings', id), { isRead: true }, { merge: true });
   };
