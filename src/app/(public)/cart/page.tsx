@@ -6,12 +6,25 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
-import { Minus, Plus, ShoppingCart, Trash2 } from 'lucide-react';
+import { Minus, Plus, ShoppingCart, Trash2, Loader2 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 
 export default function CartPage() {
-  const { cart, updateCartQuantity, removeFromCart, cartTotal, cartCount } = usePavoData();
+  const { cart, updateCartQuantity, removeFromCart, cartTotal, cartCount, loading } = usePavoData();
+
+  if (loading) {
+    return (
+        <div className="dark bg-background text-foreground min-h-screen flex items-center justify-center">
+            <div className="text-center">
+                <Loader2 className="h-16 w-16 text-primary mx-auto animate-spin" />
+                <h1 className="mt-6 font-headline text-3xl font-bold tracking-tight text-foreground">
+                    Loading Cart...
+                </h1>
+            </div>
+        </div>
+    );
+  }
 
   return (
     <div className="dark bg-background text-foreground min-h-screen">
@@ -49,7 +62,7 @@ export default function CartPage() {
                       <React.Fragment key={item.id}>
                         <div className="flex items-center gap-4">
                           <div className="relative h-24 w-24 rounded-md overflow-hidden">
-                            <Image src={item.imageUrl} alt={item.name} layout="fill" objectFit="cover" />
+                            <Image src={item.imageUrl || `https://placehold.co/100x100/png?text=No+Image`} alt={item.name} layout="fill" objectFit="cover" />
                           </div>
                           <div className="flex-1">
                             <h3 className="font-semibold text-lg">{item.name}</h3>

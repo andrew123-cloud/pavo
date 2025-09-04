@@ -27,7 +27,7 @@ const paymentMethods = [
 
 
 export default function CheckoutPage() {
-  const { cart, cartTotal, clearCart } = usePavoData();
+  const { cart, cartTotal, clearCart, loading } = usePavoData();
   const router = useRouter();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
@@ -74,6 +74,19 @@ export default function CheckoutPage() {
         setIsLoading(false);
     }
   };
+
+  if (loading) {
+    return (
+        <div className="dark bg-background text-foreground min-h-screen flex items-center justify-center">
+            <div className="text-center">
+                <Loader2 className="h-16 w-16 text-primary mx-auto animate-spin" />
+                <h1 className="mt-6 font-headline text-3xl font-bold tracking-tight text-foreground">
+                    Loading Checkout...
+                </h1>
+            </div>
+        </div>
+    );
+  }
 
   if (cart.length === 0 && !isLoading) { // prevent flicker on redirect
      return (
@@ -160,7 +173,7 @@ export default function CheckoutPage() {
                           {cart.map(item => (
                               <div key={item.id} className="flex items-center gap-4">
                                   <div className="relative h-16 w-16 rounded-md overflow-hidden">
-                                      <Image src={item.imageUrl} alt={item.name} layout="fill" objectFit="cover" />
+                                      <Image src={item.imageUrl || `https://placehold.co/64x64/png?text=No+Image`} alt={item.name} layout="fill" objectFit="cover" />
                                       <span className="absolute -top-2 -right-2 flex h-6 w-6 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground">
                                           {item.quantity}
                                       </span>
