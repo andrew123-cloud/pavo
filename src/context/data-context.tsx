@@ -1,4 +1,3 @@
-
 // src/context/data-context.tsx
 'use client';
 
@@ -11,15 +10,15 @@ import { db as dexieDB, CartItem } from '@/lib/db';
 import { v4 as uuidv4 } from 'uuid';
 import { db as firestoreDB, storage } from '@/lib/firebase';
 import { collection, doc, getDocs, onSnapshot, writeBatch, deleteDoc, setDoc, getDoc } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
 
 interface DataContextType extends PavoData {
   loading: boolean;
-  addOrUpdatePortfolioItem: (item: Omit<PortfolioItem, 'id'>, id?: string, imageFile?: File, beforeImageFile?: File) => Promise<void>;
+  addOrUpdatePortfolioItem: (item: Omit<PortfolioItem, 'id'>, id?: string, imageFile?: File, beforeImageFile?: File, onProgress?: (progress: number) => void) => Promise<void>;
   deletePortfolioItem: (id: string) => Promise<void>;
-  addOrUpdateDecorProduct: (product: Omit<Product, 'id'>, id?: string, imageFile?: File) => Promise<void>;
+  addOrUpdateDecorProduct: (product: Omit<Product, 'id'>, id?: string, imageFile?: File, onProgress?: (progress: number) => void) => Promise<void>;
   deleteDecorProduct: (id: string) => Promise<void>;
-  addOrUpdateRentalProperty: (property: Omit<Property, 'id'>, id?: string, imageFile?: File) => Promise<void>;
+  addOrUpdateRentalProperty: (property: Omit<Property, 'id'>, id?: string, imageFile?: File, onProgress?: (progress: number) => void) => Promise<void>;
   deleteRentalProperty: (id: string) => Promise<void>;
   addOrder: (order: Order) => Promise<void>;
   decreaseStock: (productId: string, amount: number) => Promise<void>;
@@ -110,25 +109,35 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }, [toast]);
 
 
-  const uploadImage = async (path: string, file: File, id: string): Promise<string> => {
-    if (!file) {
-      throw new Error("No file provided for upload.");
-    }
-    const storageRef = ref(storage, `${path}/${id}/${file.name}`);
-    try {
-      await uploadBytes(storageRef, file, { contentType: file.type });
-      const downloadURL = await getDownloadURL(storageRef);
-      return downloadURL;
-    } catch (error) {
-      console.error("Error uploading image:", error);
-      toast({
-          variant: 'destructive',
-          title: 'Image Upload Failed',
-          description: `There was a problem uploading your image. Please try again.`,
-      });
-      // Re-throw the error to be caught by the calling function
-      throw error;
-    }
+ const uploadImage = (path: string, file: File, id: string, onProgress: (progress: number) => void): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      if (!file) {
+        return reject("No file provided for upload.");
+      }
+      const storageRef = ref(storage, `${path}/${id}/${file.name}`);
+      const uploadTask = uploadBytesResumable(storageRef, file, { contentType: file.type });
+
+      uploadTask.on('state_changed',
+        (snapshot) => {
+          const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+          onProgress(progress);
+        },
+        (error) => {
+          console.error("Error uploading image:", error);
+          toast({
+            variant: 'destructive',
+            title: 'Image Upload Failed',
+            description: `There was a problem uploading your image. Please try again.`,
+          });
+          reject(error);
+        },
+        () => {
+          getDownloadURL(uploadTask.snapshot.ref).then((downloadURL) => {
+            resolve(downloadURL);
+          }).catch(reject);
+        }
+      );
+    });
   };
   
   const deleteImage = async (imageUrl: string) => {
@@ -147,13 +156,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }
 
 
-  const addOrUpdatePortfolioItem = async (item: Omit<PortfolioItem, 'id'>, id?: string, imageFile?: File, beforeImageFile?: File) => {
+  const addOrUpdatePortfolioItem = async (item: Omit<PortfolioItem, 'id'>, id?: string, imageFile?: File, beforeImageFile?: File, onProgress?: (p:number) => void) => {
     const docId = id || uuidv4();
     const docRef = doc(firestoreDB, 'portfolioItems', docId);
 
     let finalItem = { ...item };
-    if (imageFile) finalItem.imageUrl = await uploadImage('portfolioItems', imageFile, docId);
-    if (beforeImageFile) finalItem.beforeImageUrl = await uploadImage('portfolioItems', beforeImageFile, docId);
+    if (imageFile) finalItem.imageUrl = await uploadImage('portfolioItems', imageFile, docId, onProgress || (() => {}));
+    if (beforeImageFile) finalItem.beforeImageUrl = await uploadImage('portfolioItems', beforeImageFile, docId, onProgress || (() => {}));
 
     await setDoc(docRef, finalItem, { merge: true });
   };
@@ -172,13 +181,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
   };
   
 
-  const addOrUpdateDecorProduct = async (product: Omit<Product, 'id'>, id?: string, imageFile?: File) => {
+  const addOrUpdateDecorProduct = async (product: Omit<Product, 'id'>, id?: string, imageFile?: File, onProgress?: (p:number) => void) => {
      const docId = id || uuidv4();
      const docRef = doc(firestoreDB, 'decorProducts', docId);
      
      let finalProduct = { ...product };
      if (imageFile) {
-        finalProduct.imageUrl = await uploadImage('decorProducts', imageFile, docId);
+        finalProduct.imageUrl = await uploadImage('decorProducts', imageFile, docId, onProgress || (() => {}));
      }
 
      await setDoc(docRef, finalProduct, { merge: true });
@@ -194,12 +203,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
     await deleteDoc(docRef);
   };
   
-  const addOrUpdateRentalProperty = async (property: Omit<Property, 'id'>, id?: string, imageFile?: File) => {
+  const addOrUpdateRentalProperty = async (property: Omit<Property, 'id'>, id?: string, imageFile?: File, onProgress?: (p:number) => void) => {
      const docId = id || uuidv4();
      const docRef = doc(firestoreDB, 'rentalProperties', docId);
      
      let finalProperty = { ...property };
-     if (imageFile) finalProperty.imageUrl = await uploadImage('rentalProperties', imageFile, docId);
+     if (imageFile) finalProperty.imageUrl = await uploadImage('rentalProperties', imageFile, docId, onProgress || (() => {}));
 
      await setDoc(docRef, finalProperty, { merge: true });
   };

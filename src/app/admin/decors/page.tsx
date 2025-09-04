@@ -1,4 +1,3 @@
-
 // src/app/admin/decors/page.tsx
 'use client';
 
@@ -17,6 +16,7 @@ import { Label } from '@/components/ui/label';
 import type { Product } from '@/lib/types';
 import { usePavoData } from '@/context/data-context';
 import { useToast } from '@/hooks/use-toast';
+import { Progress } from '@/components/ui/progress';
 
 export default function DecorsAdmin() {
   const { decorProducts, loading, addOrUpdateDecorProduct, deleteDecorProduct } = usePavoData();
@@ -25,10 +25,12 @@ export default function DecorsAdmin() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
 
   const openForm = (product?: Product) => {
     setEditingProduct(product || null);
     setImageFile(null);
+    setUploadProgress(0);
     setIsFormOpen(true);
   };
 
@@ -37,12 +39,14 @@ export default function DecorsAdmin() {
     setTimeout(() => {
         setEditingProduct(null);
         setImageFile(null);
+        setUploadProgress(0);
     }, 300);
   };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setIsSubmitting(true);
+    setUploadProgress(0);
 
     const form = event.currentTarget;
     const name = form.name.value;
@@ -57,7 +61,7 @@ export default function DecorsAdmin() {
     };
 
     try {
-        await addOrUpdateDecorProduct(productData, editingProduct?.id, imageFile || undefined);
+        await addOrUpdateDecorProduct(productData, editingProduct?.id, imageFile || undefined, setUploadProgress);
         toast({ title: 'Success!', description: 'Product saved successfully.' });
         closeForm();
     } catch (error: any) {
@@ -65,6 +69,7 @@ export default function DecorsAdmin() {
         toast({ variant: 'destructive', title: 'Save Failed', description: error.message });
     } finally {
         setIsSubmitting(false);
+        setUploadProgress(0);
     }
   };
 
@@ -228,6 +233,11 @@ export default function DecorsAdmin() {
                                 />
                             </div>
                         }
+                        {isSubmitting && uploadProgress > 0 && (
+                            <div className="col-span-4 px-1">
+                                <Progress value={uploadProgress} />
+                            </div>
+                        )}
                     </div>
                     <DialogFooter>
                          <DialogClose asChild>
@@ -235,7 +245,7 @@ export default function DecorsAdmin() {
                         </DialogClose>
                         <Button type="submit" disabled={isSubmitting}>
                             {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            {editingProduct ? 'Save Changes' : 'Add Product'}
+                            {isSubmitting ? `Uploading... ${Math.round(uploadProgress)}%` : (editingProduct ? 'Save Changes' : 'Add Product')}
                         </Button>
                     </DialogFooter>
                 </form>

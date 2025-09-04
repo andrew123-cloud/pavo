@@ -1,4 +1,3 @@
-
 // src/app/admin/homes/page.tsx
 'use client';
 
@@ -16,6 +15,7 @@ import { Label } from '@/components/ui/label';
 import type { Property } from '@/lib/types';
 import { usePavoData } from '@/context/data-context';
 import { useToast } from '@/hooks/use-toast';
+import { Progress } from '@/components/ui/progress';
 
 export default function HomesAdmin() {
   const { rentalProperties, loading, addOrUpdateRentalProperty, deleteRentalProperty } = usePavoData();
@@ -24,11 +24,12 @@ export default function HomesAdmin() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingProperty, setEditingProperty] = useState<Property | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
-
+  const [uploadProgress, setUploadProgress] = useState(0);
 
   const openForm = (property?: Property) => {
     setEditingProperty(property || null);
     setImageFile(null);
+    setUploadProgress(0);
     setIsFormOpen(true);
   };
 
@@ -37,12 +38,14 @@ export default function HomesAdmin() {
     setTimeout(() => {
         setEditingProperty(null);
         setImageFile(null);
+        setUploadProgress(0);
     }, 300);
   };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setIsSubmitting(true);
+    setUploadProgress(0);
     
     const form = event.currentTarget;
     const title = form.title.value;
@@ -57,7 +60,7 @@ export default function HomesAdmin() {
     };
 
     try {
-        await addOrUpdateRentalProperty(propertyData, editingProperty?.id, imageFile || undefined);
+        await addOrUpdateRentalProperty(propertyData, editingProperty?.id, imageFile || undefined, setUploadProgress);
         toast({ title: 'Success!', description: 'Property saved successfully.' });
         closeForm();
     } catch (error: any) {
@@ -65,6 +68,7 @@ export default function HomesAdmin() {
       toast({ variant: 'destructive', title: 'Save Failed', description: error.message });
     } finally {
       setIsSubmitting(false);
+      setUploadProgress(0);
     }
   };
 
@@ -222,6 +226,11 @@ export default function HomesAdmin() {
                                 />
                             </div>
                         }
+                        {isSubmitting && uploadProgress > 0 && (
+                            <div className="col-span-4 px-1">
+                                <Progress value={uploadProgress} />
+                            </div>
+                        )}
                     </div>
                     <DialogFooter>
                          <DialogClose asChild>
@@ -229,7 +238,7 @@ export default function HomesAdmin() {
                         </DialogClose>
                         <Button type="submit" disabled={isSubmitting}>
                             {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            {editingProperty ? 'Save Changes' : 'Add Property'}
+                             {isSubmitting ? `Uploading... ${Math.round(uploadProgress)}%` : (editingProperty ? 'Save Changes' : 'Add Property')}
                         </Button>
                     </DialogFooter>
                 </form>

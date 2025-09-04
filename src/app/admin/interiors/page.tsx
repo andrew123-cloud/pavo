@@ -1,4 +1,3 @@
-
 // src/app/admin/interiors/page.tsx
 'use client';
 
@@ -17,6 +16,7 @@ import type { PortfolioItem } from '@/lib/types';
 import { usePavoData } from '@/context/data-context';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
+import { Progress } from '@/components/ui/progress';
 
 export default function InteriorsAdmin() {
   const { portfolioItems, loading, addOrUpdatePortfolioItem, deletePortfolioItem } = usePavoData();
@@ -26,11 +26,13 @@ export default function InteriorsAdmin() {
   const [editingItem, setEditingItem] = useState<PortfolioItem | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [beforeImageFile, setBeforeImageFile] = useState<File | null>(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
 
   const openForm = (item?: PortfolioItem) => {
     setEditingItem(item || null);
     setImageFile(null);
     setBeforeImageFile(null);
+    setUploadProgress(0);
     setIsFormOpen(true);
   };
 
@@ -40,12 +42,14 @@ export default function InteriorsAdmin() {
         setEditingItem(null);
         setImageFile(null);
         setBeforeImageFile(null);
+        setUploadProgress(0);
     }, 300);
   };
   
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setIsSubmitting(true);
+    setUploadProgress(0);
     
     const form = event.currentTarget;
     const title = form.title.value;
@@ -60,7 +64,7 @@ export default function InteriorsAdmin() {
     };
 
     try {
-        await addOrUpdatePortfolioItem(portfolioData, editingItem?.id, imageFile || undefined, beforeImageFile || undefined);
+        await addOrUpdatePortfolioItem(portfolioData, editingItem?.id, imageFile || undefined, beforeImageFile || undefined, setUploadProgress);
         toast({ title: 'Success!', description: 'Portfolio item saved successfully.' });
         closeForm();
     } catch (error: any) {
@@ -68,6 +72,7 @@ export default function InteriorsAdmin() {
       toast({ variant: 'destructive', title: 'Save Failed', description: error.message });
     } finally {
       setIsSubmitting(false);
+      setUploadProgress(0);
     }
   };
 
@@ -251,6 +256,11 @@ export default function InteriorsAdmin() {
                                 />
                             </div>
                         }
+                         {isSubmitting && uploadProgress > 0 && (
+                            <div className="col-span-4 px-1">
+                                <Progress value={uploadProgress} />
+                            </div>
+                        )}
                     </div>
                     <DialogFooter>
                         <DialogClose asChild>
@@ -258,7 +268,7 @@ export default function InteriorsAdmin() {
                         </DialogClose>
                         <Button type="submit" disabled={isSubmitting}>
                             {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            {editingItem ? 'Save Changes' : 'Add Item'}
+                           {isSubmitting ? `Uploading... ${Math.round(uploadProgress)}%` : (editingItem ? 'Save Changes' : 'Add Item')}
                         </Button>
                     </DialogFooter>
                  </form>
