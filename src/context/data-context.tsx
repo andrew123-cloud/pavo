@@ -11,6 +11,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { db as firestoreDB, storage } from '@/lib/firebase';
 import { collection, doc, getDocs, onSnapshot, writeBatch, deleteDoc, setDoc, getDoc } from 'firebase/firestore';
 import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
+import imageCompression from 'browser-image-compression';
+
 
 interface DataContextType extends PavoData {
   loading: boolean;
@@ -110,33 +112,50 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
 
  const uploadImage = (path: string, file: File, id: string, onProgress: (progress: number) => void): Promise<string> => {
-    return new Promise((resolve, reject) => {
+    return new Promise(async (resolve, reject) => {
       if (!file) {
         return reject("No file provided for upload.");
       }
-      const storageRef = ref(storage, `${path}/${id}/${file.name}`);
-      const uploadTask = uploadBytesResumable(storageRef, file, { contentType: file.type });
 
-      uploadTask.on('state_changed',
-        (snapshot) => {
-          const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-          onProgress(progress);
-        },
-        (error) => {
-          console.error("Error uploading image:", error);
-          toast({
-            variant: 'destructive',
-            title: 'Image Upload Failed',
-            description: `There was a problem uploading your image. Please try again.`,
-          });
-          reject(error);
-        },
-        () => {
-          getDownloadURL(uploadTask.snapshot.ref).then((downloadURL) => {
-            resolve(downloadURL);
-          }).catch(reject);
-        }
-      );
+      const options = {
+        maxSizeMB: 1,
+        maxWidthOrHeight: 1920,
+        useWebWorker: true,
+        onProgress: (p: number) => onProgress(p * 0.5), // Compression progress (0-50%)
+      };
+
+      try {
+        console.log(`Original file size: ${file.size / 1024 / 1024} MB`);
+        const compressedFile = await imageCompression(file, options);
+        console.log(`Compressed file size: ${compressedFile.size / 1024 / 1024} MB`);
+
+        const storageRef = ref(storage, `${path}/${id}/${compressedFile.name}`);
+        const uploadTask = uploadBytesResumable(storageRef, compressedFile, { contentType: compressedFile.type });
+
+        uploadTask.on('state_changed',
+            (snapshot) => {
+            const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+            onProgress(50 + progress * 0.5); // Upload progress (50-100%)
+            },
+            (error) => {
+            console.error("Error uploading image:", error);
+            toast({
+                variant: 'destructive',
+                title: 'Image Upload Failed',
+                description: `There was a problem uploading your image. Please try again.`,
+            });
+            reject(error);
+            },
+            () => {
+            getDownloadURL(uploadTask.snapshot.ref).then((downloadURL) => {
+                resolve(downloadURL);
+            }).catch(reject);
+            }
+        );
+      } catch (error) {
+         console.error('Image compression failed:', error);
+         reject(error);
+      }
     });
   };
   
