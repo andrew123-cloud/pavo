@@ -29,9 +29,10 @@ import {
   DialogClose,
 } from '@/components/ui/dialog';
 import { BookingForm } from '@/components/shared/booking-form';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function PavoInteriorsHome() {
-  const { portfolioItems, siteSettings } = usePavoData();
+  const { portfolioItems, siteSettings, loading } = usePavoData();
   const [selectedProject, setSelectedProject] = useState<PortfolioItem | null>(null);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
@@ -158,34 +159,45 @@ export default function PavoInteriorsHome() {
             </p>
           </div>
           <div className="mt-16 grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
-            {portfolioItems.map((item) => (
-              <Card
-                key={item.id}
-                className="group relative flex flex-col overflow-hidden rounded-lg bg-background border-0 shadow-lg transition-all duration-300 hover:shadow-2xl hover:-translate-y-2"
-              >
-                <div className="relative h-80 w-full overflow-hidden">
-                  <Image
-                    src={item.imageUrl}
-                    alt={item.title}
-                    fill
-                    className="h-full w-full object-cover transition-transform duration-500 ease-in-out group-hover:scale-105"
-                    data-ai-hint={item.aiHint}
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
-                  <div className="absolute bottom-0 left-0 p-6">
-                    <h3 className="font-headline text-2xl font-bold text-white">
-                      {item.title}
-                    </h3>
-                    <p className="text-white/80">{item.location}</p>
-                  </div>
-                </div>
-                 <CardFooter className="p-4 mt-auto bg-background">
-                    <Button variant="outline" className="w-full" onClick={() => setSelectedProject(item)}>
-                        View Project
-                    </Button>
-                 </CardFooter>
-              </Card>
-            ))}
+             {loading ? (
+                Array.from({ length: 3 }).map((_, index) => (
+                    <Card key={index} className="flex flex-col bg-background border-0 shadow-lg">
+                        <Skeleton className="h-80 w-full" />
+                        <CardFooter className="p-4 mt-auto">
+                            <Skeleton className="h-10 w-full" />
+                        </CardFooter>
+                    </Card>
+                ))
+            ) : (
+                portfolioItems.map((item) => (
+                <Card
+                    key={item.id}
+                    className="group relative flex flex-col overflow-hidden rounded-lg bg-background border-0 shadow-lg transition-all duration-300 hover:shadow-2xl hover:-translate-y-2"
+                >
+                    <div className="relative h-80 w-full overflow-hidden">
+                    <Image
+                        src={item.imageUrl || 'https://placehold.co/400x320.png?text=Image+Not+Available'}
+                        alt={item.title}
+                        fill
+                        className="h-full w-full object-cover transition-transform duration-500 ease-in-out group-hover:scale-105"
+                        data-ai-hint={item.aiHint}
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
+                    <div className="absolute bottom-0 left-0 p-6">
+                        <h3 className="font-headline text-2xl font-bold text-white">
+                        {item.title}
+                        </h3>
+                        <p className="text-white/80">{item.location}</p>
+                    </div>
+                    </div>
+                    <CardFooter className="p-4 mt-auto bg-background">
+                        <Button variant="outline" className="w-full" onClick={() => setSelectedProject(item)}>
+                            View Project
+                        </Button>
+                    </CardFooter>
+                </Card>
+                ))
+            )}
           </div>
         </div>
       </section>

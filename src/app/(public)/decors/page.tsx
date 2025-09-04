@@ -10,9 +10,10 @@ import { Badge } from '@/components/ui/badge';
 import { usePavoData } from '@/context/data-context';
 import { useToast } from '@/hooks/use-toast';
 import { useState, useEffect } from 'react';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function PavoDecorsHome() {
-  const { decorProducts, addToCart, siteSettings } = usePavoData();
+  const { decorProducts, addToCart, siteSettings, loading } = usePavoData();
   const { toast } = useToast();
   const categories = ['Pillows', 'Curtains', 'Vases', 'Wall Art', 'Tableware'];
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
@@ -99,45 +100,60 @@ export default function PavoDecorsHome() {
             </p>
           </div>
           <div className="mt-16 grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-4">
-            {decorProducts.map((product) => (
-              <Card
-                key={product.id}
-                className="overflow-hidden transition-all duration-300 ease-in-out hover:shadow-2xl hover:-translate-y-2 bg-transparent border-0 flex flex-col"
-              >
-                <CardContent className="p-0 flex-grow">
-                  <div className="group">
-                    <div className="relative h-96 w-full overflow-hidden rounded-lg">
-                      <Image
-                        src={product.imageUrl}
-                        alt={product.name}
-                        layout="fill"
-                        objectFit="cover"
-                        className="transition-transform duration-500 ease-in-out group-hover:scale-105"
-                        data-ai-hint={product.aiHint}
-                      />
-                      {product.stock > 0 ? (
-                         <Badge className="absolute left-3 top-3 bg-primary/80 text-primary-foreground backdrop-blur-sm">In Stock</Badge>
-                      ): (
-                         <Badge variant="destructive" className="absolute left-3 top-3">Out of Stock</Badge>
-                      )}
+            {loading ? (
+                Array.from({ length: 4 }).map((_, index) => (
+                    <Card key={index} className="bg-transparent border-0 flex flex-col">
+                        <Skeleton className="h-96 w-full rounded-lg" />
+                        <div className="p-4 text-center">
+                            <Skeleton className="h-6 w-3/4 mx-auto" />
+                            <Skeleton className="h-5 w-1/2 mx-auto mt-2" />
+                        </div>
+                        <CardFooter className="flex justify-center p-4 pt-0">
+                            <Skeleton className="h-12 w-full" />
+                        </CardFooter>
+                    </Card>
+                ))
+            ) : (
+                decorProducts.map((product) => (
+                <Card
+                    key={product.id}
+                    className="overflow-hidden transition-all duration-300 ease-in-out hover:shadow-2xl hover:-translate-y-2 bg-transparent border-0 flex flex-col"
+                >
+                    <CardContent className="p-0 flex-grow">
+                    <div className="group">
+                        <div className="relative h-96 w-full overflow-hidden rounded-lg">
+                        <Image
+                            src={product.imageUrl || 'https://placehold.co/400x400.png?text=Image+Not+Available'}
+                            alt={product.name}
+                            layout="fill"
+                            objectFit="cover"
+                            className="transition-transform duration-500 ease-in-out group-hover:scale-105"
+                            data-ai-hint={product.aiHint}
+                        />
+                        {product.stock > 0 ? (
+                            <Badge className="absolute left-3 top-3 bg-primary/80 text-primary-foreground backdrop-blur-sm">In Stock</Badge>
+                        ): (
+                            <Badge variant="destructive" className="absolute left-3 top-3">Out of Stock</Badge>
+                        )}
+                        </div>
+                        <div className="p-4 text-center">
+                        <h3 className="mt-2 font-headline font-semibold text-xl text-foreground">
+                            {product.name}
+                        </h3>
+                        <p className="text-lg text-muted-foreground">
+                            {product.price.toLocaleString()} TZS
+                        </p>
+                        </div>
                     </div>
-                    <div className="p-4 text-center">
-                      <h3 className="mt-2 font-headline font-semibold text-xl text-foreground">
-                        {product.name}
-                      </h3>
-                       <p className="text-lg text-muted-foreground">
-                        {product.price.toLocaleString()} TZS
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-                <CardFooter className="flex justify-center p-4 pt-0">
-                  <Button variant="secondary" size="lg" className="w-full" disabled={product.stock === 0} onClick={() => handleAddToCart(product)}>
-                    Add to Cart
-                  </Button>
-                </CardFooter>
-              </Card>
-            ))}
+                    </CardContent>
+                    <CardFooter className="flex justify-center p-4 pt-0">
+                    <Button variant="secondary" size="lg" className="w-full" disabled={product.stock === 0} onClick={() => handleAddToCart(product)}>
+                        Add to Cart
+                    </Button>
+                    </CardFooter>
+                </Card>
+                ))
+            )}
           </div>
         </div>
       </section>

@@ -18,9 +18,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { usePavoData } from '@/context/data-context';
 import { useState, useEffect } from 'react';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function PavoHomesHome() {
-  const { rentalProperties, siteSettings } = usePavoData();
+  const { rentalProperties, siteSettings, loading } = usePavoData();
   const homeTypes = [
     { name: 'Beachfront', icon: <Waves className="h-10 w-10" /> },
     { name: 'Safari Lodges', icon: <TreePine className="h-10 w-10" /> },
@@ -134,44 +135,57 @@ export default function PavoHomesHome() {
             </p>
           </div>
           <div className="mt-16 grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
-            {rentalProperties.map((property) => (
-              <Card
-                key={property.id}
-                className="overflow-hidden transition-all duration-300 ease-in-out hover:shadow-2xl hover:-translate-y-2 bg-background border-0"
-              >
-                <CardContent className="p-0">
-                  <Link href="#" className="group">
-                    <div className="relative h-80 w-full overflow-hidden rounded-lg">
-                      <Image
-                        src={property.imageUrl}
-                        alt={property.title}
-                        layout="fill"
-                        objectFit="cover"
-                        className="transition-transform duration-500 ease-in-out group-hover:scale-105"
-                        data-ai-hint={property.aiHint}
-                      />
-                      <Badge className="absolute right-3 top-3 bg-primary/80 text-primary-foreground backdrop-blur-sm">
-                        <Star className="mr-1 h-3 w-3" /> {property.rating}
-                      </Badge>
-                    </div>
-                    <div className="p-4">
-                      <h3 className="font-headline font-semibold text-2xl text-foreground">
-                        {property.title}
-                      </h3>
-                      <p className="mt-1 flex items-center gap-2 text-muted-foreground">
-                        <MapPin className="h-4 w-4" /> {property.location}
-                      </p>
-                      <p className="mt-4 font-semibold text-lg text-primary">
-                        {property.pricePerNight.toLocaleString()} TZS{' '}
-                        <span className="text-sm font-normal text-muted-foreground">
-                          / night
-                        </span>
-                      </p>
-                    </div>
-                  </Link>
-                </CardContent>
-              </Card>
-            ))}
+            {loading ? (
+                Array.from({ length: 3 }).map((_, index) => (
+                    <Card key={index} className="bg-background border-0">
+                        <Skeleton className="h-80 w-full rounded-lg" />
+                        <div className="p-4">
+                            <Skeleton className="h-7 w-3/4" />
+                            <Skeleton className="h-5 w-1/2 mt-2" />
+                            <Skeleton className="h-6 w-1/3 mt-4" />
+                        </div>
+                    </Card>
+                ))
+            ) : (
+                rentalProperties.map((property) => (
+                <Card
+                    key={property.id}
+                    className="overflow-hidden transition-all duration-300 ease-in-out hover:shadow-2xl hover:-translate-y-2 bg-background border-0"
+                >
+                    <CardContent className="p-0">
+                    <Link href="#" className="group">
+                        <div className="relative h-80 w-full overflow-hidden rounded-lg">
+                        <Image
+                            src={property.imageUrl || 'https://placehold.co/400x320.png?text=Image+Not+Available'}
+                            alt={property.title}
+                            layout="fill"
+                            objectFit="cover"
+                            className="transition-transform duration-500 ease-in-out group-hover:scale-105"
+                            data-ai-hint={property.aiHint}
+                        />
+                        <Badge className="absolute right-3 top-3 bg-primary/80 text-primary-foreground backdrop-blur-sm">
+                            <Star className="mr-1 h-3 w-3" /> {property.rating}
+                        </Badge>
+                        </div>
+                        <div className="p-4">
+                        <h3 className="font-headline font-semibold text-2xl text-foreground">
+                            {property.title}
+                        </h3>
+                        <p className="mt-1 flex items-center gap-2 text-muted-foreground">
+                            <MapPin className="h-4 w-4" /> {property.location}
+                        </p>
+                        <p className="mt-4 font-semibold text-lg text-primary">
+                            {property.pricePerNight.toLocaleString()} TZS{' '}
+                            <span className="text-sm font-normal text-muted-foreground">
+                            / night
+                            </span>
+                        </p>
+                        </div>
+                    </Link>
+                    </CardContent>
+                </Card>
+                ))
+            )}
           </div>
           <div className="mt-12 text-center">
             <Button variant="outline" size="lg" asChild>
