@@ -1,3 +1,4 @@
+
 // src/app/admin/decors/page.tsx
 'use client';
 
@@ -23,9 +24,11 @@ export default function DecorsAdmin() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [imageFile, setImageFile] = useState<File | null>(null);
 
   const openForm = (product?: Product) => {
     setEditingProduct(product || null);
+    setImageFile(null);
     setIsFormOpen(true);
   };
 
@@ -33,6 +36,7 @@ export default function DecorsAdmin() {
     setIsFormOpen(false);
     setTimeout(() => {
         setEditingProduct(null);
+        setImageFile(null);
     }, 300);
   };
 
@@ -48,13 +52,13 @@ export default function DecorsAdmin() {
         category: form.category.value,
         price: Number(form.price.value),
         stock: Number(form.stock.value),
-        imageUrl: form.imageUrl.value,
+        imageUrl: editingProduct?.imageUrl || '',
         aiHint: name.toLowerCase().split(' ').slice(0, 2).join(' '),
     };
 
     try {
-        await addOrUpdateDecorProduct(productData, editingProduct?.id);
-        toast({ title: 'Success!', description: 'Product saved locally.' });
+        await addOrUpdateDecorProduct(productData, editingProduct?.id, imageFile || undefined);
+        toast({ title: 'Success!', description: 'Product saved successfully.' });
         closeForm();
     } catch (error: any) {
         console.error("Error saving product:", error);
@@ -69,7 +73,7 @@ export default function DecorsAdmin() {
       await deleteDecorProduct(id);
       toast({
         title: 'Product Deleted',
-        description: 'The product has been successfully deleted from the local database.',
+        description: 'The product has been successfully deleted.',
       });
     } catch (error) {
        // Error toast is handled by context
@@ -90,7 +94,7 @@ export default function DecorsAdmin() {
         <Card className="mt-4">
             <CardHeader>
                 <CardTitle>Products</CardTitle>
-                <CardDescription>Manage your decor products. Data is stored locally in your browser.</CardDescription>
+                <CardDescription>Manage your decor products. Data is synced with Firestore.</CardDescription>
             </CardHeader>
             <CardContent>
                 {loading ? (
@@ -157,7 +161,7 @@ export default function DecorsAdmin() {
                                                 <AlertDialogHeader>
                                                 <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                                                 <AlertDialogDescription>
-                                                    This action cannot be undone. This will permanently delete the product from your local database.
+                                                    This action cannot be undone. This will permanently delete the product from Firestore.
                                                 </AlertDialogDescription>
                                                 </AlertDialogHeader>
                                                 <AlertDialogFooter>
@@ -209,9 +213,21 @@ export default function DecorsAdmin() {
                             <Input id="stock" name="stock" type="number" defaultValue={editingProduct?.stock} className="col-span-3" required />
                         </div>
                         <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="imageUrl" className="text-right">Image URL</Label>
-                            <Input id="imageUrl" name="imageUrl" placeholder="https://example.com/image.png" defaultValue={editingProduct?.imageUrl} className="col-span-3" required />
+                            <Label htmlFor="imageFile" className="text-right">Image</Label>
+                            <Input id="imageFile" name="imageFile" type="file" onChange={(e) => setImageFile(e.target.files?.[0] || null)} className="col-span-3" />
                         </div>
+                        { (editingProduct?.imageUrl || imageFile) &&
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label className="text-right">Preview</Label>
+                                <Image
+                                    src={imageFile ? URL.createObjectURL(imageFile) : editingProduct!.imageUrl}
+                                    alt="preview"
+                                    width={64}
+                                    height={64}
+                                    className="col-span-3 rounded-md object-cover"
+                                />
+                            </div>
+                        }
                     </div>
                     <DialogFooter>
                          <DialogClose asChild>

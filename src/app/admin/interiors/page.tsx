@@ -1,3 +1,4 @@
+
 // src/app/admin/interiors/page.tsx
 'use client';
 
@@ -23,9 +24,13 @@ export default function InteriorsAdmin() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingItem, setEditingItem] = useState<PortfolioItem | null>(null);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [beforeImageFile, setBeforeImageFile] = useState<File | null>(null);
 
   const openForm = (item?: PortfolioItem) => {
     setEditingItem(item || null);
+    setImageFile(null);
+    setBeforeImageFile(null);
     setIsFormOpen(true);
   };
 
@@ -33,6 +38,8 @@ export default function InteriorsAdmin() {
     setIsFormOpen(false);
     setTimeout(() => {
         setEditingItem(null);
+        setImageFile(null);
+        setBeforeImageFile(null);
     }, 300);
   };
   
@@ -47,14 +54,14 @@ export default function InteriorsAdmin() {
       title,
       location: form.location.value,
       description: form.description.value,
-      imageUrl: form.imageUrl.value,
-      beforeImageUrl: form.beforeImageUrl.value || '',
+      imageUrl: editingItem?.imageUrl || '',
+      beforeImageUrl: editingItem?.beforeImageUrl || '',
       aiHint: title.toLowerCase().split(' ').slice(0, 2).join(' '),
     };
 
     try {
-        await addOrUpdatePortfolioItem(portfolioData, editingItem?.id);
-        toast({ title: 'Success!', description: 'Portfolio item saved locally.' });
+        await addOrUpdatePortfolioItem(portfolioData, editingItem?.id, imageFile || undefined, beforeImageFile || undefined);
+        toast({ title: 'Success!', description: 'Portfolio item saved successfully.' });
         closeForm();
     } catch (error: any) {
       console.error("Error saving portfolio item:", error);
@@ -69,7 +76,7 @@ export default function InteriorsAdmin() {
       await deletePortfolioItem(id);
       toast({
         title: 'Portfolio Item Deleted',
-        description: 'The item has been successfully deleted from your local database.',
+        description: 'The item has been successfully deleted.',
       });
     } catch(e) {
       // Error toast is handled by context
@@ -90,7 +97,7 @@ export default function InteriorsAdmin() {
         <Card className="mt-4">
             <CardHeader>
                 <CardTitle>Portfolio Items</CardTitle>
-                <CardDescription>Manage your interior design portfolio. Data is stored locally in your browser.</CardDescription>
+                <CardDescription>Manage your interior design portfolio. Data is synced with Firestore.</CardDescription>
             </CardHeader>
             <CardContent>
                 {loading ? (
@@ -143,7 +150,7 @@ export default function InteriorsAdmin() {
                                                 <AlertDialogHeader>
                                                 <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                                                 <AlertDialogDescription>
-                                                    This action cannot be undone. This will permanently delete the portfolio item from your local database.
+                                                    This action cannot be undone. This will permanently delete the portfolio item from Firestore.
                                                 </AlertDialogDescription>
                                                 </AlertDialogHeader>
                                                 <AlertDialogFooter>
@@ -197,23 +204,53 @@ export default function InteriorsAdmin() {
                             <Textarea id="description" name="description" defaultValue={editingItem?.description} className="col-span-3" rows={4} required/>
                         </div>
                         <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="beforeImageUrl" className="text-right">
-                                'Before' Image URL
+                            <Label htmlFor="beforeImageFile" className="text-right">
+                                'Before' Image
                             </Label>
                             <Input 
-                                id="beforeImageUrl" 
-                                name="beforeImageUrl" 
-                                defaultValue={editingItem?.beforeImageUrl ?? ''}
-                                className="col-span-3" 
-                                placeholder="Optional: https://example.com/before.png"
+                                id="beforeImageFile" 
+                                name="beforeImageFile" 
+                                type="file"
+                                onChange={(e) => setBeforeImageFile(e.target.files?.[0] || null)}
+                                className="col-span-3"
                             />
                         </div>
+                         { (editingItem?.beforeImageUrl || beforeImageFile) &&
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label className="text-right">Preview</Label>
+                                <Image
+                                    src={beforeImageFile ? URL.createObjectURL(beforeImageFile) : editingItem!.beforeImageUrl!}
+                                    alt="before preview"
+                                    width={64}
+                                    height={64}
+                                    className="col-span-3 rounded-md object-cover"
+                                />
+                            </div>
+                        }
                         <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="imageUrl" className="text-right">
-                                'After' Image URL
+                            <Label htmlFor="imageFile" className="text-right">
+                                'After' Image
                             </Label>
-                            <Input id="imageUrl" name="imageUrl" defaultValue={editingItem?.imageUrl} className="col-span-3" placeholder="https://example.com/after.png" required/>
+                            <Input 
+                                id="imageFile" 
+                                name="imageFile" 
+                                type="file"
+                                onChange={(e) => setImageFile(e.target.files?.[0] || null)}
+                                className="col-span-3" 
+                            />
                         </div>
+                         { (editingItem?.imageUrl || imageFile) &&
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label className="text-right">Preview</Label>
+                                <Image
+                                    src={imageFile ? URL.createObjectURL(imageFile) : editingItem!.imageUrl}
+                                    alt="preview"
+                                    width={64}
+                                    height={64}
+                                    className="col-span-3 rounded-md object-cover"
+                                />
+                            </div>
+                        }
                     </div>
                     <DialogFooter>
                         <DialogClose asChild>

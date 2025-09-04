@@ -1,3 +1,4 @@
+
 // src/lib/db.ts
 import Dexie, { type Table } from 'dexie';
 import type { PortfolioItem, Product, Property, Order, Booking, SiteSettings } from './types';
@@ -17,16 +18,14 @@ export class PavoDexie extends Dexie {
 
   constructor() {
     super('pavoDB');
-    // Increment the version number to force a schema upgrade/recreation.
-    // This is useful after major changes to ensure a clean state.
-    this.version(4).stores({
-      portfolioItems: 'id', // Primary key
-      decorProducts: 'id, category, name', // Primary key and indexes
-      rentalProperties: 'id, location', // Primary key and indexes
-      orders: 'id, pesapal_order_tracking_id, created_at', // Primary key and indexes
-      bookings: 'id, createdAt, isRead', // Primary key and indexes
-      siteSettings: 'id', // Primary key (will only have 'default')
-      cart: 'id', // Primary key for cart items
+    this.version(5).stores({
+      portfolioItems: 'id, title', 
+      decorProducts: 'id, category, name',
+      rentalProperties: 'id, location',
+      orders: 'id, pesapal_order_tracking_id, created_at',
+      bookings: 'id, createdAt, isRead',
+      siteSettings: 'id',
+      cart: 'id',
     });
   }
 }

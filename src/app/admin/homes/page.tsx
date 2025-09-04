@@ -1,3 +1,4 @@
+
 // src/app/admin/homes/page.tsx
 'use client';
 
@@ -22,9 +23,12 @@ export default function HomesAdmin() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingProperty, setEditingProperty] = useState<Property | null>(null);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+
 
   const openForm = (property?: Property) => {
     setEditingProperty(property || null);
+    setImageFile(null);
     setIsFormOpen(true);
   };
 
@@ -32,6 +36,7 @@ export default function HomesAdmin() {
     setIsFormOpen(false);
     setTimeout(() => {
         setEditingProperty(null);
+        setImageFile(null);
     }, 300);
   };
 
@@ -47,13 +52,13 @@ export default function HomesAdmin() {
         location: form.location.value,
         pricePerNight: Number(form.pricePerNight.value),
         rating: Number(form.rating.value),
-        imageUrl: form.imageUrl.value,
+        imageUrl: editingProperty?.imageUrl || '',
         aiHint: title.toLowerCase().split(' ').slice(0, 2).join(' '),
     };
 
     try {
-        await addOrUpdateRentalProperty(propertyData, editingProperty?.id);
-        toast({ title: 'Success!', description: 'Property saved locally.' });
+        await addOrUpdateRentalProperty(propertyData, editingProperty?.id, imageFile || undefined);
+        toast({ title: 'Success!', description: 'Property saved successfully.' });
         closeForm();
     } catch (error: any) {
       console.error("Error saving property:", error);
@@ -68,7 +73,7 @@ export default function HomesAdmin() {
       await deleteRentalProperty(id);
       toast({
         title: 'Property Deleted',
-        description: 'The property has been successfully deleted from the local database.',
+        description: 'The property has been successfully deleted.',
       });
     } catch (error) {
       // Error toast is handled by context
@@ -89,7 +94,7 @@ export default function HomesAdmin() {
         <Card className="mt-4">
             <CardHeader>
                 <CardTitle>Properties</CardTitle>
-                <CardDescription>Manage your rental properties. Data is stored locally in your browser.</CardDescription>
+                <CardDescription>Manage your rental properties. Data is synced with Firestore.</CardDescription>
             </CardHeader>
             <CardContent>
                 {loading ? (
@@ -150,7 +155,7 @@ export default function HomesAdmin() {
                                                 <AlertDialogHeader>
                                                 <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                                                 <AlertDialogDescription>
-                                                    This action cannot be undone. This will permanently delete the property from your local database.
+                                                   This action cannot be undone. This will permanently delete the property from Firestore.
                                                 </AlertDialogDescription>
                                                 </AlertDialogHeader>
                                                 <AlertDialogFooter>
@@ -202,9 +207,21 @@ export default function HomesAdmin() {
                             <Input id="rating" name="rating" type="number" step="0.1" max="5" min="0" defaultValue={editingProperty?.rating} className="col-span-3" required />
                         </div>
                          <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="imageUrl" className="text-right">Image URL</Label>
-                            <Input id="imageUrl" name="imageUrl" placeholder="https://example.com/image.png" defaultValue={editingProperty?.imageUrl} className="col-span-3" required />
+                            <Label htmlFor="imageFile" className="text-right">Image</Label>
+                             <Input id="imageFile" name="imageFile" type="file" onChange={(e) => setImageFile(e.target.files?.[0] || null)} className="col-span-3" />
                         </div>
+                         { (editingProperty?.imageUrl || imageFile) &&
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label className="text-right">Preview</Label>
+                                <Image
+                                    src={imageFile ? URL.createObjectURL(imageFile) : editingProperty!.imageUrl}
+                                    alt="preview"
+                                    width={64}
+                                    height={64}
+                                    className="col-span-3 rounded-md object-cover"
+                                />
+                            </div>
+                        }
                     </div>
                     <DialogFooter>
                          <DialogClose asChild>
