@@ -53,34 +53,39 @@ export default function DecorsAdmin() {
             maxSizeMB: 1,
             maxWidthOrHeight: 1920,
             useWebWorker: true,
-            onProgress: (p: number) => {
-                // Compression progress is 0-100, we'll map it to 0-50% of total
-                setUploadProgress(p / 2);
-            },
         };
 
         try {
+            console.log("Compressing image...");
             const compressedFile = await imageCompression(file, options);
+            console.log("Image compressed. Starting upload to:", path);
+
             const storageRef = ref(storage, path);
-            const uploadTask = uploadBytesResumable(storageRef, compressedFile);
+            const uploadTask = uploadBytesResumable(storageRef, compressedFile, { contentType: compressedFile.type });
 
             uploadTask.on('state_changed',
                 (snapshot) => {
                     const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-                    // Upload progress is 0-100, we'll map it to 50-100% of total
-                    setUploadProgress(50 + progress / 2);
+                    setUploadProgress(progress);
+                    console.log('Upload is ' + progress + '% done');
                 },
                 (error) => {
+                    // A full list of error codes is available at
+                    // https://firebase.google.com/docs/storage/web/handle-errors
                     console.error("Upload failed:", error);
+                    // If this error occurs, it's very likely a CORS configuration issue.
+                    // Check the Firebase console and the bucket's CORS settings.
+                    // `gsutil cors set cors.json gs://<your-bucket-name>`
                     reject(error);
                 },
                 async () => {
+                    console.log("Upload complete. Getting download URL...");
                     const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
                     resolve(downloadURL);
                 }
             );
         } catch (error) {
-            console.error("Compression or upload failed", error);
+            console.error("Image compression or upload setup failed", error);
             reject(error);
         }
     });
@@ -113,13 +118,13 @@ export default function DecorsAdmin() {
           aiHint: name.toLowerCase().split(' ').slice(0, 2).join(' '),
       };
 
-      await addOrUpdateDecorProduct(productData, docId);
+      await addOrUpdateDecorProduct(productData);
       toast({ title: 'Success!', description: 'Product saved successfully.' });
       closeForm();
 
     } catch (error: any) {
         console.error("Error saving product:", error);
-        toast({ variant: 'destructive', title: 'Save Failed', description: error.message });
+        toast({ variant: 'destructive', title: 'Save Failed', description: error.message || 'An unknown error occurred' });
     } finally {
         setIsSubmitting(false);
         setUploadProgress(0);
@@ -289,6 +294,7 @@ export default function DecorsAdmin() {
                         {isSubmitting && (
                              <div className="col-span-4">
                                 <Progress value={uploadProgress} />
+                                <p className="text-xs text-center mt-1 text-muted-foreground">Uploading... {Math.round(uploadProgress)}%</p>
                             </div>
                         )}
                     </div>
@@ -298,7 +304,7 @@ export default function DecorsAdmin() {
                         </DialogClose>
                         <Button type="submit" disabled={isSubmitting}>
                             {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            {isSubmitting ? `Uploading... ${Math.round(uploadProgress)}%` : (editingProduct ? 'Save Changes' : 'Add Product')}
+                            {isSubmitting ? `Saving...` : (editingProduct ? 'Save Changes' : 'Add Product')}
                         </Button>
                     </DialogFooter>
                 </form>

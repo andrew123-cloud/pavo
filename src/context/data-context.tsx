@@ -10,17 +10,16 @@ import { db as dexieDB, CartItem } from '@/lib/db';
 import { v4 as uuidv4 } from 'uuid';
 import { db as firestoreDB, storage } from '@/lib/firebase';
 import { collection, doc, getDocs, onSnapshot, writeBatch, deleteDoc, setDoc, getDoc } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import imageCompression from 'browser-image-compression';
+import { ref, deleteObject } from 'firebase/storage';
 
 
 interface DataContextType extends PavoData {
   loading: boolean;
-  addOrUpdatePortfolioItem: (item: PortfolioItem, id?: string) => Promise<void>;
+  addOrUpdatePortfolioItem: (item: PortfolioItem) => Promise<void>;
   deletePortfolioItem: (id: string) => Promise<void>;
-  addOrUpdateDecorProduct: (product: Product, id?: string) => Promise<void>;
+  addOrUpdateDecorProduct: (product: Product) => Promise<void>;
   deleteDecorProduct: (id: string) => Promise<void>;
-  addOrUpdateRentalProperty: (property: Property, id?: string) => Promise<void>;
+  addOrUpdateRentalProperty: (property: Property) => Promise<void>;
   deleteRentalProperty: (id: string) => Promise<void>;
   addOrder: (order: Order) => Promise<void>;
   decreaseStock: (productId: string, amount: number) => Promise<void>;
@@ -126,9 +125,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }
 
 
-  const addOrUpdatePortfolioItem = async (item: PortfolioItem, id?: string) => {
-    const docId = id || item.id;
-    const docRef = doc(firestoreDB, 'portfolioItems', docId);
+  const addOrUpdatePortfolioItem = async (item: PortfolioItem) => {
+    const docRef = doc(firestoreDB, 'portfolioItems', item.id);
     await setDoc(docRef, item, { merge: true });
   };
 
@@ -146,9 +144,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
   };
   
 
-  const addOrUpdateDecorProduct = async (product: Product, id?: string) => {
-     const docId = id || product.id;
-     const docRef = doc(firestoreDB, 'decorProducts', docId);
+  const addOrUpdateDecorProduct = async (product: Product) => {
+     const docRef = doc(firestoreDB, 'decorProducts', product.id);
      await setDoc(docRef, product, { merge: true });
   };
 
@@ -162,9 +159,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
     await deleteDoc(docRef);
   };
   
-  const addOrUpdateRentalProperty = async (property: Property, id?: string) => {
-     const docId = id || property.id;
-     const docRef = doc(firestoreDB, 'rentalProperties', docId);
+  const addOrUpdateRentalProperty = async (property: Property) => {
+     const docRef = doc(firestoreDB, 'rentalProperties', property.id);
      await setDoc(docRef, property, { merge: true });
   };
 

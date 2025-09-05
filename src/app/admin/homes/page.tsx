@@ -52,32 +52,34 @@ export default function HomesAdmin() {
             maxSizeMB: 1,
             maxWidthOrHeight: 1920,
             useWebWorker: true,
-            onProgress: (p: number) => {
-                setUploadProgress(p / 2);
-            },
         };
 
         try {
+             console.log("Compressing image...");
             const compressedFile = await imageCompression(file, options);
+            console.log("Image compressed. Starting upload to:", path);
+
             const storageRef = ref(storage, path);
-            const uploadTask = uploadBytesResumable(storageRef, compressedFile);
+            const uploadTask = uploadBytesResumable(storageRef, compressedFile, { contentType: compressedFile.type });
 
             uploadTask.on('state_changed',
                 (snapshot) => {
                     const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-                    setUploadProgress(50 + progress / 2);
+                    setUploadProgress(progress);
+                    console.log('Upload is ' + progress + '% done');
                 },
                 (error) => {
                     console.error("Upload failed:", error);
                     reject(error);
                 },
                 async () => {
+                    console.log("Upload complete. Getting download URL...");
                     const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
                     resolve(downloadURL);
                 }
             );
         } catch (error) {
-            console.error("Compression or upload failed", error);
+            console.error("Image compression or upload setup failed", error);
             reject(error);
         }
     });
@@ -109,12 +111,12 @@ export default function HomesAdmin() {
           aiHint: title.toLowerCase().split(' ').slice(0, 2).join(' '),
       };
 
-      await addOrUpdateRentalProperty(propertyData, docId);
+      await addOrUpdateRentalProperty(propertyData);
       toast({ title: 'Success!', description: 'Property saved successfully.' });
       closeForm();
     } catch (error: any) {
       console.error("Error saving property:", error);
-      toast({ variant: 'destructive', title: 'Save Failed', description: error.message });
+      toast({ variant: 'destructive', title: 'Save Failed', description: error.message || 'An unknown error occurred.' });
     } finally {
       setIsSubmitting(false);
       setUploadProgress(0);
@@ -278,6 +280,7 @@ export default function HomesAdmin() {
                         {isSubmitting && (
                             <div className="col-span-4">
                                 <Progress value={uploadProgress} />
+                                <p className="text-xs text-center mt-1 text-muted-foreground">Uploading... {Math.round(uploadProgress)}%</p>
                             </div>
                         )}
                     </div>
@@ -287,7 +290,7 @@ export default function HomesAdmin() {
                         </DialogClose>
                         <Button type="submit" disabled={isSubmitting}>
                             {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                             {isSubmitting ? `Uploading... ${Math.round(uploadProgress)}%` : (editingProperty ? 'Save Changes' : 'Add Property')}
+                             {isSubmitting ? 'Saving...' : (editingProperty ? 'Save Changes' : 'Add Property')}
                         </Button>
                     </DialogFooter>
                 </form>

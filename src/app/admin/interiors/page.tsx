@@ -31,12 +31,14 @@ export default function InteriorsAdmin() {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [beforeImageFile, setBeforeImageFile] = useState<File | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [currentUpload, setCurrentUpload] = useState('');
 
   const openForm = (item?: PortfolioItem) => {
     setEditingItem(item || null);
     setImageFile(null);
     setBeforeImageFile(null);
     setUploadProgress(0);
+    setCurrentUpload('');
     setIsFormOpen(true);
   };
 
@@ -47,6 +49,7 @@ export default function InteriorsAdmin() {
         setImageFile(null);
         setBeforeImageFile(null);
         setUploadProgress(0);
+        setCurrentUpload('');
     }, 300);
   };
   
@@ -59,22 +62,31 @@ export default function InteriorsAdmin() {
         };
 
         try {
+            console.log(`Compressing ${file.name}...`);
             const compressedFile = await imageCompression(file, options);
+             console.log(`Image ${file.name} compressed. Starting upload to: ${path}`);
+            
             const storageRef = ref(storage, path);
-            const uploadTask = uploadBytesResumable(storageRef, compressedFile);
+            const uploadTask = uploadBytesResumable(storageRef, compressedFile, { contentType: compressedFile.type });
 
             uploadTask.on('state_changed',
                 (snapshot) => {
                     const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
                     setUploadProgress(progress);
+                    console.log(`Upload of ${file.name} is ${progress}% done`);
                 },
-                (error) => reject(error),
+                (error) => {
+                    console.error(`Upload of ${file.name} failed:`, error);
+                    reject(error);
+                },
                 async () => {
+                    console.log(`Upload of ${file.name} complete. Getting download URL...`);
                     const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
                     resolve(downloadURL);
                 }
             );
         } catch (error) {
+            console.error(`Image compression or upload setup failed for ${file.name}`, error);
             reject(error);
         }
     });
@@ -93,16 +105,20 @@ export default function InteriorsAdmin() {
     let beforeImageUrl = editingItem?.beforeImageUrl || '';
 
     try {
-      if (imageFile) {
-        setUploadProgress(1); // Start progress
-        const afterFilePath = `portfolioItems/${docId}/after_${imageFile.name}`;
-        imageUrl = await uploadFile(imageFile, afterFilePath);
-      }
       if (beforeImageFile) {
-        setUploadProgress(1); // Start progress
+        setCurrentUpload("'Before' Image");
         const beforeFilePath = `portfolioItems/${docId}/before_${beforeImageFile.name}`;
         beforeImageUrl = await uploadFile(beforeImageFile, beforeFilePath);
+        setUploadProgress(0);
       }
+      if (imageFile) {
+        setCurrentUpload("'After' Image");
+        const afterFilePath = `portfolioItems/${docId}/after_${imageFile.name}`;
+        imageUrl = await uploadFile(imageFile, afterFilePath);
+        setUploadProgress(0);
+      }
+      
+      setCurrentUpload('');
 
       const portfolioData: PortfolioItem = {
         id: docId,
@@ -114,15 +130,16 @@ export default function InteriorsAdmin() {
         aiHint: title.toLowerCase().split(' ').slice(0, 2).join(' '),
       };
 
-      await addOrUpdatePortfolioItem(portfolioData, docId);
+      await addOrUpdatePortfolioItem(portfolioData);
       toast({ title: 'Success!', description: 'Portfolio item saved successfully.' });
       closeForm();
     } catch (error: any) {
       console.error("Error saving portfolio item:", error);
-      toast({ variant: 'destructive', title: 'Save Failed', description: error.message });
+      toast({ variant: 'destructive', title: 'Save Failed', description: error.message || 'An unknown error occurred.' });
     } finally {
       setIsSubmitting(false);
       setUploadProgress(0);
+      setCurrentUpload('');
     }
   };
 
@@ -309,6 +326,7 @@ export default function InteriorsAdmin() {
                          {isSubmitting && (
                             <div className="col-span-4">
                                 <Progress value={uploadProgress} />
+                                <p className="text-xs text-center mt-1 text-muted-foreground">Uploading {currentUpload}... {Math.round(uploadProgress)}%</p>
                             </div>
                         )}
                     </div>
@@ -318,7 +336,7 @@ export default function InteriorsAdmin() {
                         </DialogClose>
                         <Button type="submit" disabled={isSubmitting}>
                             {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                           {isSubmitting ? `Uploading... ${Math.round(uploadProgress)}%` : (editingItem ? 'Save Changes' : 'Add Item')}
+                           {isSubmitting ? 'Saving...' : (editingItem ? 'Save Changes' : 'Add Item')}
                         </Button>
                     </DialogFooter>
                  </form>
