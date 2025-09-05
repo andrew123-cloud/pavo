@@ -16,6 +16,10 @@ import type { Property } from '@/lib/types';
 import { usePavoData } from '@/context/data-context';
 import { useToast } from '@/hooks/use-toast';
 import { Progress } from '@/components/ui/progress';
+import { v4 as uuidv4 } from 'uuid';
+import { storage } from '@/lib/firebase';
+import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+import imageCompression from 'browser-image-compression';
 
 export default function HomesAdmin() {
   const { rentalProperties, loading, addOrUpdateRentalProperty, deleteRentalProperty } = usePavoData();
@@ -42,6 +46,43 @@ export default function HomesAdmin() {
     }, 300);
   };
 
+  const uploadFile = (file: File, path: string): Promise<string> => {
+    return new Promise(async (resolve, reject) => {
+        const options = {
+            maxSizeMB: 1,
+            maxWidthOrHeight: 1920,
+            useWebWorker: true,
+            onProgress: (p: number) => {
+                setUploadProgress(p / 2);
+            },
+        };
+
+        try {
+            const compressedFile = await imageCompression(file, options);
+            const storageRef = ref(storage, path);
+            const uploadTask = uploadBytesResumable(storageRef, compressedFile);
+
+            uploadTask.on('state_changed',
+                (snapshot) => {
+                    const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                    setUploadProgress(50 + progress / 2);
+                },
+                (error) => {
+                    console.error("Upload failed:", error);
+                    reject(error);
+                },
+                async () => {
+                    const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+                    resolve(downloadURL);
+                }
+            );
+        } catch (error) {
+            console.error("Compression or upload failed", error);
+            reject(error);
+        }
+    });
+  };
+
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setIsSubmitting(true);
@@ -49,20 +90,28 @@ export default function HomesAdmin() {
     
     const form = event.currentTarget;
     const title = form.title.value;
-    
-    const propertyData: Omit<Property, 'id'> = {
-        title,
-        location: form.location.value,
-        pricePerNight: Number(form.pricePerNight.value),
-        rating: Number(form.rating.value),
-        imageUrl: editingProperty?.imageUrl || '',
-        aiHint: title.toLowerCase().split(' ').slice(0, 2).join(' '),
-    };
+    const docId = editingProperty?.id || uuidv4();
+    let imageUrl = editingProperty?.imageUrl || '';
 
     try {
-        await addOrUpdateRentalProperty(propertyData, editingProperty?.id, imageFile || undefined, setUploadProgress);
-        toast({ title: 'Success!', description: 'Property saved successfully.' });
-        closeForm();
+      if (imageFile) {
+        const filePath = `rentalProperties/${docId}/${imageFile.name}`;
+        imageUrl = await uploadFile(imageFile, filePath);
+      }
+
+      const propertyData: Property = {
+          id: docId,
+          title,
+          location: form.location.value,
+          pricePerNight: Number(form.pricePerNight.value),
+          rating: Number(form.rating.value),
+          imageUrl,
+          aiHint: title.toLowerCase().split(' ').slice(0, 2).join(' '),
+      };
+
+      await addOrUpdateRentalProperty(propertyData, docId);
+      toast({ title: 'Success!', description: 'Property saved successfully.' });
+      closeForm();
     } catch (error: any) {
       console.error("Error saving property:", error);
       toast({ variant: 'destructive', title: 'Save Failed', description: error.message });
@@ -227,7 +276,7 @@ export default function HomesAdmin() {
                             </div>
                         }
                         {isSubmitting && (
-                            <div className="col-span-4 px-1">
+                            <div className="col-span-4">
                                 <Progress value={uploadProgress} />
                             </div>
                         )}

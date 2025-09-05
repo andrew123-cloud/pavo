@@ -17,6 +17,10 @@ import { usePavoData } from '@/context/data-context';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { Progress } from '@/components/ui/progress';
+import { v4 as uuidv4 } from 'uuid';
+import { storage } from '@/lib/firebase';
+import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+import imageCompression from 'browser-image-compression';
 
 export default function InteriorsAdmin() {
   const { portfolioItems, loading, addOrUpdatePortfolioItem, deletePortfolioItem } = usePavoData();
@@ -46,6 +50,36 @@ export default function InteriorsAdmin() {
     }, 300);
   };
   
+  const uploadFile = (file: File, path: string): Promise<string> => {
+    return new Promise(async (resolve, reject) => {
+        const options = {
+            maxSizeMB: 1,
+            maxWidthOrHeight: 1920,
+            useWebWorker: true,
+        };
+
+        try {
+            const compressedFile = await imageCompression(file, options);
+            const storageRef = ref(storage, path);
+            const uploadTask = uploadBytesResumable(storageRef, compressedFile);
+
+            uploadTask.on('state_changed',
+                (snapshot) => {
+                    const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                    setUploadProgress(progress);
+                },
+                (error) => reject(error),
+                async () => {
+                    const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+                    resolve(downloadURL);
+                }
+            );
+        } catch (error) {
+            reject(error);
+        }
+    });
+  };
+
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setIsSubmitting(true);
@@ -53,20 +87,36 @@ export default function InteriorsAdmin() {
     
     const form = event.currentTarget;
     const title = form.title.value;
-
-    const portfolioData: Omit<PortfolioItem, 'id'> = {
-      title,
-      location: form.location.value,
-      description: form.description.value,
-      imageUrl: editingItem?.imageUrl || '',
-      beforeImageUrl: editingItem?.beforeImageUrl || '',
-      aiHint: title.toLowerCase().split(' ').slice(0, 2).join(' '),
-    };
+    const docId = editingItem?.id || uuidv4();
+    
+    let imageUrl = editingItem?.imageUrl || '';
+    let beforeImageUrl = editingItem?.beforeImageUrl || '';
 
     try {
-        await addOrUpdatePortfolioItem(portfolioData, editingItem?.id, imageFile || undefined, beforeImageFile || undefined, setUploadProgress);
-        toast({ title: 'Success!', description: 'Portfolio item saved successfully.' });
-        closeForm();
+      if (imageFile) {
+        setUploadProgress(1); // Start progress
+        const afterFilePath = `portfolioItems/${docId}/after_${imageFile.name}`;
+        imageUrl = await uploadFile(imageFile, afterFilePath);
+      }
+      if (beforeImageFile) {
+        setUploadProgress(1); // Start progress
+        const beforeFilePath = `portfolioItems/${docId}/before_${beforeImageFile.name}`;
+        beforeImageUrl = await uploadFile(beforeImageFile, beforeFilePath);
+      }
+
+      const portfolioData: PortfolioItem = {
+        id: docId,
+        title,
+        location: form.location.value,
+        description: form.description.value,
+        imageUrl,
+        beforeImageUrl,
+        aiHint: title.toLowerCase().split(' ').slice(0, 2).join(' '),
+      };
+
+      await addOrUpdatePortfolioItem(portfolioData, docId);
+      toast({ title: 'Success!', description: 'Portfolio item saved successfully.' });
+      closeForm();
     } catch (error: any) {
       console.error("Error saving portfolio item:", error);
       toast({ variant: 'destructive', title: 'Save Failed', description: error.message });
@@ -257,7 +307,7 @@ export default function InteriorsAdmin() {
                             </div>
                         }
                          {isSubmitting && (
-                            <div className="col-span-4 px-1">
+                            <div className="col-span-4">
                                 <Progress value={uploadProgress} />
                             </div>
                         )}

@@ -10,17 +10,17 @@ import { db as dexieDB, CartItem } from '@/lib/db';
 import { v4 as uuidv4 } from 'uuid';
 import { db as firestoreDB, storage } from '@/lib/firebase';
 import { collection, doc, getDocs, onSnapshot, writeBatch, deleteDoc, setDoc, getDoc } from 'firebase/firestore';
-import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import imageCompression from 'browser-image-compression';
 
 
 interface DataContextType extends PavoData {
   loading: boolean;
-  addOrUpdatePortfolioItem: (item: Omit<PortfolioItem, 'id'>, id?: string, imageFile?: File, beforeImageFile?: File, onProgress?: (progress: number) => void) => Promise<void>;
+  addOrUpdatePortfolioItem: (item: PortfolioItem, id?: string) => Promise<void>;
   deletePortfolioItem: (id: string) => Promise<void>;
-  addOrUpdateDecorProduct: (product: Omit<Product, 'id'>, id?: string, imageFile?: File, onProgress?: (progress: number) => void) => Promise<void>;
+  addOrUpdateDecorProduct: (product: Product, id?: string) => Promise<void>;
   deleteDecorProduct: (id: string) => Promise<void>;
-  addOrUpdateRentalProperty: (property: Omit<Property, 'id'>, id?: string, imageFile?: File, onProgress?: (progress: number) => void) => Promise<void>;
+  addOrUpdateRentalProperty: (property: Property, id?: string) => Promise<void>;
   deleteRentalProperty: (id: string) => Promise<void>;
   addOrder: (order: Order) => Promise<void>;
   decreaseStock: (productId: string, amount: number) => Promise<void>;
@@ -109,54 +109,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
         settingsUnsubscriber();
     }
   }, [toast]);
-
-
- const uploadImage = (path: string, file: File, id: string, onProgress: (progress: number) => void): Promise<string> => {
-    return new Promise(async (resolve, reject) => {
-      if (!file) {
-        return reject("No file provided for upload.");
-      }
-
-      const options = {
-        maxSizeMB: 1,
-        maxWidthOrHeight: 1920,
-        useWebWorker: true,
-      };
-
-      try {
-        console.log(`Original file size: ${file.size / 1024 / 1024} MB`);
-        const compressedFile = await imageCompression(file, options);
-        console.log(`Compressed file size: ${compressedFile.size / 1024 / 1024} MB`);
-
-        const storageRef = ref(storage, `${path}/${id}/${compressedFile.name}`);
-        const uploadTask = uploadBytesResumable(storageRef, compressedFile);
-
-        uploadTask.on('state_changed',
-            (snapshot) => {
-              const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-              onProgress(progress); // Direct progress reporting
-            },
-            (error) => {
-              console.error("Error uploading image:", error);
-              toast({
-                  variant: 'destructive',
-                  title: 'Image Upload Failed',
-                  description: `There was a problem uploading your image. Please try again.`,
-              });
-              reject(error);
-            },
-            () => {
-              getDownloadURL(uploadTask.snapshot.ref).then((downloadURL) => {
-                  resolve(downloadURL);
-              }).catch(reject);
-            }
-        );
-      } catch (error) {
-         console.error('Image compression failed:', error);
-         reject(error);
-      }
-    });
-  };
   
   const deleteImage = async (imageUrl: string) => {
     try {
@@ -174,15 +126,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }
 
 
-  const addOrUpdatePortfolioItem = async (item: Omit<PortfolioItem, 'id'>, id?: string, imageFile?: File, beforeImageFile?: File, onProgress?: (p:number) => void) => {
-    const docId = id || uuidv4();
+  const addOrUpdatePortfolioItem = async (item: PortfolioItem, id?: string) => {
+    const docId = id || item.id;
     const docRef = doc(firestoreDB, 'portfolioItems', docId);
-
-    let finalItem = { ...item };
-    if (imageFile) finalItem.imageUrl = await uploadImage('portfolioItems', imageFile, docId, onProgress || (() => {}));
-    if (beforeImageFile) finalItem.beforeImageUrl = await uploadImage('portfolioItems', beforeImageFile, docId, onProgress || (() => {}));
-
-    await setDoc(docRef, finalItem, { merge: true });
+    await setDoc(docRef, item, { merge: true });
   };
 
   const deletePortfolioItem = async (id: string) => {
@@ -199,16 +146,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
   };
   
 
-  const addOrUpdateDecorProduct = async (product: Omit<Product, 'id'>, id?: string, imageFile?: File, onProgress?: (p:number) => void) => {
-     const docId = id || uuidv4();
+  const addOrUpdateDecorProduct = async (product: Product, id?: string) => {
+     const docId = id || product.id;
      const docRef = doc(firestoreDB, 'decorProducts', docId);
-     
-     let finalProduct = { ...product };
-     if (imageFile) {
-        finalProduct.imageUrl = await uploadImage('decorProducts', imageFile, docId, onProgress || (() => {}));
-     }
-
-     await setDoc(docRef, finalProduct, { merge: true });
+     await setDoc(docRef, product, { merge: true });
   };
 
   const deleteDecorProduct = async (id: string) => {
@@ -221,14 +162,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
     await deleteDoc(docRef);
   };
   
-  const addOrUpdateRentalProperty = async (property: Omit<Property, 'id'>, id?: string, imageFile?: File, onProgress?: (p:number) => void) => {
-     const docId = id || uuidv4();
+  const addOrUpdateRentalProperty = async (property: Property, id?: string) => {
+     const docId = id || property.id;
      const docRef = doc(firestoreDB, 'rentalProperties', docId);
-     
-     let finalProperty = { ...property };
-     if (imageFile) finalProperty.imageUrl = await uploadImage('rentalProperties', imageFile, docId, onProgress || (() => {}));
-
-     await setDoc(docRef, finalProperty, { merge: true });
+     await setDoc(docRef, property, { merge: true });
   };
 
   const deleteRentalProperty = async (id: string) => {
