@@ -121,7 +121,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
         maxSizeMB: 1,
         maxWidthOrHeight: 1920,
         useWebWorker: true,
-        onProgress: (p: number) => onProgress(p * 0.5), // Compression progress (0-50%)
       };
 
       try {
@@ -130,26 +129,26 @@ export function DataProvider({ children }: { children: ReactNode }) {
         console.log(`Compressed file size: ${compressedFile.size / 1024 / 1024} MB`);
 
         const storageRef = ref(storage, `${path}/${id}/${compressedFile.name}`);
-        const uploadTask = uploadBytesResumable(storageRef, compressedFile, { contentType: compressedFile.type });
+        const uploadTask = uploadBytesResumable(storageRef, compressedFile);
 
         uploadTask.on('state_changed',
             (snapshot) => {
-            const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-            onProgress(50 + progress * 0.5); // Upload progress (50-100%)
+              const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+              onProgress(progress); // Direct progress reporting
             },
             (error) => {
-            console.error("Error uploading image:", error);
-            toast({
-                variant: 'destructive',
-                title: 'Image Upload Failed',
-                description: `There was a problem uploading your image. Please try again.`,
-            });
-            reject(error);
+              console.error("Error uploading image:", error);
+              toast({
+                  variant: 'destructive',
+                  title: 'Image Upload Failed',
+                  description: `There was a problem uploading your image. Please try again.`,
+              });
+              reject(error);
             },
             () => {
-            getDownloadURL(uploadTask.snapshot.ref).then((downloadURL) => {
-                resolve(downloadURL);
-            }).catch(reject);
+              getDownloadURL(uploadTask.snapshot.ref).then((downloadURL) => {
+                  resolve(downloadURL);
+              }).catch(reject);
             }
         );
       } catch (error) {

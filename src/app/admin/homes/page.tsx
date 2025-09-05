@@ -226,7 +226,7 @@ export default function HomesAdmin() {
                                 />
                             </div>
                         }
-                        {isSubmitting && uploadProgress > 0 && (
+                        {isSubmitting && (
                             <div className="col-span-4 px-1">
                                 <Progress value={uploadProgress} />
                             </div>
