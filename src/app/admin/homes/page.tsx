@@ -15,11 +15,7 @@ import { Label } from '@/components/ui/label';
 import type { Property } from '@/lib/types';
 import { usePavoData } from '@/context/data-context';
 import { useToast } from '@/hooks/use-toast';
-import { Progress } from '@/components/ui/progress';
 import { v4 as uuidv4 } from 'uuid';
-import { storage } from '@/lib/firebase';
-import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import imageCompression from 'browser-image-compression';
 
 export default function HomesAdmin() {
   const { rentalProperties, loading, addOrUpdateRentalProperty, deleteRentalProperty } = usePavoData();
@@ -28,12 +24,10 @@ export default function HomesAdmin() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingProperty, setEditingProperty] = useState<Property | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
-  const [uploadProgress, setUploadProgress] = useState(0);
 
   const openForm = (property?: Property) => {
     setEditingProperty(property || null);
     setImageFile(null);
-    setUploadProgress(0);
     setIsFormOpen(true);
   };
 
@@ -42,84 +36,34 @@ export default function HomesAdmin() {
     setTimeout(() => {
         setEditingProperty(null);
         setImageFile(null);
-        setUploadProgress(0);
     }, 300);
-  };
-
-  const uploadFile = (file: File, path: string): Promise<string> => {
-    return new Promise(async (resolve, reject) => {
-        const options = {
-            maxSizeMB: 1,
-            maxWidthOrHeight: 1920,
-            useWebWorker: true,
-        };
-
-        try {
-             console.log("Compressing image...");
-            const compressedFile = await imageCompression(file, options);
-            console.log("Image compressed. Starting upload to:", path);
-
-            const storageRef = ref(storage, path);
-            const uploadTask = uploadBytesResumable(storageRef, compressedFile, { contentType: compressedFile.type });
-
-            uploadTask.on('state_changed',
-                (snapshot) => {
-                    const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-                    setUploadProgress(progress);
-                    console.log('Upload is ' + progress + '% done');
-                },
-                (error) => {
-                    console.error("Upload failed:", error);
-                    reject(error);
-                },
-                async () => {
-                    console.log("Upload complete. Getting download URL...");
-                    const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-                    resolve(downloadURL);
-                }
-            );
-        } catch (error) {
-            console.error("Image compression or upload setup failed", error);
-            reject(error);
-        }
-    });
   };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setIsSubmitting(true);
-    setUploadProgress(0);
     
     const form = event.currentTarget;
     const title = form.title.value;
     const docId = editingProperty?.id || uuidv4();
-    let imageUrl = editingProperty?.imageUrl || '';
-
+    
     try {
-      if (imageFile) {
-        const filePath = `rentalProperties/${docId}/${imageFile.name}`;
-        imageUrl = await uploadFile(imageFile, filePath);
-      }
-
-      const propertyData: Property = {
+      const propertyData: Omit<Property, 'imageUrl' | 'aiHint'> & { id: string } = {
           id: docId,
           title,
           location: form.location.value,
           pricePerNight: Number(form.pricePerNight.value),
           rating: Number(form.rating.value),
-          imageUrl,
-          aiHint: title.toLowerCase().split(' ').slice(0, 2).join(' '),
       };
 
-      await addOrUpdateRentalProperty(propertyData);
+      await addOrUpdateRentalProperty(propertyData, imageFile);
       toast({ title: 'Success!', description: 'Property saved successfully.' });
       closeForm();
     } catch (error: any) {
       console.error("Error saving property:", error);
-      toast({ variant: 'destructive', title: 'Save Failed', description: error.message || 'An unknown error occurred.' });
+      toast({ variant: 'destructive', title: 'Save Failed', description: error.response?.data?.error || error.message || 'An unknown error occurred.' });
     } finally {
       setIsSubmitting(false);
-      setUploadProgress(0);
     }
   };
 
@@ -277,12 +221,6 @@ export default function HomesAdmin() {
                                 />
                             </div>
                         }
-                        {isSubmitting && (
-                            <div className="col-span-4">
-                                <Progress value={uploadProgress} />
-                                <p className="text-xs text-center mt-1 text-muted-foreground">Uploading... {Math.round(uploadProgress)}%</p>
-                            </div>
-                        )}
                     </div>
                     <DialogFooter>
                          <DialogClose asChild>

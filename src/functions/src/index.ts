@@ -30,11 +30,7 @@ export const saveData = functions
 
       const fields: { [key: string]: string } = {};
       const fileWrites: Promise<any>[] = [];
-      let fileToUpload: {
-        filePath: string;
-        mimetype: string;
-        fieldname: string;
-      } | null = null;
+      const filesToUpload: { [fieldname: string]: { filePath: string; mimetype: string } } = {};
       
       let collectionName = '';
       let docId = '';
@@ -52,7 +48,7 @@ export const saveData = functions
       });
 
       bb.on('file', (fieldname, file, info) => {
-        console.log(`Processed file ${info.filename}`);
+        console.log(`Processed file ${info.filename} for field ${fieldname}`);
         const { filename, mimeType } = info;
         const filepath = path.join(tmpdir, filename);
         const writeStream = fs.createWriteStream(filepath);
@@ -61,7 +57,7 @@ export const saveData = functions
         const promise = new Promise((resolve, reject) => {
           file.on('end', () => writeStream.end());
           writeStream.on('finish', () => {
-            fileToUpload = { filePath: filepath, mimetype: mimeType, fieldname: fieldname };
+            filesToUpload[fieldname] = { filePath: filepath, mimetype: mimeType };
             resolve(filepath);
           });
           writeStream.on('error', reject);
@@ -81,23 +77,26 @@ export const saveData = functions
         try {
           await Promise.all(fileWrites);
 
-          if (fileToUpload) {
-            const { filePath, mimetype, fieldname } = fileToUpload;
-            const destination = `${collectionName}/${docId}/${path.basename(filePath)}`;
-            
-            const [uploadedFile] = await storage.upload(filePath, {
-              destination: destination,
-              metadata: { contentType: mimetype },
-            });
-            fs.unlinkSync(filePath); // Clean up the temp file
-            
-            const downloadURL = await uploadedFile.getSignedUrl({
-                action: 'read',
-                expires: '03-09-2491' // A long time in the future
-            });
-            
-            // The key for the URL should match the file fieldname (e.g., 'imageUrl')
-            fields[fieldname] = downloadURL[0]; 
+          for (const fieldname in filesToUpload) {
+            if (Object.prototype.hasOwnProperty.call(filesToUpload, fieldname)) {
+                const { filePath, mimetype } = filesToUpload[fieldname];
+                const destination = `${collectionName}/${docId}/${path.basename(filePath)}`;
+                
+                const [uploadedFile] = await storage.upload(filePath, {
+                  destination: destination,
+                  metadata: { contentType: mimetype },
+                });
+
+                fs.unlinkSync(filePath); // Clean up the temp file
+                
+                const downloadURL = await uploadedFile.getSignedUrl({
+                    action: 'read',
+                    expires: '03-09-2491' // A long time in the future
+                });
+                
+                // The key for the URL should match the file fieldname (e.g., 'imageUrl')
+                fields[fieldname] = downloadURL[0];
+            }
           }
           
           const docRef = db.collection(collectionName).doc(docId);

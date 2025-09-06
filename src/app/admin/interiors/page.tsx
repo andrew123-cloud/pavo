@@ -9,18 +9,14 @@ import { MoreHorizontal, PlusCircle, Loader2 } from "lucide-react";
 import Image from "next/image";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogClose } from '@/components/ui/dialog';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/componentsui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import type { PortfolioItem } from '@/lib/types';
 import { usePavoData } from '@/context/data-context';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { Progress } from '@/components/ui/progress';
 import { v4 as uuidv4 } from 'uuid';
-import { storage } from '@/lib/firebase';
-import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import imageCompression from 'browser-image-compression';
 
 export default function InteriorsAdmin() {
   const { portfolioItems, loading, addOrUpdatePortfolioItem, deletePortfolioItem } = usePavoData();
@@ -30,15 +26,11 @@ export default function InteriorsAdmin() {
   const [editingItem, setEditingItem] = useState<PortfolioItem | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [beforeImageFile, setBeforeImageFile] = useState<File | null>(null);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [currentUpload, setCurrentUpload] = useState('');
 
   const openForm = (item?: PortfolioItem) => {
     setEditingItem(item || null);
     setImageFile(null);
     setBeforeImageFile(null);
-    setUploadProgress(0);
-    setCurrentUpload('');
     setIsFormOpen(true);
   };
 
@@ -48,98 +40,33 @@ export default function InteriorsAdmin() {
         setEditingItem(null);
         setImageFile(null);
         setBeforeImageFile(null);
-        setUploadProgress(0);
-        setCurrentUpload('');
     }, 300);
   };
   
-  const uploadFile = (file: File, path: string): Promise<string> => {
-    return new Promise(async (resolve, reject) => {
-        const options = {
-            maxSizeMB: 1,
-            maxWidthOrHeight: 1920,
-            useWebWorker: true,
-        };
-
-        try {
-            console.log(`Compressing ${file.name}...`);
-            const compressedFile = await imageCompression(file, options);
-             console.log(`Image ${file.name} compressed. Starting upload to: ${path}`);
-            
-            const storageRef = ref(storage, path);
-            const uploadTask = uploadBytesResumable(storageRef, compressedFile, { contentType: compressedFile.type });
-
-            uploadTask.on('state_changed',
-                (snapshot) => {
-                    const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-                    setUploadProgress(progress);
-                    console.log(`Upload of ${file.name} is ${progress}% done`);
-                },
-                (error) => {
-                    console.error(`Upload of ${file.name} failed:`, error);
-                    reject(error);
-                },
-                async () => {
-                    console.log(`Upload of ${file.name} complete. Getting download URL...`);
-                    const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-                    resolve(downloadURL);
-                }
-            );
-        } catch (error) {
-            console.error(`Image compression or upload setup failed for ${file.name}`, error);
-            reject(error);
-        }
-    });
-  };
-
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setIsSubmitting(true);
-    setUploadProgress(0);
     
     const form = event.currentTarget;
     const title = form.title.value;
     const docId = editingItem?.id || uuidv4();
-    
-    let imageUrl = editingItem?.imageUrl || '';
-    let beforeImageUrl = editingItem?.beforeImageUrl || '';
 
     try {
-      if (beforeImageFile) {
-        setCurrentUpload("'Before' Image");
-        const beforeFilePath = `portfolioItems/${docId}/before_${beforeImageFile.name}`;
-        beforeImageUrl = await uploadFile(beforeImageFile, beforeFilePath);
-        setUploadProgress(0);
-      }
-      if (imageFile) {
-        setCurrentUpload("'After' Image");
-        const afterFilePath = `portfolioItems/${docId}/after_${imageFile.name}`;
-        imageUrl = await uploadFile(imageFile, afterFilePath);
-        setUploadProgress(0);
-      }
-      
-      setCurrentUpload('');
-
-      const portfolioData: PortfolioItem = {
+      const portfolioData: Omit<PortfolioItem, 'imageUrl' | 'beforeImageUrl' | 'aiHint'> & { id: string } = {
         id: docId,
         title,
         location: form.location.value,
         description: form.description.value,
-        imageUrl,
-        beforeImageUrl,
-        aiHint: title.toLowerCase().split(' ').slice(0, 2).join(' '),
       };
 
-      await addOrUpdatePortfolioItem(portfolioData);
+      await addOrUpdatePortfolioItem(portfolioData, beforeImageFile, imageFile);
       toast({ title: 'Success!', description: 'Portfolio item saved successfully.' });
       closeForm();
     } catch (error: any) {
       console.error("Error saving portfolio item:", error);
-      toast({ variant: 'destructive', title: 'Save Failed', description: error.message || 'An unknown error occurred.' });
+      toast({ variant: 'destructive', title: 'Save Failed', description: error.response?.data?.error || error.message || 'An unknown error occurred.' });
     } finally {
       setIsSubmitting(false);
-      setUploadProgress(0);
-      setCurrentUpload('');
     }
   };
 
@@ -323,12 +250,6 @@ export default function InteriorsAdmin() {
                                 />
                             </div>
                         }
-                         {isSubmitting && (
-                            <div className="col-span-4">
-                                <Progress value={uploadProgress} />
-                                <p className="text-xs text-center mt-1 text-muted-foreground">Uploading {currentUpload}... {Math.round(uploadProgress)}%</p>
-                            </div>
-                        )}
                     </div>
                     <DialogFooter>
                         <DialogClose asChild>

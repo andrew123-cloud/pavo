@@ -1,7 +1,7 @@
 // src/context/data-context.tsx
 'use client';
 
-import React, { createContext, useContext, ReactNode, useEffect, useState, useCallback } from 'react';
+import React, { createContext, useContext, ReactNode, useEffect, useState } from 'react';
 import type { PavoData, PortfolioItem, Product, Property, Order, SiteSettings, Booking } from '@/lib/types';
 import { siteSettings as initialSiteSettings, testimonials } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
@@ -9,24 +9,25 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db as dexieDB, CartItem } from '@/lib/db';
 import { v4 as uuidv4 } from 'uuid';
 import { db as firestoreDB, storage } from '@/lib/firebase';
-import { collection, doc, getDocs, onSnapshot, writeBatch, deleteDoc, setDoc, getDoc } from 'firebase/firestore';
+import { collection, doc, onSnapshot, writeBatch, deleteDoc, setDoc, getDoc } from 'firebase/firestore';
 import { ref, deleteObject } from 'firebase/storage';
+import axios from 'axios';
 
 
 interface DataContextType extends PavoData {
   loading: boolean;
-  addOrUpdatePortfolioItem: (item: PortfolioItem) => Promise<void>;
+  addOrUpdatePortfolioItem: (item: PortfolioItem, beforeImageFile?: File | null, afterImageFile?: File | null) => Promise<any>;
   deletePortfolioItem: (id: string) => Promise<void>;
-  addOrUpdateDecorProduct: (product: Product) => Promise<void>;
+  addOrUpdateDecorProduct: (product: Product, imageFile?: File | null) => Promise<any>;
   deleteDecorProduct: (id: string) => Promise<void>;
-  addOrUpdateRentalProperty: (property: Property) => Promise<void>;
+  addOrUpdateRentalProperty: (property: Property, imageFile?: File | null) => Promise<any>;
   deleteRentalProperty: (id: string) => Promise<void>;
   addOrder: (order: Order) => Promise<void>;
   decreaseStock: (productId: string, amount: number) => Promise<void>;
   addBooking: (booking: Omit<Booking, 'id' | 'createdAt' | 'isRead'>) => Promise<void>;
   markBookingAsRead: (id: string) => Promise<void>;
   markAllBookingsAsRead: () => Promise<void>;
-  updateSiteSettings: (settings: SiteSettings) => Promise<void>;
+  updateSiteSettings: (settings: SiteSettings, files: { [key: string]: File | null }) => Promise<void>;
   cart: CartItem[];
   addToCart: (product: Product) => void;
   updateCartQuantity: (productId: string, quantity: number) => void;
@@ -40,6 +41,9 @@ const DataContext = createContext<DataContextType | undefined>(undefined);
 
 const collectionsToSync = ['portfolioItems', 'decorProducts', 'rentalProperties', 'orders', 'bookings'] as const;
 type CollectionName = typeof collectionsToSync[number];
+
+// This is your Firebase Function URL. Replace with the actual deployed URL.
+const SAVE_DATA_FUNCTION_URL = 'https://us-central1-pavo-suite.cloudfunctions.net/saveData';
 
 export function DataProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
@@ -125,9 +129,63 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }
 
 
-  const addOrUpdatePortfolioItem = async (item: PortfolioItem) => {
-    const docRef = doc(firestoreDB, 'portfolioItems', item.id);
-    await setDoc(docRef, item, { merge: true });
+  const saveDataWithFiles = async (collectionName: string, data: any, files: { [key: string]: File | null | undefined }) => {
+    const formData = new FormData();
+    formData.append('collectionName', collectionName);
+    formData.append('id', data.id);
+
+    // Append all data fields to formData
+    for(const key in data) {
+        if (data.hasOwnProperty(key)) {
+            formData.append(key, data[key]);
+        }
+    }
+
+    // Append all files to formData
+    for (const key in files) {
+        if (files[key]) {
+            formData.append(key, files[key] as Blob);
+        }
+    }
+
+    // Use the Firebase Function URL
+    const response = await axios.post(SAVE_DATA_FUNCTION_URL, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+    });
+    return response.data;
+  };
+
+
+  const addOrUpdateDecorProduct = (product: Product, imageFile?: File | null) => {
+    return saveDataWithFiles('decorProducts', product, { imageUrl: imageFile });
+  };
+  
+  const addOrUpdateRentalProperty = (property: Property, imageFile?: File | null) => {
+      return saveDataWithFiles('rentalProperties', property, { imageUrl: imageFile });
+  };
+  
+  const addOrUpdatePortfolioItem = (item: PortfolioItem, beforeImageFile?: File | null, afterImageFile?: File | null) => {
+      return saveDataWith1Files('portfolioItems', item, { beforeImageUrl: beforeImageFile, imageUrl: afterImageFile });
+  };
+
+
+  const deleteDecorProduct = async (id: string) => {
+    const docRef = doc(firestoreDB, 'decorProducts', id);
+    const docSnap = await getDoc(docRef);
+    const item = docSnap.data() as Product | undefined;
+    
+    if(item && item.imageUrl) await deleteImage(item.imageUrl);
+
+    await deleteDoc(docRef);
+  };
+  
+
+  const deleteRentalProperty = async (id: string) => {
+    const docRef = doc(firestoreDB, 'rentalProperties', id);
+    const docSnap = await getDoc(docRef);
+    const item = docSnap.data() as Property | undefined;
+    if(item && item.imageUrl) await deleteImage(item.imageUrl);
+    await deleteDoc(docRef);
   };
 
   const deletePortfolioItem = async (id: string) => {
@@ -140,35 +198,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
     if(item.imageUrl) await deleteImage(item.imageUrl);
     if(item.beforeImageUrl) await deleteImage(item.beforeImageUrl);
 
-    await deleteDoc(docRef);
-  };
-  
-
-  const addOrUpdateDecorProduct = async (product: Product) => {
-     const docRef = doc(firestoreDB, 'decorProducts', product.id);
-     await setDoc(docRef, product, { merge: true });
-  };
-
-  const deleteDecorProduct = async (id: string) => {
-    const docRef = doc(firestoreDB, 'decorProducts', id);
-    const docSnap = await getDoc(docRef);
-    const item = docSnap.data() as Product | undefined;
-    
-    if(item && item.imageUrl) await deleteImage(item.imageUrl);
-
-    await deleteDoc(docRef);
-  };
-  
-  const addOrUpdateRentalProperty = async (property: Property) => {
-     const docRef = doc(firestoreDB, 'rentalProperties', property.id);
-     await setDoc(docRef, property, { merge: true });
-  };
-
-  const deleteRentalProperty = async (id: string) => {
-    const docRef = doc(firestoreDB, 'rentalProperties', id);
-    const docSnap = await getDoc(docRef);
-    const item = docSnap.data() as Property | undefined;
-    if(item && item.imageUrl) await deleteImage(item.imageUrl);
     await deleteDoc(docRef);
   };
 

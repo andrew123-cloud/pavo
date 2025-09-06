@@ -16,11 +16,7 @@ import { Label } from '@/components/ui/label';
 import type { Product } from '@/lib/types';
 import { usePavoData } from '@/context/data-context';
 import { useToast } from '@/hooks/use-toast';
-import { Progress } from '@/components/ui/progress';
 import { v4 as uuidv4 } from 'uuid';
-import { storage } from '@/lib/firebase';
-import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import imageCompression from 'browser-image-compression';
 
 export default function DecorsAdmin() {
   const { decorProducts, loading, addOrUpdateDecorProduct, deleteDecorProduct } = usePavoData();
@@ -29,12 +25,10 @@ export default function DecorsAdmin() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
-  const [uploadProgress, setUploadProgress] = useState(0);
 
   const openForm = (product?: Product) => {
     setEditingProduct(product || null);
     setImageFile(null);
-    setUploadProgress(0);
     setIsFormOpen(true);
   };
 
@@ -43,91 +37,35 @@ export default function DecorsAdmin() {
     setTimeout(() => {
         setEditingProduct(null);
         setImageFile(null);
-        setUploadProgress(0);
     }, 300);
   };
-
-  const uploadFile = (file: File, path: string): Promise<string> => {
-    return new Promise(async (resolve, reject) => {
-        const options = {
-            maxSizeMB: 1,
-            maxWidthOrHeight: 1920,
-            useWebWorker: true,
-        };
-
-        try {
-            console.log("Compressing image...");
-            const compressedFile = await imageCompression(file, options);
-            console.log("Image compressed. Starting upload to:", path);
-
-            const storageRef = ref(storage, path);
-            const uploadTask = uploadBytesResumable(storageRef, compressedFile, { contentType: compressedFile.type });
-
-            uploadTask.on('state_changed',
-                (snapshot) => {
-                    const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-                    setUploadProgress(progress);
-                    console.log('Upload is ' + progress + '% done');
-                },
-                (error) => {
-                    // A full list of error codes is available at
-                    // https://firebase.google.com/docs/storage/web/handle-errors
-                    console.error("Upload failed:", error);
-                    // If this error occurs, it's very likely a CORS configuration issue.
-                    // Check the Firebase console and the bucket's CORS settings.
-                    // `gsutil cors set cors.json gs://<your-bucket-name>`
-                    reject(error);
-                },
-                async () => {
-                    console.log("Upload complete. Getting download URL...");
-                    const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-                    resolve(downloadURL);
-                }
-            );
-        } catch (error) {
-            console.error("Image compression or upload setup failed", error);
-            reject(error);
-        }
-    });
-};
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setIsSubmitting(true);
-    setUploadProgress(0);
 
     const form = event.currentTarget;
     const name = form.name.value;
     const docId = editingProduct?.id || uuidv4();
     
-    let imageUrl = editingProduct?.imageUrl || '';
-
     try {
-      if (imageFile) {
-        const filePath = `decorProducts/${docId}/${imageFile.name}`;
-        imageUrl = await uploadFile(imageFile, filePath);
-      }
-      
-      const productData: Product = {
+      const productData: Omit<Product, 'imageUrl' | 'aiHint'> & { id: string } = {
           id: docId,
           name,
           category: form.category.value,
           price: Number(form.price.value),
           stock: Number(form.stock.value),
-          imageUrl,
-          aiHint: name.toLowerCase().split(' ').slice(0, 2).join(' '),
       };
 
-      await addOrUpdateDecorProduct(productData);
+      await addOrUpdateDecorProduct(productData, imageFile);
       toast({ title: 'Success!', description: 'Product saved successfully.' });
       closeForm();
 
     } catch (error: any) {
         console.error("Error saving product:", error);
-        toast({ variant: 'destructive', title: 'Save Failed', description: error.message || 'An unknown error occurred' });
+        toast({ variant: 'destructive', title: 'Save Failed', description: error.response?.data?.error || error.message || 'An unknown error occurred' });
     } finally {
         setIsSubmitting(false);
-        setUploadProgress(0);
     }
   };
 
@@ -291,12 +229,6 @@ export default function DecorsAdmin() {
                                 />
                             </div>
                         }
-                        {isSubmitting && (
-                             <div className="col-span-4">
-                                <Progress value={uploadProgress} />
-                                <p className="text-xs text-center mt-1 text-muted-foreground">Uploading... {Math.round(uploadProgress)}%</p>
-                            </div>
-                        )}
                     </div>
                     <DialogFooter>
                          <DialogClose asChild>

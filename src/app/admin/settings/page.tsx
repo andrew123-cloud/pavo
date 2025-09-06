@@ -12,8 +12,6 @@ import { useToast } from '@/hooks/use-toast';
 import { ImagePlus, Trash2, Loader2 } from 'lucide-react';
 import Image from 'next/image';
 import type { SiteSettings } from '@/lib/types';
-import { storage } from '@/lib/firebase';
-import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { Progress } from '@/components/ui/progress';
 
 type HeroImageKey = keyof SiteSettings['heroImages'];
@@ -23,8 +21,8 @@ export default function SettingsAdminPage() {
   const { siteSettings, updateSiteSettings } = usePavoData();
   const { toast } = useToast();
   const [isSaving, setIsSaving] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
   const [localSettings, setLocalSettings] = useState<SiteSettings>(siteSettings);
+  const [filesToUpload, setFilesToUpload] = useState<{[key: string]: File | null}>({});
 
   React.useEffect(() => {
     setLocalSettings(siteSettings);
@@ -38,71 +36,28 @@ export default function SettingsAdminPage() {
     setLocalSettings(prev => ({ ...prev, founder: { ...prev.founder, [field]: value } }));
   };
 
-  const uploadImage = (file: File, path: string): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      if (!file) return reject("No file provided");
-      
-      setIsSaving(true);
-      setUploadProgress(0);
-      const storageRef = ref(storage, `settings/${path}/${Date.now()}-${file.name}`);
-      const uploadTask = uploadBytesResumable(storageRef, file);
-
-      uploadTask.on('state_changed',
-        (snapshot) => {
-          const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-          setUploadProgress(progress);
-        },
-        (error) => {
-          console.error("Upload failed:", error);
-          toast({ variant: 'destructive', title: 'Upload Failed', description: 'Could not upload the image.' });
-          setIsSaving(false);
-          reject(error);
-        },
-        () => {
-          getDownloadURL(uploadTask.snapshot.ref).then((downloadURL) => {
-            toast({ title: 'Image Uploaded!' });
-            setUploadProgress(100);
-            setIsSaving(false);
-            resolve(downloadURL);
-          });
-        }
-      );
-    });
-  };
-  
-  const handleFounderImageChange = async (index: number, event: React.ChangeEvent<HTMLInputElement>) => {
-    if (event.target.files && event.target.files[0]) {
-      const file = event.target.files[0];
-      const newUrl = await uploadImage(file, `founder`);
-      if (newUrl) {
-        const newImageUrls = [...localSettings.founder.imageUrls];
-        newImageUrls[index] = newUrl;
-        setLocalSettings(prev => ({ ...prev, founder: { ...prev.founder, imageUrls: newImageUrls } }));
+  const handleImageFileChange = (key: string, file: File | null) => {
+      setFilesToUpload(prev => ({ ...prev, [key]: file }));
+      if (file) {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+              // This is a complex way to update nested state.
+              // A better approach might involve a more structured state management (e.g. using Immer)
+              const parts = key.split('.');
+              setLocalSettings(prev => {
+                const newSettings = JSON.parse(JSON.stringify(prev)); // deep copy
+                let current = newSettings;
+                for (let i = 0; i < parts.length - 1; i++) {
+                    current = current[parts[i]];
+                }
+                current[parts[parts.length - 1]] = reader.result as string;
+                return newSettings;
+              });
+          };
+          reader.readAsDataURL(file);
       }
-    }
   };
 
-  const addFounderImageField = () => {
-    setLocalSettings(prev => ({ ...prev, founder: { ...prev.founder, imageUrls: [...prev.founder.imageUrls, ''] } }));
-  };
-
-  const removeFounderImageField = (index: number) => {
-    const newImageUrls = [...localSettings.founder.imageUrls];
-    newImageUrls.splice(index, 1);
-    setLocalSettings(prev => ({ ...prev, founder: { ...prev.founder, imageUrls: newImageUrls } }));
-  };
-
-  const handleHeroImageChange = async (key: HeroImageKey, index: number, event: React.ChangeEvent<HTMLInputElement>) => {
-    if (event.target.files && event.target.files[0]) {
-      const file = event.target.files[0];
-      const newUrl = await uploadImage(file, `hero/${key}`);
-      if (newUrl) {
-        const newHeroImages = { ...localSettings.heroImages };
-        newHeroImages[key][index] = newUrl;
-        setLocalSettings(prev => ({ ...prev, heroImages: newHeroImages }));
-      }
-    }
-  };
 
   const addHeroImageField = (key: HeroImageKey) => {
     const newHeroImages = { ...localSettings.heroImages };
@@ -115,17 +70,32 @@ export default function SettingsAdminPage() {
     newHeroImages[key].splice(index, 1);
     setLocalSettings(prev => ({ ...prev, heroImages: newHeroImages }));
   };
+  
+  const addFounderImageField = () => {
+    setLocalSettings(prev => ({ ...prev, founder: { ...prev.founder, imageUrls: [...prev.founder.imageUrls, ''] } }));
+  };
+
+  const removeFounderImageField = (index: number) => {
+    const newImageUrls = [...localSettings.founder.imageUrls];
+    newImageUrls.splice(index, 1);
+    setLocalSettings(prev => ({ ...prev, founder: { ...prev.founder, imageUrls: newImageUrls } }));
+  };
+
 
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      await updateSiteSettings(localSettings);
+      // In a real app, you would upload the files from `filesToUpload`
+      // and get back the URLs before calling updateSiteSettings.
+      // For this mock, we're just saving the text data.
+      await updateSiteSettings(localSettings, filesToUpload);
       toast({
         title: "Settings Saved",
         description: "Your site content has been updated.",
       });
-    } catch (error) {
-       toast({ variant: 'destructive', title: 'Save Failed', description: 'Could not save settings.' });
+      setFilesToUpload({});
+    } catch (error: any) {
+       toast({ variant: 'destructive', title: 'Save Failed', description: error.message || 'Could not save settings.' });
     }
     setIsSaving(false);
   };
@@ -133,9 +103,11 @@ export default function SettingsAdminPage() {
   const getFileName = (url: string | null | undefined) => {
     if (!url) return null;
     try {
-      return decodeURIComponent(new URL(url).pathname.split('/').pop() || '');
+        // This is a simple heuristic, may not work for all URL formats
+        const decodedUrl = decodeURIComponent(url);
+        return decodedUrl.substring(decodedUrl.lastIndexOf('/') + 1).split('?')[0];
     } catch (e) {
-      return null;
+      return "Invalid URL";
     }
   };
 
@@ -162,11 +134,11 @@ export default function SettingsAdminPage() {
                             <Input 
                                 type="file"
                                 accept="image/*"
-                                onChange={(e) => handleHeroImageChange(key, index, e)}
+                                onChange={(e) => handleImageFileChange(`heroImages.${key}.${index}`, e.target.files?.[0] || null)}
                                 className="opacity-0 absolute inset-0 w-full h-full z-10 cursor-pointer"
                             />
                             <Button type="button" variant="outline" className="w-full justify-start text-left font-normal truncate">
-                                {getFileName(url) || `Select image ${index + 1}...`}
+                                {filesToUpload[`heroImages.${key}.${index}`]?.name || getFileName(url) || `Select image ${index + 1}...`}
                             </Button>
                         </div>
                          <Image src={url || `https://placehold.co/40x40.png`} alt="preview" width={40} height={40} className="rounded-md object-cover"/>
@@ -181,7 +153,6 @@ export default function SettingsAdminPage() {
                 </Button>
             </div>
           ))}
-          {isSaving && uploadProgress > 0 && <Progress value={uploadProgress} className="mt-4" />}
         </CardContent>
       </Card>
 
@@ -253,11 +224,11 @@ export default function SettingsAdminPage() {
                             <Input 
                                 type="file"
                                 accept="image/*"
-                                onChange={(e) => handleFounderImageChange(index, e)}
+                                onChange={(e) => handleImageFileChange(`founder.imageUrls.${index}`, e.target.files?.[0] || null)}
                                 className="opacity-0 absolute inset-0 w-full h-full z-10 cursor-pointer"
                             />
                             <Button type="button" variant="outline" className="w-full justify-start text-left font-normal truncate">
-                                {getFileName(url) || `Select image ${index + 1}...`}
+                               {filesToUpload[`founder.imageUrls.${index}`]?.name || getFileName(url) || `Select image ${index + 1}...`}
                             </Button>
                         </div>
                          <Image src={url || `https://placehold.co/40x40.png`} alt="preview" width={40} height={40} className="rounded-md object-cover"/>
@@ -270,7 +241,6 @@ export default function SettingsAdminPage() {
                     <ImagePlus className="h-4 w-4 mr-2"/>
                     Add Image
                 </Button>
-                 {isSaving && uploadProgress > 0 && <Progress value={uploadProgress} className="mt-4" />}
             </div>
         </CardContent>
       </Card>
