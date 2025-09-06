@@ -12,15 +12,16 @@ import { db as firestoreDB, storage } from '@/lib/firebase';
 import { collection, doc, onSnapshot, writeBatch, deleteDoc, setDoc, getDoc } from 'firebase/firestore';
 import { ref, deleteObject } from 'firebase/storage';
 import axios from 'axios';
+import imageCompression from 'browser-image-compression';
 
 
 interface DataContextType extends PavoData {
   loading: boolean;
-  addOrUpdatePortfolioItem: (item: PortfolioItem, beforeImageFile?: File | null, afterImageFile?: File | null) => Promise<any>;
+  addOrUpdatePortfolioItem: (item: PortfolioItem, beforeImageFile?: File | null, afterImageFile?: File | null, onProgress?: (percent: number) => void) => Promise<any>;
   deletePortfolioItem: (id: string) => Promise<void>;
-  addOrUpdateDecorProduct: (product: Product, imageFile?: File | null) => Promise<any>;
+  addOrUpdateDecorProduct: (product: Product, imageFile?: File | null, onProgress?: (percent: number) => void) => Promise<any>;
   deleteDecorProduct: (id: string) => Promise<void>;
-  addOrUpdateRentalProperty: (property: Property, imageFile?: File | null) => Promise<any>;
+  addOrUpdateRentalProperty: (property: Property, imageFile?: File | null, onProgress?: (percent: number) => void) => Promise<any>;
   deleteRentalProperty: (id: string) => Promise<void>;
   addOrder: (order: Order) => Promise<void>;
   decreaseStock: (productId: string, amount: number) => Promise<void>;
@@ -42,8 +43,64 @@ const DataContext = createContext<DataContextType | undefined>(undefined);
 const collectionsToSync = ['portfolioItems', 'decorProducts', 'rentalProperties', 'orders', 'bookings'] as const;
 type CollectionName = typeof collectionsToSync[number];
 
-// This is your Firebase Function URL. Replace with the actual deployed URL.
-const SAVE_DATA_FUNCTION_URL = 'https://us-central1-pavo-suite.cloudfunctions.net/saveData';
+
+// This helper function handles the entire client-side process:
+// compressing, creating form data, and posting to the Next.js API proxy.
+const saveDataWithFiles = async (collectionName: string, data: any, files: { [key: string]: File | null | undefined }, onProgress?: (percent: number) => void) => {
+    const formData = new FormData();
+    formData.append('collectionName', collectionName);
+    formData.append('id', data.id);
+
+    // Append all data fields to formData
+    for (const key in data) {
+        if (data.hasOwnProperty(key)) {
+            // Ensure we don't send undefined or null values that FormData might stringify
+            if (data[key] !== null && data[key] !== undefined) {
+                 formData.append(key, data[key]);
+            }
+        }
+    }
+
+    const compressionOptions = {
+        maxSizeMB: 1,
+        maxWidthOrHeight: 1920,
+        useWebWorker: true,
+        onProgress: (p: number) => {
+            if (onProgress) onProgress(p * 0.5); // Compression is first 50%
+        },
+    };
+
+    // Compress and append each file
+    for (const key in files) {
+        const file = files[key];
+        if (file) {
+            try {
+                const compressedFile = await imageCompression(file, compressionOptions);
+                formData.append(key, compressedFile, compressedFile.name);
+            } catch (error) {
+                console.error("Compression Error:", error);
+                formData.append(key, file, file.name); // Fallback to original file
+            }
+        }
+    }
+
+    // Use the local Next.js API route as a proxy
+    const response = await axios.post('/api/save-data', formData, {
+        headers: {
+            // Let the browser set the Content-Type header for FormData
+        },
+         onUploadProgress: (progressEvent) => {
+            if (onProgress && progressEvent.total) {
+                const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+                // Upload is the second 50% of the total progress
+                onProgress(50 + percentCompleted * 0.5);
+            }
+        }
+    });
+
+    return response.data;
+};
+
 
 export function DataProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
@@ -128,46 +185,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   }
 
-
-  const saveDataWithFiles = async (collectionName: string, data: any, files: { [key: string]: File | null | undefined }) => {
-    const formData = new FormData();
-    formData.append('collectionName', collectionName);
-    formData.append('id', data.id);
-
-    // Append all data fields to formData
-    for(const key in data) {
-        if (data.hasOwnProperty(key)) {
-            formData.append(key, data[key]);
-        }
-    }
-
-    // Append all files to formData
-    for (const key in files) {
-        if (files[key]) {
-            formData.append(key, files[key] as Blob);
-        }
-    }
-
-    // Use the Firebase Function URL
-    const response = await axios.post(SAVE_DATA_FUNCTION_URL, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-    });
-    return response.data;
-  };
-
-
-  const addOrUpdateDecorProduct = (product: Product, imageFile?: File | null) => {
-    return saveDataWithFiles('decorProducts', product, { imageUrl: imageFile });
+  const addOrUpdateDecorProduct = (product: Product, imageFile?: File | null, onProgress?: (percent: number) => void) => {
+    return saveDataWithFiles('decorProducts', product, { imageUrl: imageFile }, onProgress);
   };
   
-  const addOrUpdateRentalProperty = (property: Property, imageFile?: File | null) => {
-      return saveDataWithFiles('rentalProperties', property, { imageUrl: imageFile });
+  const addOrUpdateRentalProperty = (property: Property, imageFile?: File | null, onProgress?: (percent: number) => void) => {
+      return saveDataWithFiles('rentalProperties', property, { imageUrl: imageFile }, onProgress);
   };
   
-  const addOrUpdatePortfolioItem = (item: PortfolioItem, beforeImageFile?: File | null, afterImageFile?: File | null) => {
-      return saveDataWith1Files('portfolioItems', item, { beforeImageUrl: beforeImageFile, imageUrl: afterImageFile });
+  const addOrUpdatePortfolioItem = (item: PortfolioItem, beforeImageFile?: File | null, afterImageFile?: File | null, onProgress?: (percent: number) => void) => {
+      // Note: This only provides progress for one file. A more complex implementation
+      // would be needed to show combined progress for multiple files.
+      return saveDataWithFiles('portfolioItems', item, { beforeImageUrl: beforeImageFile, imageUrl: afterImageFile }, onProgress);
   };
-
 
   const deleteDecorProduct = async (id: string) => {
     const docRef = doc(firestoreDB, 'decorProducts', id);
@@ -179,7 +209,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
     await deleteDoc(docRef);
   };
   
-
   const deleteRentalProperty = async (id: string) => {
     const docRef = doc(firestoreDB, 'rentalProperties', id);
     const docSnap = await getDoc(docRef);
@@ -216,8 +245,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
      await setDoc(doc(firestoreDB, 'bookings', docId), newBooking);
   };
   
-  const updateSiteSettings = async (settings: SiteSettings) => {
-    await setDoc(doc(firestoreDB, 'siteSettings', 'default'), settings, { merge: true });
+  const updateSiteSettings = async (settings: SiteSettings, files: { [key: string]: File | null }) => {
+     // This function also needs to be updated to use the proxy for Site Settings images
+     const dataToSave = {
+        ...settings,
+        id: 'default' // ensure id is set for the proxy
+     };
+     // For simplicity, we assume one file at a time, but it can be extended.
+     await saveDataWithFiles('siteSettings', dataToSave, files);
   };
 
   // ---- Cart functionality (purely client-side with Dexie) ----

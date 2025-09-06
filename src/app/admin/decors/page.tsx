@@ -17,6 +17,7 @@ import type { Product } from '@/lib/types';
 import { usePavoData } from '@/context/data-context';
 import { useToast } from '@/hooks/use-toast';
 import { v4 as uuidv4 } from 'uuid';
+import { Progress } from '@/components/ui/progress';
 
 export default function DecorsAdmin() {
   const { decorProducts, loading, addOrUpdateDecorProduct, deleteDecorProduct } = usePavoData();
@@ -25,10 +26,12 @@ export default function DecorsAdmin() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
 
   const openForm = (product?: Product) => {
     setEditingProduct(product || null);
     setImageFile(null);
+    setUploadProgress(0);
     setIsFormOpen(true);
   };
 
@@ -37,27 +40,29 @@ export default function DecorsAdmin() {
     setTimeout(() => {
         setEditingProduct(null);
         setImageFile(null);
+        setUploadProgress(0);
     }, 300);
   };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setIsSubmitting(true);
+    setUploadProgress(0);
 
     const form = event.currentTarget;
-    const name = form.name.value;
     const docId = editingProduct?.id || uuidv4();
     
     try {
       const productData: Omit<Product, 'imageUrl' | 'aiHint'> & { id: string } = {
           id: docId,
-          name,
+          name: form.name.value,
           category: form.category.value,
           price: Number(form.price.value),
           stock: Number(form.stock.value),
       };
 
-      await addOrUpdateDecorProduct(productData, imageFile);
+      await addOrUpdateDecorProduct(productData, imageFile, setUploadProgress);
+
       toast({ title: 'Success!', description: 'Product saved successfully.' });
       closeForm();
 
@@ -66,6 +71,7 @@ export default function DecorsAdmin() {
         toast({ variant: 'destructive', title: 'Save Failed', description: error.response?.data?.error || error.message || 'An unknown error occurred' });
     } finally {
         setIsSubmitting(false);
+        setUploadProgress(0);
     }
   };
 
@@ -229,6 +235,11 @@ export default function DecorsAdmin() {
                                 />
                             </div>
                         }
+                         {isSubmitting && imageFile && (
+                            <div className="col-span-4">
+                                <Progress value={uploadProgress} className="w-full" />
+                            </div>
+                        )}
                     </div>
                     <DialogFooter>
                          <DialogClose asChild>

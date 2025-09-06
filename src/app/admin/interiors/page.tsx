@@ -9,7 +9,7 @@ import { MoreHorizontal, PlusCircle, Loader2 } from "lucide-react";
 import Image from "next/image";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogClose } from '@/components/ui/dialog';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/componentsui/alert-dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import type { PortfolioItem } from '@/lib/types';
@@ -17,6 +17,7 @@ import { usePavoData } from '@/context/data-context';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { v4 as uuidv4 } from 'uuid';
+import { Progress } from '@/components/ui/progress';
 
 export default function InteriorsAdmin() {
   const { portfolioItems, loading, addOrUpdatePortfolioItem, deletePortfolioItem } = usePavoData();
@@ -26,11 +27,13 @@ export default function InteriorsAdmin() {
   const [editingItem, setEditingItem] = useState<PortfolioItem | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [beforeImageFile, setBeforeImageFile] = useState<File | null>(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
 
   const openForm = (item?: PortfolioItem) => {
     setEditingItem(item || null);
     setImageFile(null);
     setBeforeImageFile(null);
+    setUploadProgress(0);
     setIsFormOpen(true);
   };
 
@@ -40,26 +43,28 @@ export default function InteriorsAdmin() {
         setEditingItem(null);
         setImageFile(null);
         setBeforeImageFile(null);
+        setUploadProgress(0);
     }, 300);
   };
   
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setIsSubmitting(true);
+    setUploadProgress(0);
     
     const form = event.currentTarget;
-    const title = form.title.value;
     const docId = editingItem?.id || uuidv4();
 
     try {
       const portfolioData: Omit<PortfolioItem, 'imageUrl' | 'beforeImageUrl' | 'aiHint'> & { id: string } = {
         id: docId,
-        title,
+        title: form.title.value,
         location: form.location.value,
         description: form.description.value,
       };
 
-      await addOrUpdatePortfolioItem(portfolioData, beforeImageFile, imageFile);
+      await addOrUpdatePortfolioItem(portfolioData, beforeImageFile, imageFile, setUploadProgress);
+
       toast({ title: 'Success!', description: 'Portfolio item saved successfully.' });
       closeForm();
     } catch (error: any) {
@@ -67,6 +72,7 @@ export default function InteriorsAdmin() {
       toast({ variant: 'destructive', title: 'Save Failed', description: error.response?.data?.error || error.message || 'An unknown error occurred.' });
     } finally {
       setIsSubmitting(false);
+      setUploadProgress(0);
     }
   };
 
@@ -250,6 +256,11 @@ export default function InteriorsAdmin() {
                                 />
                             </div>
                         }
+                        {isSubmitting && (beforeImageFile || imageFile) && (
+                            <div className="col-span-4">
+                                <Progress value={uploadProgress} className="w-full" />
+                            </div>
+                        )}
                     </div>
                     <DialogFooter>
                         <DialogClose asChild>

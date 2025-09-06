@@ -16,6 +16,7 @@ import type { Property } from '@/lib/types';
 import { usePavoData } from '@/context/data-context';
 import { useToast } from '@/hooks/use-toast';
 import { v4 as uuidv4 } from 'uuid';
+import { Progress } from '@/components/ui/progress';
 
 export default function HomesAdmin() {
   const { rentalProperties, loading, addOrUpdateRentalProperty, deleteRentalProperty } = usePavoData();
@@ -24,10 +25,12 @@ export default function HomesAdmin() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingProperty, setEditingProperty] = useState<Property | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
 
   const openForm = (property?: Property) => {
     setEditingProperty(property || null);
     setImageFile(null);
+    setUploadProgress(0);
     setIsFormOpen(true);
   };
 
@@ -36,27 +39,29 @@ export default function HomesAdmin() {
     setTimeout(() => {
         setEditingProperty(null);
         setImageFile(null);
+        setUploadProgress(0);
     }, 300);
   };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setIsSubmitting(true);
+    setUploadProgress(0);
     
     const form = event.currentTarget;
-    const title = form.title.value;
     const docId = editingProperty?.id || uuidv4();
     
     try {
       const propertyData: Omit<Property, 'imageUrl' | 'aiHint'> & { id: string } = {
           id: docId,
-          title,
+          title: form.title.value,
           location: form.location.value,
           pricePerNight: Number(form.pricePerNight.value),
           rating: Number(form.rating.value),
       };
 
-      await addOrUpdateRentalProperty(propertyData, imageFile);
+      await addOrUpdateRentalProperty(propertyData, imageFile, setUploadProgress);
+
       toast({ title: 'Success!', description: 'Property saved successfully.' });
       closeForm();
     } catch (error: any) {
@@ -64,6 +69,7 @@ export default function HomesAdmin() {
       toast({ variant: 'destructive', title: 'Save Failed', description: error.response?.data?.error || error.message || 'An unknown error occurred.' });
     } finally {
       setIsSubmitting(false);
+      setUploadProgress(0);
     }
   };
 
@@ -221,6 +227,11 @@ export default function HomesAdmin() {
                                 />
                             </div>
                         }
+                         {isSubmitting && imageFile && (
+                            <div className="col-span-4">
+                                <Progress value={uploadProgress} className="w-full" />
+                            </div>
+                        )}
                     </div>
                     <DialogFooter>
                          <DialogClose asChild>

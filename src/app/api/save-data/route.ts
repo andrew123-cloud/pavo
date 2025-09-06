@@ -1,0 +1,49 @@
+// src/app/api/save-data/route.ts
+import { NextRequest, NextResponse } from 'next/server';
+import axios from 'axios';
+import FormData from 'form-data';
+import { Readable } from 'stream';
+
+// This is your Firebase Function URL. 
+// It needs to be an environment variable in a real-world scenario for security and flexibility.
+const SAVE_DATA_FUNCTION_URL = 'https://us-central1-pavo-suite.cloudfunctions.net/saveData';
+
+export async function POST(request: NextRequest) {
+  try {
+    const requestFormData = await request.formData();
+    const serverFormData = new FormData();
+
+    // Re-create the form data for the server-to-server request
+    for (const [key, value] of requestFormData.entries()) {
+      if (value instanceof Blob) {
+        // Convert Blob to Buffer to append to form-data
+        const buffer = Buffer.from(await value.arrayBuffer());
+        serverFormData.append(key, buffer, {
+            filename: value.name,
+            contentType: value.type,
+        });
+      } else {
+        serverFormData.append(key, value);
+      }
+    }
+
+    console.log(`[API_PROXY] Forwarding request to Firebase Function: ${SAVE_DATA_FUNCTION_URL}`);
+
+    const response = await axios.post(SAVE_DATA_FUNCTION_URL, serverFormData, {
+      headers: {
+        ...serverFormData.getHeaders(),
+      },
+    });
+
+    console.log('[API_PROXY] Received response from Firebase Function.');
+    return NextResponse.json(response.data, { status: response.status });
+
+  } catch (error: any) {
+    console.error('[API_PROXY_ERROR]', error);
+    if (axios.isAxiosError(error) && error.response) {
+       console.error('[API_PROXY_ERROR_DETAILS]', error.response.data);
+       return NextResponse.json({ error: 'Error from Firebase Function.', details: error.response.data }, { status: error.response.status });
+    }
+    return NextResponse.json({ error: 'An internal server error occurred in the proxy.' }, { status: 500 });
+  }
+}
