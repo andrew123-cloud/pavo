@@ -13,7 +13,7 @@ const corsHandler = cors({ origin: true });
 const db = admin.firestore();
 const storage = admin.storage().bucket();
 
-export const saveData = https.onRequest({ memory: "512MB", invoker: "public" }, (req, res) => {
+export const saveData = https.onRequest({ memory: "512MiB", invoker: "public" }, (req, res) => {
     corsHandler(req, res, () => {
         if (req.method !== "POST") {
             res.status(405).send("Method Not Allowed");
