@@ -94,7 +94,13 @@ export const saveData = https.onRequest({ memory: "512MiB", invoker: "public" },
                 }
                 
                 const docRef = db.collection(collectionName).doc(docId);
-                await docRef.set(fields, { merge: true });
+                const docSnap = await docRef.get();
+
+                if (docSnap.exists) {
+                    await docRef.update(fields);
+                } else {
+                    await docRef.set(fields);
+                }
 
                 res.status(200).json({ message: "Data saved successfully!", id: docId, ...fields });
 
