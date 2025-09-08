@@ -7,11 +7,11 @@ import { Readable } from 'stream';
 
 // This is your Firebase Function URL. 
 // It is now correctly read from your environment variables.
-const UPLOAD_PRODUCT_FUNCTION_URL = process.env.UPLOAD_PRODUCT_FUNCTION_URL;
+const UPLOAD_FUNCTION_URL = process.env.UPLOAD_FUNCTION_URL;
 
 export async function POST(request: NextRequest) {
-  if (!UPLOAD_PRODUCT_FUNCTION_URL) {
-    console.error('[API_PROXY_ERROR] UPLOAD_PRODUCT_FUNCTION_URL environment variable is not set.');
+  if (!UPLOAD_FUNCTION_URL) {
+    console.error('[API_PROXY_ERROR] UPLOAD_FUNCTION_URL environment variable is not set.');
     return NextResponse.json({ error: 'Server configuration error: Function URL is missing.' }, { status: 500 });
   }
   
@@ -33,9 +33,9 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    console.log(`[API_PROXY] Forwarding request to Firebase Function: ${UPLOAD_PRODUCT_FUNCTION_URL}`);
+    console.log(`[API_PROXY] Forwarding request to Firebase Function: ${UPLOAD_FUNCTION_URL}`);
 
-    const response = await axios.post(UPLOAD_PRODUCT_FUNCTION_URL, serverFormData, {
+    const response = await axios.post(UPLOAD_FUNCTION_URL, serverFormData, {
       headers: {
         ...serverFormData.getHeaders(),
       },
