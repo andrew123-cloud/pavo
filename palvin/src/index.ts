@@ -1,5 +1,6 @@
+
 // palvin/src/index.ts
-import { https } from "firebase-functions/v2";
+import {https} from "firebase-functions/v2";
 import * as admin from "firebase-admin";
 import cors from "cors";
 import busboy from "busboy";
@@ -93,13 +94,7 @@ export const saveData = https.onRequest({ memory: "512MiB", invoker: "public" },
                 }
                 
                 const docRef = db.collection(collectionName).doc(docId);
-                const docSnap = await docRef.get();
-
-                if (docSnap.exists) {
-                    await docRef.update(fields);
-                } else {
-                    await docRef.set(fields);
-                }
+                await docRef.set(fields, { merge: true });
 
                 res.status(200).json({ message: "Data saved successfully!", id: docId, ...fields });
 
