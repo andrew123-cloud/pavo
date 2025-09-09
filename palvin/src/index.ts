@@ -23,14 +23,14 @@ export const saveData = https.onRequest({ memory: "512MiB", invoker: "public" },
         const bb = busboy({ headers: req.headers });
         const tmpdir = os.tmpdir();
 
-        const fields: { [key: string]: string } = {};
+        const fields: { [key: string]: any } = {};
         const fileWrites: Promise<any>[] = [];
         const filesToUpload: { [fieldname: string]: { filePath: string; mimetype: string } } = {};
         
         let collectionName = "";
         let docId = "";
 
-        bb.on("field", (fieldname: string, val: string) => {
+        bb.on("field", (fieldname: string, val: any) => {
             console.log(`Processed field ${fieldname}: ${val}.`);
             if (fieldname === "collectionName") {
                 collectionName = val;
@@ -92,13 +92,14 @@ export const saveData = https.onRequest({ memory: "512MiB", invoker: "public" },
                     }
                 }
                 
+                console.log(`Attempting to write to collection: ${collectionName}, docId: ${docId}`, fields);
                 const docRef = db.collection(collectionName).doc(docId);
                 await docRef.set(fields, { merge: true });
 
                 res.status(200).json({ message: "Data saved successfully!", id: docId, ...fields });
 
             } catch (error: any) {
-                console.error("Backend error:", error);
+                console.error(`Error during Firestore operation or file upload for docId "${docId}" in collection "${collectionName}":`, error);
                 res.status(500).json({ error: error.message || "An internal server error occurred." });
             }
         });
