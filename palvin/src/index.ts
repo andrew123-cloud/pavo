@@ -1,8 +1,8 @@
 // palvin/src/index.ts
 import {https} from "firebase-functions/v2";
 import * as admin from "firebase-admin";
-import cors = require("cors");
-import busboy = require("busboy");
+import cors from "cors";
+import busboy from "busboy";
 import * as path from "path";
 import * as os from "os";
 import * as fs from "fs";
