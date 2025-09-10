@@ -53,14 +53,18 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [supabase, setSupabase] = useState(() => createClient(supabaseUrl, supabaseAnonKey));
 
   useEffect(() => {
-    const newSupabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
-      global: {
-        headers: {
-          Authorization: `Bearer ${session?.access_token}`,
+    if (session) {
+      const newSupabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
+        global: {
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+          },
         },
-      },
-    });
-    setSupabase(newSupabaseClient);
+      });
+      setSupabase(newSupabaseClient);
+    } else {
+      setSupabase(createClient(supabaseUrl, supabaseAnonKey));
+    }
   }, [session]);
 
   const [loading, setLoading] = useState(true);
@@ -178,23 +182,27 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   }, [saveDataWithFiles]);
 
   const addBooking = useCallback(async (booking: Omit<Booking, 'id' | 'createdAt' | 'isRead'>) => {
-      const newBooking = { ...booking, isRead: false, createdAt: new Date().toISOString() };
-      const { error } = await supabase.from('bookings').insert(newBooking);
-      if (error) {
-          toast({ variant: 'destructive', title: 'Booking failed', description: error.message });
-          throw error;
-      }
+      // const newBooking = { ...booking, isRead: false, createdAt: new Date().toISOString() };
+      // const { error } = await supabase.from('bookings').insert(newBooking);
+      // if (error) {
+      //     toast({ variant: 'destructive', title: 'Booking failed', description: error.message });
+      //     throw error;
+      // }
+      console.log('addBooking called, but is currently disabled.');
+      return Promise.resolve();
   }, [toast, supabase]);
 
   const markBookingAsRead = useCallback(async (id: number) => {
-      await supabase.from('bookings').update({ isRead: true }).match({ id });
+      // await supabase.from('bookings').update({ isRead: true }).match({ id });
+      console.log('markBookingAsRead called, but is currently disabled.');
   }, [supabase]);
   
   const markAllBookingsAsRead = useCallback(async () => {
-    const unreadIds = bookings.filter(b => !b.isRead).map(b => b.id);
-    if(unreadIds.length > 0) {
-      await supabase.from('bookings').update({ isRead: true }).in('id', unreadIds);
-    }
+    // const unreadIds = bookings.filter(b => !b.isRead).map(b => b.id);
+    // if(unreadIds.length > 0) {
+    //   await supabase.from('bookings').update({ isRead: true }).in('id', unreadIds);
+    // }
+    console.log('markAllBookingsAsRead called, but is currently disabled.');
   }, [supabase, bookings]);
 
   const addOrder = useCallback((order: Order) => {
@@ -217,9 +225,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (cart.length > 0 || localStorage.getItem('pavo-cart')) {
-      localStorage.setItem('pavo-cart', JSON.stringify(cart));
-    }
+    localStorage.setItem('pavo-cart', JSON.stringify(cart));
   }, [cart]);
 
   const addToCart = useCallback((product: Product, quantity = 1) => {
@@ -275,29 +281,29 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         const [
           productsRes,
           portfolioRes,
-          bookingsRes,
+          // bookingsRes,
           bookingSitesRes,
           settingsRes,
           ordersRes
         ] = await Promise.all([
           supabase.from('products').select('*').order('name'),
           supabase.from('portfolioItems').select('*').order('id'),
-          supabase.from('bookings').select('*').order('createdAt', { ascending: false }),
+          // supabase.from('bookings').select('*').order('createdAt', { ascending: false }),
           supabase.from('bookingSites').select('*').order('name'),
           supabase.from('siteSettings').select('*').eq('id', 'default').single(),
           supabase.from('orders').select('*').order('created_at', { ascending: false }),
         ]);
         
-        if (productsRes.error) throw productsRes.error;
-        if (portfolioRes.error) throw portfolioRes.error;
-        if (bookingsRes.error) throw bookingsRes.error;
-        if (bookingSitesRes.error) throw bookingSitesRes.error;
-        if (settingsRes.error && settingsRes.status !== 406) throw settingsRes.error; // 406 means no rows, which is ok on first run
-        if (ordersRes.error) throw ordersRes.error;
+        if (productsRes.error) throw new Error(`Products fetch failed: ${productsRes.error.message}`);
+        if (portfolioRes.error) throw new Error(`Portfolio fetch failed: ${portfolioRes.error.message}`);
+        // if (bookingsRes.error) throw new Error(`Bookings fetch failed: ${bookingsRes.error.message}`);
+        if (bookingSitesRes.error) throw new Error(`Booking Sites fetch failed: ${bookingSitesRes.error.message}`);
+        if (settingsRes.error && settingsRes.status !== 406) throw new Error(`Settings fetch failed: ${settingsRes.error.message}`);
+        if (ordersRes.error) throw new Error(`Orders fetch failed: ${ordersRes.error.message}`);
         
         setDecorProducts(productsRes.data || []);
         setPortfolioItems(portfolioRes.data || []);
-        setBookings(bookingsRes.data || []);
+        // setBookings(bookingsRes.data || []);
         setBookingSites(bookingSitesRes.data || []);
         setOrders(ordersRes.data || []);
         if(settingsRes.data) setSiteSettings(settingsRes.data);
@@ -338,16 +344,19 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       if(payload.eventType === 'UPDATE' && payload.new.id === 'default') setSiteSettings(payload.new);
     };
 
-    const channels = [
-      supabase.channel('portfolioItems').on('postgres_changes', { event: '*', schema: 'public', table: 'portfolioItems' }, handlePortfolioChange).subscribe(),
-      supabase.channel('products').on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, handleProductChange).subscribe(),
-      supabase.channel('bookings').on('postgres_changes', { event: '*', schema: 'public', table: 'bookings' }, handleBookingChange).subscribe(),
-      supabase.channel('bookingSites').on('postgres_changes', { event: '*', schema: 'public', table: 'bookingSites' }, handleBookingSiteChange).subscribe(),
-      supabase.channel('siteSettings').on('postgres_changes', { event: '*', schema: 'public', table: 'siteSettings' }, handleSettingsChange).subscribe()
-    ];
+    const portfolioChannel = supabase.channel('portfolioItems').on('postgres_changes', { event: '*', schema: 'public', table: 'portfolioItems' }, handlePortfolioChange).subscribe();
+    const productsChannel = supabase.channel('products').on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, handleProductChange).subscribe();
+    // const bookingsChannel = supabase.channel('bookings').on('postgres_changes', { event: '*', schema: 'public', table: 'bookings' }, handleBookingChange).subscribe();
+    const bookingSitesChannel = supabase.channel('bookingSites').on('postgres_changes', { event: '*', schema: 'public', table: 'bookingSites' }, handleBookingSiteChange).subscribe();
+    const settingsChannel = supabase.channel('siteSettings').on('postgres_changes', { event: '*', schema: 'public', table: 'siteSettings' }, handleSettingsChange).subscribe();
+    
 
     return () => {
-      channels.forEach(channel => supabase.removeChannel(channel));
+      supabase.removeChannel(portfolioChannel);
+      supabase.removeChannel(productsChannel);
+      // supabase.removeChannel(bookingsChannel);
+      supabase.removeChannel(bookingSitesChannel);
+      supabase.removeChannel(settingsChannel);
     };
   }, [supabase]);
 
