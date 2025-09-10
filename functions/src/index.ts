@@ -66,6 +66,12 @@ export const saveData = functions
           res.status(400).json({ error: 'Collection name (table name) is required.' });
           return;
         }
+        
+        // Site Settings are no longer handled by the backend.
+        if (collectionName === 'siteSettings') {
+            res.status(400).json({ error: 'Site settings are managed on the client-side and cannot be saved via this endpoint.' });
+            return;
+        }
 
         try {
           await Promise.all(fileWrites);
@@ -88,9 +94,8 @@ export const saveData = functions
               const { data: { publicUrl } } = supabase.storage
                   .from('pavo-assets')
                   .getPublicUrl(destination);
-
-              // Use 'image_url' for products table as specified
-              if (collectionName === 'products' && fieldname === 'imageUrl') {
+              
+              if (fieldname === 'imageUrl') {
                   fields['image_url'] = publicUrl;
               } else {
                   fields[fieldname] = publicUrl;

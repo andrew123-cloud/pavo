@@ -100,14 +100,44 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
 
-  // Live queries from Dexie.js - UI reads from here for instant updates.
+  // Live queries from Dexie.js for Supabase-backed data
   const portfolioItems = useLiveQuery(() => dexieDB.portfolioItems.toArray(), []);
   const decorProducts = useLiveQuery(() => dexieDB.decorProducts.toArray(), []);
   const rentalProperties = useLiveQuery(() => dexieDB.rentalProperties.toArray(), []);
   const orders = useLiveQuery(() => dexieDB.orders.toArray(), []);
-  const bookings = useLiveQuery(() => dexieDB.bookings.toArray(), []);
-  const siteSettings = useLiveQuery(() => dexieDB.siteSettings.get('default'), undefined);
   const cart = useLiveQuery(() => dexieDB.cart.toArray(), []);
+
+  // State for localStorage-backed data
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [siteSettings, setSiteSettings] = useState<SiteSettings>(initialSiteSettings);
+
+  // Effect for initializing localStorage data
+  useEffect(() => {
+    // Load Bookings from localStorage
+    const storedBookings = localStorage.getItem('pavo-bookings');
+    if (storedBookings) {
+      try {
+        setBookings(JSON.parse(storedBookings));
+      } catch (e) {
+        console.error("Failed to parse bookings from localStorage", e);
+        setBookings([]);
+      }
+    }
+
+    // Load SiteSettings from localStorage
+    const storedSettings = localStorage.getItem('pavo-siteSettings');
+    if (storedSettings) {
+       try {
+        setSiteSettings(JSON.parse(storedSettings));
+      } catch (e) {
+         console.error("Failed to parse site settings from localStorage", e);
+        setSiteSettings(initialSiteSettings);
+      }
+    } else {
+      localStorage.setItem('pavo-siteSettings', JSON.stringify(initialSiteSettings));
+    }
+  }, []);
+
 
   // This effect syncs Supabase to Dexie on initial load
   useEffect(() => {
@@ -122,40 +152,25 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 { data: portfolioData, error: portfolioError },
                 { data: rentalData, error: rentalError },
                 { data: ordersData, error: ordersError },
-                { data: bookingsData, error: bookingsError },
-                { data: settingsData, error: settingsError },
             ] = await Promise.all([
                 supabase.from('products').select('*'),
                 supabase.from('portfolioItems').select('*'),
                 supabase.from('rentalProperties').select('*'),
                 supabase.from('orders').select('*'),
-                supabase.from('bookings').select('*'),
-                supabase.from('siteSettings').select('*').eq('id', 'default').single(),
             ]);
 
             // Consolidate error checking
-            const errors = { productsError, portfolioError, rentalError, ordersError, bookingsError, settingsError };
+            const errors = { productsError, portfolioError, rentalError, ordersError };
             for (const [key, error] of Object.entries(errors)) {
-                // For settings, a "PGRST116" (exact one row not found) error is okay on first load
-                if (error && (key !== 'settingsError' || error.code !== 'PGRST116')) {
-                    throw error;
-                }
+                if (error) throw error;
             }
-
+            
             // Update local Dexie DB
             await dexieDB.transaction('rw', dexieDB.tables, async () => {
                 await dexieDB.portfolioItems.bulkPut(portfolioData || []);
                 await dexieDB.decorProducts.bulkPut(productsData || []);
                 await dexieDB.rentalProperties.bulkPut(rentalData || []);
                 await dexieDB.orders.bulkPut(ordersData || []);
-                await dexieDB.bookings.bulkPut(bookingsData || []);
-                if (settingsData) {
-                    await dexieDB.siteSettings.put(settingsData);
-                } else {
-                    // If no settings exist in Supabase, create the initial default one
-                    await dexieDB.siteSettings.put(initialSiteSettings);
-                    await supabase.from('siteSettings').insert(initialSiteSettings);
-                }
             });
             
              console.log("Initial data sync from Supabase successful.");
@@ -185,13 +200,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 if(payload.eventType === 'DELETE') dexieDB.orders.delete(payload.old.id);
                 else dexieDB.orders.put(payload.new as Order);
             })
-             .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings' }, (payload) => {
-                if(payload.eventType === 'DELETE') dexieDB.bookings.delete(payload.old.id);
-                else dexieDB.bookings.put(payload.new as Booking);
-            })
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'siteSettings' }, (payload) => {
-                dexieDB.siteSettings.put(payload.new as SiteSettings);
-            })
             .subscribe();
 
         return () => {
@@ -215,7 +223,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }
 
   const addOrUpdateDecorProduct = (product: Omit<Product, 'image_url'> & { id: string }, imageFile?: File | null, onProgress?: (percent: number) => void) => {
-    // The backend expects the file field to be 'imageUrl', which it will then map to 'image_url' in the database.
     return saveDataWithFiles('products', product, { imageUrl: imageFile }, onProgress);
   };
   
@@ -251,23 +258,40 @@ export function DataProvider({ children }: { children: ReactNode }) {
     await supabase.from('orders').upsert(order);
   };
   
+  // --- LocalStorage based functions ---
+  
   const addBooking = async (booking: Omit<Booking, 'id' | 'createdAt' | 'isRead'>) => {
-     const docId = uuidv4();
      const newBooking: Booking = { 
         ...booking,
-        id: docId,
+        id: uuidv4(),
         createdAt: new Date().toISOString(),
         isRead: false
      }
-     await supabase.from('bookings').insert(newBooking);
+     const updatedBookings = [...bookings, newBooking];
+     setBookings(updatedBookings);
+     localStorage.setItem('pavo-bookings', JSON.stringify(updatedBookings));
   };
   
+  const markBookingAsRead = async (id: string) => {
+      const updatedBookings = bookings.map(b => b.id === id ? { ...b, isRead: true } : b);
+      setBookings(updatedBookings);
+      localStorage.setItem('pavo-bookings', JSON.stringify(updatedBookings));
+  };
+
+  const markAllBookingsAsRead = async () => {
+    const updatedBookings = bookings.map(b => ({ ...b, isRead: true }));
+    setBookings(updatedBookings);
+    localStorage.setItem('pavo-bookings', JSON.stringify(updatedBookings));
+  };
+
   const updateSiteSettings = async (settings: SiteSettings, files: { [key: string]: File | null }) => {
-     const dataToSave = {
-        ...settings,
-        id: 'default'
-     };
-     await saveDataWithFiles('siteSettings', dataToSave, files);
+     // This function is now client-only and does not upload files.
+     // In a real scenario for images, you'd convert them to base64 to store in localStorage
+     // or use a separate upload mechanism. For simplicity, we'll just save the text content.
+     const newSettings = { ...settings };
+     // The URLs for images might be data URIs if they were newly selected. We'll just save them as is.
+     setSiteSettings(newSettings);
+     localStorage.setItem('pavo-siteSettings', JSON.stringify(newSettings));
   };
 
   // ---- Cart functionality (purely client-side with Dexie) ----
@@ -301,23 +325,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
     if(error) console.error("Error decreasing stock:", error);
   };
 
-  const markBookingAsRead = async (id: string) => {
-      await supabase.from('bookings').update({ isRead: true }).eq('id', id);
-  };
-  const markAllBookingsAsRead = async () => {
-    const unread = (bookings || []).filter(b => !b.isRead);
-    if (unread.length === 0) return;
-    const idsToUpdate = unread.map(b => b.id);
-    await supabase.from('bookings').update({ isRead: true }).in('id', idsToUpdate);
-  };
-
   const providerValue: DataContextType = {
     portfolioItems: portfolioItems || [],
     decorProducts: decorProducts || [],
     rentalProperties: rentalProperties || [],
     orders: (orders || []).sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
-    bookings: (bookings || []).sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
-    siteSettings: siteSettings || initialSiteSettings,
+    bookings: bookings.sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
+    siteSettings: siteSettings,
     testimonials: testimonials,
     loading: loading || portfolioItems === undefined || decorProducts === undefined || rentalProperties === undefined,
     addOrUpdatePortfolioItem,

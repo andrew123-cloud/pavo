@@ -19,20 +19,17 @@ export class PavoDexie extends Dexie {
   decorProducts!: Table<Product, string>;
   rentalProperties!: Table<Property, string>;
   orders!: Table<Order, string>;
-  bookings!: Table<Booking, string>;
-  siteSettings!: Table<SiteSettings, string>; 
+  // bookings and siteSettings are now managed by localStorage, so they are removed from Dexie.
   cart!: Table<CartItem, string>;
 
   constructor() {
     // Renaming the database to force a fresh start and bypass upgrade errors.
-    super('pavoDB_v2'); 
+    super('pavoDB_v3'); 
     this.version(1).stores({
       portfolioItems: 'id, title', 
       decorProducts: 'id, category, name', // This table stores `Product` type
       rentalProperties: 'id, location',
       orders: 'id, pesapal_order_tracking_id, created_at',
-      bookings: 'id, createdAt, isRead',
-      siteSettings: 'id',
       cart: 'id',
     });
   }
