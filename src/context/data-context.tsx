@@ -1,18 +1,13 @@
-
 // src/context/data-context.tsx
 'use client';
 
-import React, { createContext, useContext, ReactNode, useEffect, useState } from 'react';
-import type { PavoData, PortfolioItem, Product, Order, SiteSettings, Booking, BookingSite } from '@/lib/types';
+import React, { createContext, useContext, ReactNode, useEffect, useState, useCallback } from 'react';
+import type { PavoData, PortfolioItem, Product, Order, SiteSettings, Booking, BookingSite, CartItem } from '@/lib/types';
 import { siteSettings as initialSiteSettings, testimonials } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
-import { useLiveQuery } from 'dexie-react-hooks';
-import { db as dexieDB, CartItem } from '@/lib/db';
 import imageCompression from 'browser-image-compression';
-import { createClient } from '@supabase/supabase-js';
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { useAuth } from './auth-context';
-
 
 interface DataContextType extends PavoData {
   loading: boolean;
@@ -39,13 +34,10 @@ interface DataContextType extends PavoData {
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
-// Initialize Supabase client
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 let supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKey);
 
-
-// Helper for compressing and uploading a single file to Supabase Storage
 const uploadFile = async (file: File, bucketPath: string, onProgress?: (percent: number) => void) => {
     const compressionOptions = {
         maxSizeMB: 1,
@@ -73,91 +65,137 @@ const uploadFile = async (file: File, bucketPath: string, onProgress?: (percent:
     return publicUrl;
 };
 
-
 export function DataProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
-  const { session } = useAuth(); // Use the session from AuthContext
+  const { session } = useAuth();
   const [loading, setLoading] = useState(true);
+
+  // Data states, replacing Dexie
+  const [portfolioItems, setPortfolioItems] = useState<PortfolioItem[]>([]);
+  const [decorProducts, setDecorProducts] = useState<Product[]>([]);
+  const [bookingSites, setBookingSites] = useState<BookingSite[]>([]);
+  const [siteSettings, setSiteSettings] = useState<SiteSettings>(initialSiteSettings);
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [cart, setCart] = useState<CartItem[]>([]);
 
   // Re-initialize Supabase client when auth state changes
   useEffect(() => {
     if (session) {
-      const newSupabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
+      supabase = createClient(supabaseUrl, supabaseAnonKey, {
         global: { headers: { Authorization: `Bearer ${session.access_token}` } },
       });
-      supabase = newSupabaseClient;
     } else {
        supabase = createClient(supabaseUrl, supabaseAnonKey);
     }
   }, [session]);
-
-
-  // Dexie live queries for Supabase-backed data
-  const portfolioItems = useLiveQuery(() => dexieDB.portfolioItems.toArray(), []);
-  const decorProducts = useLiveQuery(() => dexieDB.decorProducts.toArray(), []);
-  const bookingSites = useLiveQuery(() => dexieDB.bookingSites.toArray(), []);
-  const siteSettings = useLiveQuery(() => dexieDB.siteSettings.get('default'), []);
   
-  // State for localStorage-backed data
-  const [bookings, setBookings] = useState<Booking[]>([]);
-  const [orders, setOrders] = useState<Order[]>([]);
-
-  // Effect for initializing localStorage data
+  // Load initial data from localStorage for non-db items
   useEffect(() => {
     try {
         const storedBookings = localStorage.getItem('pavo-bookings');
         if (storedBookings) setBookings(JSON.parse(storedBookings));
-    } catch (e) { console.error("Failed to parse bookings from localStorage", e); }
-    try {
         const storedOrders = localStorage.getItem('pavo-orders');
         if (storedOrders) setOrders(JSON.parse(storedOrders));
-    } catch (e) { console.error("Failed to parse orders from localStorage", e); }
+        const storedCart = localStorage.getItem('pavo-cart');
+        if (storedCart) setCart(JSON.parse(storedCart));
+    } catch (e) { console.error("Failed to parse from localStorage", e); }
   }, []);
 
-  // Sync Supabase to Dexie on initial load and setup real-time listeners
+  const handlePortfolioChange = useCallback((payload: any) => {
+    const { eventType, new: newRecord, old: oldRecord } = payload;
+    if (eventType === 'INSERT' || eventType === 'UPDATE') {
+        setPortfolioItems(prev => {
+            const index = prev.findIndex(item => item.id === newRecord.id);
+            if (index !== -1) {
+                const updated = [...prev];
+                updated[index] = newRecord;
+                return updated;
+            }
+            return [...prev, newRecord];
+        });
+    } else if (eventType === 'DELETE') {
+        setPortfolioItems(prev => prev.filter(item => item.id !== oldRecord.id));
+    }
+  }, []);
+
+  const handleProductChange = useCallback((payload: any) => {
+    const { eventType, new: newRecord, old: oldRecord } = payload;
+    if (eventType === 'INSERT' || eventType === 'UPDATE') {
+        setDecorProducts(prev => {
+            const index = prev.findIndex(p => p.id === newRecord.id);
+            if (index !== -1) {
+                const updated = [...prev];
+                updated[index] = newRecord;
+                return updated;
+            }
+            return [...prev, newRecord];
+        });
+    } else if (eventType === 'DELETE') {
+        setDecorProducts(prev => prev.filter(p => p.id !== oldRecord.id));
+    }
+  }, []);
+  
+  const handleBookingSiteChange = useCallback((payload: any) => {
+      const { eventType, new: newRecord, old: oldRecord } = payload;
+      if (eventType === 'INSERT' || eventType === 'UPDATE') {
+          setBookingSites(prev => {
+              const index = prev.findIndex(s => s.id === newRecord.id);
+              if (index !== -1) {
+                  const updated = [...prev];
+                  updated[index] = newRecord;
+                  return updated;
+              }
+              return [...prev, newRecord];
+          });
+      } else if (eventType === 'DELETE') {
+          setBookingSites(prev => prev.filter(s => s.id !== oldRecord.id));
+      }
+  }, []);
+
+  const handleSettingsChange = useCallback((payload: any) => {
+      const { new: newRecord } = payload;
+      if (newRecord) {
+        setSiteSettings(newRecord);
+      }
+  }, []);
+
+  // Sync Supabase to state on initial load and setup real-time listeners
   useEffect(() => {
     const syncFromSupabase = async () => {
-        console.log("Setting up Supabase real-time listeners and initial data fetch...");
         setLoading(true);
-
         try {
-            const results = await Promise.all([
+            const [
+                { data: productsData, error: productsError },
+                { data: portfolioData, error: portfolioError },
+                { data: settingsData, error: settingsError },
+                { data: bookingSitesData, error: bookingSitesError },
+            ] = await Promise.all([
                 supabase.from('products').select('*'),
                 supabase.from('portfolioItems').select('*'),
                 supabase.from('siteSettings').select('*'),
                 supabase.from('bookingSites').select('*'),
             ]);
 
-            const [
-                { data: productsData, error: productsError },
-                { data: portfolioData, error: portfolioError },
-                { data: settingsData, error: settingsError },
-                { data: bookingSitesData, error: bookingSitesError },
-            ] = results;
-
-            const errors = { productsError, portfolioError, settingsError, bookingSitesError };
-            for (const [key, error] of Object.entries(errors)) {
-                if (error) {
-                    throw new Error(`[Supabase Fetch Error - ${key}]: ${error.message} (Details: ${error.details})`);
-                }
+            if (productsError) throw new Error(`Products fetch failed: ${productsError.message}`);
+            if (portfolioError) throw new Error(`Portfolio fetch failed: ${portfolioError.message}`);
+            if (settingsError) throw new Error(`Settings fetch failed: ${settingsError.message}`);
+            if (bookingSitesError) throw new Error(`Booking Sites fetch failed: ${bookingSitesError.message}`);
+            
+            setDecorProducts(productsData || []);
+            setPortfolioItems(portfolioData || []);
+            setBookingSites(bookingSitesData || []);
+            if (settingsData && settingsData.length > 0) {
+                setSiteSettings(settingsData[0]);
+            } else {
+                setSiteSettings(initialSiteSettings);
+                // Optionally push initial settings to DB if they don't exist
+                await supabase.from('siteSettings').upsert(initialSiteSettings);
             }
-            
-            await dexieDB.transaction('rw', dexieDB.tables, async () => {
-                if (portfolioData) await dexieDB.portfolioItems.bulkPut(portfolioData);
-                if (productsData) await dexieDB.decorProducts.bulkPut(productsData);
-                if (bookingSitesData) await dexieDB.bookingSites.bulkPut(bookingSitesData);
-                if (settingsData && settingsData.length > 0) {
-                    await dexieDB.siteSettings.bulkPut(settingsData);
-                } else {
-                     await dexieDB.siteSettings.put(initialSiteSettings);
-                }
-            });
-            
-             console.log("Initial data sync from Supabase successful.");
 
         } catch (error: any) {
             console.error("[Supabase Sync] Error syncing data:", error);
-            toast({ variant: 'destructive', title: 'Network Error', description: `Could not sync data from server. Using local data.`});
+            toast({ variant: 'destructive', title: 'Network Error', description: `Could not sync data from server. Some features might not work.`});
         } finally {
             setLoading(false);
         }
@@ -165,212 +203,114 @@ export function DataProvider({ children }: { children: ReactNode }) {
     
     syncFromSupabase();
 
-    const handleChanges = (payload: any) => {
-        console.log('Realtime Change received!', payload);
-        const { eventType, table, new: newRecord, old: oldRecord } = payload;
-        
-        let targetTable: any;
-        switch(table) {
-            case 'products': targetTable = dexieDB.decorProducts; break;
-            case 'portfolioItems': targetTable = dexieDB.portfolioItems; break;
-            case 'bookingSites': targetTable = dexieDB.bookingSites; break;
-            case 'siteSettings': targetTable = dexieDB.siteSettings; break;
-            default: return;
-        }
-
-        if (eventType === 'INSERT' || eventType === 'UPDATE') {
-            if (newRecord) {
-                targetTable.put(newRecord).catch((err: any) => console.error(`Dexie put error in ${table}:`, err));
-            }
-        } else if (eventType === 'DELETE') {
-            if (oldRecord && oldRecord.id) {
-                targetTable.delete(oldRecord.id).catch((err: any) => console.error(`Dexie delete error in ${table}:`, err));
-            }
-        }
-    };
-
-    const channels = supabase.channel('pavo-db-changes')
-        .on('postgres_changes', { event: '*', schema: 'public' }, handleChanges)
-        .subscribe((status, err) => {
-            if (status === 'SUBSCRIBED') {
-                console.log('Connected to Supabase real-time!');
-            }
-            if (status === 'CHANNEL_ERROR') {
-                console.error('Real-time channel error:', err);
-            }
-        });
-
+    const portfolioChannel = supabase.channel('portfolioItems_changes').on('postgres_changes', { event: '*', schema: 'public', table: 'portfolioItems' }, handlePortfolioChange).subscribe();
+    const productsChannel = supabase.channel('products_changes').on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, handleProductChange).subscribe();
+    const bookingSitesChannel = supabase.channel('bookingSites_changes').on('postgres_changes', { event: '*', schema: 'public', table: 'bookingSites' }, handleBookingSiteChange).subscribe();
+    const settingsChannel = supabase.channel('siteSettings_changes').on('postgres_changes', { event: '*', schema: 'public', table: 'siteSettings' }, handleSettingsChange).subscribe();
+    
     return () => {
-        supabase.removeChannel(channels);
+        supabase.removeChannel(portfolioChannel);
+        supabase.removeChannel(productsChannel);
+        supabase.removeChannel(bookingSitesChannel);
+        supabase.removeChannel(settingsChannel);
     };
-   // eslint-disable-next-line react-hooks/exhaustive-deps
-   },[session]); // Rerun effect when session changes to get new data for new user
-  
+  },[session, handlePortfolioChange, handleProductChange, handleBookingSiteChange, handleSettingsChange, toast]);
   
   const deleteFromSupabaseStorage = async (imageUrl: string) => {
     try {
-        // Correctly extract the path from the public URL
         const urlObj = new URL(imageUrl);
         const path = urlObj.pathname.split('/pavo-assets/')[1];
         if (path) {
-            console.log(`Attempting to delete from storage: pavo-assets/${path}`);
-            const { error } = await supabase.storage.from('pavo-assets').remove([path]);
-            if (error) throw error;
+            await supabase.storage.from('pavo-assets').remove([path]);
         }
     } catch(error: any) {
         console.error("Error deleting image from Supabase storage:", error);
-        // Do not re-throw, allow the database record deletion to proceed
     }
   };
 
-  const addOrUpdateDecorProduct = (product: Partial<Product>, imageFile?: File | null, onProgress?: (percent: number) => void): Promise<any> => {
-    return new Promise(async (resolve, reject) => {
-        try {
-            const { id, ...productData } = product;
-            const dataToSave: any = { ...productData };
+  const addOrUpdateDecorProduct = async (product: Partial<Product>, imageFile?: File | null, onProgress?: (percent: number) => void) => {
+      const { id, ...productData } = product;
+      const dataToSave: any = { ...productData };
 
-            if (imageFile) {
-                const filePath = `products/${Date.now()}-${imageFile.name}`;
-                const imageUrl = await uploadFile(imageFile, filePath, onProgress);
-                dataToSave.image_url = imageUrl;
-            }
-            
-            const recordToSave = id ? { id, ...dataToSave } : dataToSave;
-            const { data, error } = await supabase.from('products').upsert(recordToSave).select();
-            
-            if (error) throw error;
-            resolve(data);
-        } catch (error) {
-            reject(error);
-        }
-    });
+      if (imageFile) {
+          const filePath = `products/${Date.now()}-${imageFile.name}`;
+          dataToSave.image_url = await uploadFile(imageFile, filePath, onProgress);
+      }
+      
+      const { data, error } = await supabase.from('products').upsert({ id, ...dataToSave }).select();
+      if (error) { toast({variant: 'destructive', title: 'Save Failed', description: error.message}); throw error; }
+      return data;
   };
   
-  const addOrUpdatePortfolioItem = (item: Partial<PortfolioItem>, beforeImageFile?: File | null, afterImageFile?: File | null, onProgress?: (percent: number) => void): Promise<any> => {
-    return new Promise(async (resolve, reject) => {
-        try {
-            const { id, ...itemData } = item;
-            const dataToSave: any = { ...itemData };
+  const addOrUpdatePortfolioItem = async (item: Partial<PortfolioItem>, beforeImageFile?: File | null, afterImageFile?: File | null, onProgress?: (percent: number) => void) => {
+      const { id, ...itemData } = item;
+      const dataToSave: any = { ...itemData };
 
-            if (beforeImageFile) {
-                const filePath = `portfolioItems/${Date.now()}-before-${beforeImageFile.name}`;
-                dataToSave.beforeImageUrl = await uploadFile(beforeImageFile, filePath);
-            }
-            if (afterImageFile) {
-                const filePath = `portfolioItems/${Date.now()}-after-${afterImageFile.name}`;
-                dataToSave.imageUrl = await uploadFile(afterImageFile, filePath);
-            }
+      if (beforeImageFile) dataToSave.beforeImageUrl = await uploadFile(beforeImageFile, `portfolioItems/${Date.now()}-before-${beforeImageFile.name}`);
+      if (afterImageFile) dataToSave.imageUrl = await uploadFile(afterImageFile, `portfolioItems/${Date.now()}-after-${afterImageFile.name}`);
 
-            const recordToSave = id ? { id, ...dataToSave } : dataToSave;
-            const { data, error } = await supabase.from('portfolioItems').upsert(recordToSave).select();
-
-            if (error) throw error;
-            resolve(data);
-        } catch (error) {
-            reject(error);
-        }
-    });
+      const { data, error } = await supabase.from('portfolioItems').upsert({ id, ...dataToSave }).select();
+      if (error) { toast({variant: 'destructive', title: 'Save Failed', description: error.message}); throw error; }
+      return data;
   };
 
-  const addOrUpdateBookingSite = (site: Partial<BookingSite>, imageFile?: File | null, onProgress?: (percent: number) => void): Promise<any> => {
-    return new Promise(async (resolve, reject) => {
-        try {
-            const { id, ...siteData } = site;
-            const dataToSave: any = { ...siteData };
-            
-            if (imageFile) {
-                const filePath = `bookingSites/${Date.now()}-${imageFile.name}`;
-                const imageUrl = await uploadFile(imageFile, filePath, onProgress);
-                dataToSave.imageUrl = imageUrl;
-            }
+  const addOrUpdateBookingSite = async (site: Partial<BookingSite>, imageFile?: File | null, onProgress?: (percent: number) => void) => {
+      const { id, ...siteData } = site;
+      const dataToSave: any = { ...siteData };
+      
+      if (imageFile) dataToSave.imageUrl = await uploadFile(imageFile, `bookingSites/${Date.now()}-${imageFile.name}`, onProgress);
 
-            const recordToSave = id ? { id, ...dataToSave } : dataToSave;
-            const { data, error } = await supabase.from('bookingSites').upsert(recordToSave).select();
-            
-            if (error) throw error;
-            resolve(data);
-        } catch (error) {
-            reject(error);
-        }
-    });
+      const { data, error } = await supabase.from('bookingSites').upsert({ id, ...dataToSave }).select();
+      if (error) { toast({variant: 'destructive', title: 'Save Failed', description: error.message}); throw error; }
+      return data;
   };
 
-  const updateSiteSettings = (settings: SiteSettings, files: { [key: string]: File | null }): Promise<any> => {
-     return new Promise(async (resolve, reject) => {
-        try {
-        const dataToSave = JSON.parse(JSON.stringify(settings)); // Deep copy
+  const updateSiteSettings = async (settings: SiteSettings, files: { [key: string]: File | null }) => {
+      const dataToSave = JSON.parse(JSON.stringify(settings)); // Deep copy
 
-        for (const key in files) {
-            const file = files[key];
-            if (file) {
-                const filePath = `siteSettings/${Date.now()}-${file.name}`;
-                const publicUrl = await uploadFile(file, filePath);
-                
-                // This logic correctly handles nested paths like "heroImages.suite.0"
-                const parts = key.split('.');
-                let current = dataToSave;
-                for (let i = 0; i < parts.length - 1; i++) {
-                    current = current[parts[i]];
-                }
-                current[parts[parts.length - 1]] = publicUrl;
-            }
-        }
-        
-        const { data, error } = await supabase.from('siteSettings').upsert(dataToSave).select();
-        if (error) throw error;
-        resolve(data);
-        } catch (error) {
-            reject(error);
-        }
-    });
+      for (const key in files) {
+          const file = files[key];
+          if (file) {
+              const publicUrl = await uploadFile(file, `siteSettings/${Date.now()}-${file.name}`);
+              const parts = key.split('.');
+              let current = dataToSave;
+              for (let i = 0; i < parts.length - 1; i++) {
+                  current = current[parts[i]];
+              }
+              current[parts[parts.length - 1]] = publicUrl;
+          }
+      }
+      
+      const { data, error } = await supabase.from('siteSettings').upsert(dataToSave).select();
+      if (error) { toast({variant: 'destructive', title: 'Save Failed', description: error.message}); throw error; }
+      return data;
   };
   
   const deleteDecorProduct = async (id: number) => {
-    try {
-        const itemToDelete = await dexieDB.decorProducts.get(id);
-        if(itemToDelete && itemToDelete.image_url) await deleteFromSupabaseStorage(itemToDelete.image_url);
-        
-        const { error } = await supabase.from('products').delete().eq('id', id);
-        if (error) throw error;
-        
-    } catch (e: any) {
-         toast({ variant: 'destructive', title: 'Delete Failed', description: e.message });
-         throw e;
-    }
+      const itemToDelete = decorProducts.find(p => p.id === id);
+      if(itemToDelete?.image_url) await deleteFromSupabaseStorage(itemToDelete.image_url);
+      
+      const { error } = await supabase.from('products').delete().eq('id', id);
+      if (error) { toast({ variant: 'destructive', title: 'Delete Failed', description: error.message }); throw error; }
   };
 
   const deletePortfolioItem = async (id: number) => {
-    try {
-        const itemToDelete = await dexieDB.portfolioItems.get(id);
-        if (!itemToDelete) return;
-        
-        if(itemToDelete.imageUrl) await deleteFromSupabaseStorage(itemToDelete.imageUrl);
-        if(itemToDelete.beforeImageUrl) await deleteFromSupabaseStorage(itemToDelete.beforeImageUrl);
-        
-        const { error } = await supabase.from('portfolioItems').delete().eq('id', id);
-        if (error) throw error;
-
-    } catch (e: any) {
-        toast({ variant: 'destructive', title: 'Delete Failed', description: e.message });
-        throw e;
-    }
+      const itemToDelete = portfolioItems.find(p => p.id === id);
+      if(itemToDelete?.imageUrl) await deleteFromSupabaseStorage(itemToDelete.imageUrl);
+      if(itemToDelete?.beforeImageUrl) await deleteFromSupabaseStorage(itemToDelete.beforeImageUrl);
+      
+      const { error } = await supabase.from('portfolioItems').delete().eq('id', id);
+      if (error) { toast({ variant: 'destructive', title: 'Delete Failed', description: error.message }); throw error; }
   };
 
   const deleteBookingSite = async (id: number) => {
-     try {
-        const itemToDelete = await dexieDB.bookingSites.get(id);
-        if (itemToDelete && itemToDelete.imageUrl) await deleteFromSupabaseStorage(itemToDelete.imageUrl);
-        
-        const { error } = await supabase.from('bookingSites').delete().eq('id', id);
-        if (error) throw error;
-
-     } catch (e: any) {
-        toast({ variant: 'destructive', title: 'Delete Failed', description: e.message });
-        throw e;
-     }
+      const itemToDelete = bookingSites.find(s => s.id === id);
+      if (itemToDelete?.imageUrl) await deleteFromSupabaseStorage(itemToDelete.imageUrl);
+      
+      const { error } = await supabase.from('bookingSites').delete().eq('id', id);
+      if (error) { toast({ variant: 'destructive', title: 'Delete Failed', description: error.message }); throw error; }
   };
 
-  // --- LocalStorage based functions ---
   const addOrder = async (order: Order) => {
     const updatedOrders = [...orders, order];
     setOrders(updatedOrders);
@@ -380,7 +320,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const addBooking = async (booking: Omit<Booking, 'id' | 'createdAt' | 'isRead'>) => {
      const newBooking: Booking = { 
         ...booking,
-        id: Date.now(), // Use timestamp for a simple unique ID
+        id: Date.now(),
         createdAt: new Date().toISOString(),
         isRead: false
      }
@@ -401,32 +341,45 @@ export function DataProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('pavo-bookings', JSON.stringify(updatedBookings));
   };
 
-  // ---- Cart functionality (purely client-side with Dexie) ----
-  const cart = useLiveQuery(() => dexieDB.cart.toArray(), []);
+  // ---- Cart functionality ----
+  const updateCartInStorage = (updatedCart: CartItem[]) => {
+      setCart(updatedCart);
+      localStorage.setItem('pavo-cart', JSON.stringify(updatedCart));
+  }
+
   const addToCart = async (product: Product) => {
-    const existingItem = await dexieDB.cart.get(product.id);
+    const existingItem = cart.find(item => item.id === product.id);
+    let updatedCart;
     if (existingItem) {
-      await dexieDB.cart.update(product.id, { quantity: existingItem.quantity + 1 });
+      updatedCart = cart.map(item => item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item);
     } else {
-      const cartProduct: CartItem = {
-          ...product,
-          imageUrl: product.image_url,
-          quantity: 1,
-      };
-      await dexieDB.cart.add(cartProduct);
+      const cartProduct: CartItem = { ...product, imageUrl: product.image_url, quantity: 1 };
+      updatedCart = [...cart, cartProduct];
     }
+    updateCartInStorage(updatedCart);
   };
+  
   const updateCartQuantity = async (productId: number, quantity: number) => {
+    let updatedCart;
     if (quantity <= 0) {
-      await dexieDB.cart.delete(productId);
+      updatedCart = cart.filter(item => item.id !== productId);
     } else {
-      await dexieDB.cart.update(productId, { quantity });
+      updatedCart = cart.map(item => item.id === productId ? { ...item, quantity } : item);
     }
+    updateCartInStorage(updatedCart);
   };
-  const removeFromCart = (productId: number) => dexieDB.cart.delete(productId);
-  const clearCart = () => dexieDB.cart.clear();
-  const cartTotal = (cart || []).reduce((total, item) => total + item.price * item.quantity, 0);
-  const cartCount = (cart || []).reduce((count, item) => count + item.quantity, 0);
+  
+  const removeFromCart = (productId: number) => {
+    const updatedCart = cart.filter(item => item.id !== productId);
+    updateCartInStorage(updatedCart);
+  };
+  
+  const clearCart = () => {
+    updateCartInStorage([]);
+  };
+
+  const cartTotal = cart.reduce((total, item) => total + item.price * item.quantity, 0);
+  const cartCount = cart.reduce((count, item) => count + item.quantity, 0);
 
   const decreaseStock = async (productId: number, amount: number) => {
     const { error } = await supabase.rpc('decrease_stock', { p_product_id: productId, p_decrease_amount: amount });
@@ -434,14 +387,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
   };
 
   const providerValue: DataContextType = {
-    portfolioItems: portfolioItems || [],
-    decorProducts: decorProducts || [],
-    bookingSites: bookingSites || [],
-    orders: (orders || []).sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
-    bookings: (bookings || []).sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
-    siteSettings: siteSettings || initialSiteSettings,
+    portfolioItems,
+    decorProducts,
+    bookingSites,
+    orders: orders.sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
+    bookings: bookings.sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
+    siteSettings,
     testimonials: testimonials,
-    loading: loading || portfolioItems === undefined || decorProducts === undefined || bookingSites === undefined || siteSettings === undefined,
+    loading,
     addOrUpdatePortfolioItem,
     deletePortfolioItem,
     addOrUpdateDecorProduct,
@@ -454,7 +407,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     markBookingAsRead,
     markAllBookingsAsRead,
     updateSiteSettings,
-    cart: cart || [],
+    cart,
     addToCart,
     updateCartQuantity,
     removeFromCart,

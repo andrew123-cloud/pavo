@@ -1,5 +1,13 @@
-
-
+export interface CartItem {
+  id: number;
+  name: string;
+  price: number;
+  category: string;
+  imageUrl: string; 
+  aiHint: string;
+  stock: number;
+  quantity: number;
+}
 
 
 export interface PortfolioItem {
