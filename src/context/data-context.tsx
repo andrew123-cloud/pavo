@@ -70,7 +70,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const { session } = useAuth();
   const [loading, setLoading] = useState(true);
 
-  // Data states, replacing Dexie
+  // Data states
   const [portfolioItems, setPortfolioItems] = useState<PortfolioItem[]>([]);
   const [decorProducts, setDecorProducts] = useState<Product[]>([]);
   const [bookingSites, setBookingSites] = useState<BookingSite[]>([]);
@@ -214,7 +214,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         supabase.removeChannel(bookingSitesChannel);
         supabase.removeChannel(settingsChannel);
     };
-  },[session, handlePortfolioChange, handleProductChange, handleBookingSiteChange, handleSettingsChange, toast]);
+  },[session, toast, handlePortfolioChange, handleProductChange, handleBookingSiteChange, handleSettingsChange]);
   
   const deleteFromSupabaseStorage = async (imageUrl: string) => {
     try {
