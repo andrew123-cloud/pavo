@@ -121,21 +121,25 @@ export function DataProvider({ children }: { children: ReactNode }) {
         setLoading(true);
 
         try {
-            const [
-                { data: productsData, error: productsError },
-                { data: portfolioData, error: portfolioError },
-                { data: settingsData, error: settingsError },
-                { data: bookingSitesData, error: bookingSitesError },
-            ] = await Promise.all([
+            const results = await Promise.all([
                 supabase.from('products').select('*'),
                 supabase.from('portfolioItems').select('*'),
                 supabase.from('siteSettings').select('*'),
                 supabase.from('bookingSites').select('*'),
             ]);
 
+            const [
+                { data: productsData, error: productsError },
+                { data: portfolioData, error: portfolioError },
+                { data: settingsData, error: settingsError },
+                { data: bookingSitesData, error: bookingSitesError },
+            ] = results;
+
             const errors = { productsError, portfolioError, settingsError, bookingSitesError };
             for (const [key, error] of Object.entries(errors)) {
-                if (error) throw error;
+                if (error) {
+                    throw new Error(`[Supabase Fetch Error - ${key}]: ${error.message} (Details: ${error.details})`);
+                }
             }
             
             await dexieDB.transaction('rw', dexieDB.tables, async () => {
