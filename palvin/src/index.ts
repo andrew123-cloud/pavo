@@ -3,9 +3,9 @@ import {https} from "firebase-functions/v2";
 import * as admin from "firebase-admin";
 import cors from "cors";
 import busboy from "busboy";
-import *dpath from "path";
-import *os from "os";
-import *fs from "fs";
+import * as dpath from "path";
+import * as os from "os";
+import * as fs from "fs";
 
 admin.initializeApp();
 const corsHandler = cors({ origin: true });
