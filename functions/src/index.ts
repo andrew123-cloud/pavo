@@ -37,7 +37,18 @@ export const saveData = functions
       let collectionName = '';
 
       bb.on('field', (fieldname, val) => {
-        fields[fieldname] = val;
+        // Handle nested JSON objects that were stringified on the client
+        try {
+            const parsed = JSON.parse(val);
+            if (typeof parsed === 'object' && parsed !== null) {
+                fields[fieldname] = parsed;
+            } else {
+                fields[fieldname] = val;
+            }
+        } catch(e) {
+            fields[fieldname] = val;
+        }
+
         if (fieldname === 'collectionName') {
             collectionName = val;
         }
@@ -67,12 +78,6 @@ export const saveData = functions
           return;
         }
         
-        // Site Settings are no longer handled by the backend.
-        if (collectionName === 'siteSettings') {
-            res.status(400).json({ error: 'Site settings are managed on the client-side and cannot be saved via this endpoint.' });
-            return;
-        }
-
         try {
           await Promise.all(fileWrites);
 

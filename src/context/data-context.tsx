@@ -49,8 +49,16 @@ const saveDataWithFiles = async (collectionName: string, data: any, files: { [ke
     for (const key in data) {
         if (data.hasOwnProperty(key)) {
             // Ensure we don't send undefined or null values that FormData might stringify
-            if (data[key] !== null && data[key] !== undefined) {
-                 formData.append(key, String(data[key]));
+            const value = data[key];
+            if (value !== null && value !== undefined) {
+                 // Handle nested objects by stringifying them
+                if (typeof value === 'object' && !Array.isArray(value)) {
+                    formData.append(key, JSON.stringify(value));
+                } else if (Array.isArray(value)) {
+                    formData.append(key, JSON.stringify(value));
+                } else {
+                    formData.append(key, String(value));
+                }
             }
         }
     }
@@ -104,11 +112,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const portfolioItems = useLiveQuery(() => dexieDB.portfolioItems.toArray(), []);
   const decorProducts = useLiveQuery(() => dexieDB.decorProducts.toArray(), []);
   const rentalProperties = useLiveQuery(() => dexieDB.rentalProperties.toArray(), []);
-  const orders = useLiveQuery(() => dexieDB.orders.toArray(), []);
   const cart = useLiveQuery(() => dexieDB.cart.toArray(), []);
 
   // State for localStorage-backed data
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
   const [siteSettings, setSiteSettings] = useState<SiteSettings>(initialSiteSettings);
 
   // Effect for initializing localStorage data
@@ -123,18 +131,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
         setBookings([]);
       }
     }
-
-    // Load SiteSettings from localStorage
-    const storedSettings = localStorage.getItem('pavo-siteSettings');
-    if (storedSettings) {
-       try {
-        setSiteSettings(JSON.parse(storedSettings));
-      } catch (e) {
-         console.error("Failed to parse site settings from localStorage", e);
-        setSiteSettings(initialSiteSettings);
+    // Load Orders from localStorage
+    const storedOrders = localStorage.getItem('pavo-orders');
+    if (storedOrders) {
+      try {
+        setOrders(JSON.parse(storedOrders));
+      } catch(e) {
+        console.error("Failed to parse orders from localStorage", e);
+        setOrders([]);
       }
-    } else {
-      localStorage.setItem('pavo-siteSettings', JSON.stringify(initialSiteSettings));
     }
   }, []);
 
@@ -151,27 +156,34 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 { data: productsData, error: productsError },
                 { data: portfolioData, error: portfolioError },
                 { data: rentalData, error: rentalError },
-                { data: ordersData, error: ordersError },
+                { data: settingsData, error: settingsError },
             ] = await Promise.all([
                 supabase.from('products').select('*'),
                 supabase.from('portfolioItems').select('*'),
                 supabase.from('rentalProperties').select('*'),
-                supabase.from('orders').select('*'),
+                supabase.from('siteSettings').select('*'),
             ]);
 
             // Consolidate error checking
-            const errors = { productsError, portfolioError, rentalError, ordersError };
+            const errors = { productsError, portfolioError, rentalError, settingsError };
             for (const [key, error] of Object.entries(errors)) {
                 if (error) throw error;
             }
             
-            // Update local Dexie DB
+            // Update local state and DB
             await dexieDB.transaction('rw', dexieDB.tables, async () => {
                 await dexieDB.portfolioItems.bulkPut(portfolioData || []);
                 await dexieDB.decorProducts.bulkPut(productsData || []);
                 await dexieDB.rentalProperties.bulkPut(rentalData || []);
-                await dexieDB.orders.bulkPut(ordersData || []);
             });
+
+            if (settingsData && settingsData.length > 0) {
+              setSiteSettings(settingsData[0]);
+            } else {
+              // If no settings in DB, initialize it with default
+              await supabase.from('siteSettings').upsert(initialSiteSettings);
+              setSiteSettings(initialSiteSettings);
+            }
             
              console.log("Initial data sync from Supabase successful.");
 
@@ -196,9 +208,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 if(payload.eventType === 'DELETE') dexieDB.rentalProperties.delete(payload.old.id);
                 else dexieDB.rentalProperties.put(payload.new as Property);
             })
-             .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, (payload) => {
-                if(payload.eventType === 'DELETE') dexieDB.orders.delete(payload.old.id);
-                else dexieDB.orders.put(payload.new as Order);
+             .on('postgres_changes', { event: '*', schema: 'public', table: 'siteSettings' }, (payload) => {
+                setSiteSettings(payload.new as SiteSettings)
             })
             .subscribe();
 
@@ -233,6 +244,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const addOrUpdatePortfolioItem = (item: PortfolioItem, beforeImageFile?: File | null, afterImageFile?: File | null, onProgress?: (percent: number) => void) => {
       return saveDataWithFiles('portfolioItems', item, { beforeImageUrl: beforeImageFile, imageUrl: afterImageFile }, onProgress);
   };
+
+  const updateSiteSettings = async (settings: SiteSettings, files: { [key: string]: File | null }) => {
+    return saveDataWithFiles('siteSettings', settings, files);
+  };
   
   const deleteDecorProduct = async (id: string) => {
     const item = await dexieDB.decorProducts.get(id);
@@ -254,11 +269,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
     await supabase.from('portfolioItems').delete().eq('id', id);
   };
 
-  const addOrder = async (order: Order) => {
-    await supabase.from('orders').upsert(order);
-  };
-  
   // --- LocalStorage based functions ---
+  const addOrder = async (order: Order) => {
+    const updatedOrders = [...orders, order];
+    setOrders(updatedOrders);
+    localStorage.setItem('pavo-orders', JSON.stringify(updatedOrders));
+  };
   
   const addBooking = async (booking: Omit<Booking, 'id' | 'createdAt' | 'isRead'>) => {
      const newBooking: Booking = { 
@@ -282,16 +298,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const updatedBookings = bookings.map(b => ({ ...b, isRead: true }));
     setBookings(updatedBookings);
     localStorage.setItem('pavo-bookings', JSON.stringify(updatedBookings));
-  };
-
-  const updateSiteSettings = async (settings: SiteSettings, files: { [key: string]: File | null }) => {
-     // This function is now client-only and does not upload files.
-     // In a real scenario for images, you'd convert them to base64 to store in localStorage
-     // or use a separate upload mechanism. For simplicity, we'll just save the text content.
-     const newSettings = { ...settings };
-     // The URLs for images might be data URIs if they were newly selected. We'll just save them as is.
-     setSiteSettings(newSettings);
-     localStorage.setItem('pavo-siteSettings', JSON.stringify(newSettings));
   };
 
   // ---- Cart functionality (purely client-side with Dexie) ----
