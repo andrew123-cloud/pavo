@@ -20,8 +20,6 @@ interface DataContextType extends PavoData {
   deletePortfolioItem: (id: string) => Promise<void>;
   addOrUpdateDecorProduct: (product: Omit<Product, 'image_url'> & { id: string }, imageFile?: File | null, onProgress?: (percent: number) => void) => Promise<any>;
   deleteDecorProduct: (id: string) => Promise<void>;
-  addOrUpdateRentalProperty: (property: Property, imageFile?: File | null, onProgress?: (percent: number) => void) => Promise<any>;
-  deleteRentalProperty: (id: string) => Promise<void>;
   addOrUpdateBookingSite: (site: Omit<BookingSite, 'imageUrl'> & { id: string }, imageFile?: File | null, onProgress?: (percent: number) => void) => Promise<any>;
   deleteBookingSite: (id: string) => Promise<void>;
   addOrder: (order: Order) => Promise<void>;
@@ -110,14 +108,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
 
-  // Live queries from Dexie.js for Supabase-backed data
+  // Dexie live queries for Supabase-backed data
   const portfolioItems = useLiveQuery(() => dexieDB.portfolioItems.toArray(), []);
   const decorProducts = useLiveQuery(() => dexieDB.decorProducts.toArray(), []);
-  const rentalProperties = useLiveQuery(() => dexieDB.rentalProperties.toArray(), []);
   const bookingSites = useLiveQuery(() => dexieDB.bookingSites.toArray(), []);
-  const siteSettings = useLiveQuery(() => dexieDB.siteSettings.toArray(), []);
-  const cart = useLiveQuery(() => dexieDB.cart.toArray(), []);
-
+  const siteSettings = useLiveQuery(() => dexieDB.siteSettings.get('default'), []);
+  
   // State for localStorage-backed data
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -134,8 +130,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     } catch (e) { console.error("Failed to parse orders from localStorage", e); }
   }, []);
 
-
-  // This effect syncs Supabase to Dexie on initial load
+  // Sync Supabase to Dexie on initial load
   useEffect(() => {
     const syncFromSupabase = async () => {
         console.log("Setting up Supabase real-time listeners and initial data fetch...");
@@ -145,19 +140,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
             const [
                 { data: productsData, error: productsError },
                 { data: portfolioData, error: portfolioError },
-                { data: rentalData, error: rentalError },
                 { data: settingsData, error: settingsError },
                 { data: bookingSitesData, error: bookingSitesError },
             ] = await Promise.all([
                 supabase.from('products').select('*'),
                 supabase.from('portfolioItems').select('*'),
-                supabase.from('rentalProperties').select('*'),
                 supabase.from('siteSettings').select('*'),
                 supabase.from('bookingSites').select('*'),
             ]);
 
-            // Consolidate error checking
-            const errors = { productsError, portfolioError, rentalError, settingsError, bookingSitesError };
+            const errors = { productsError, portfolioError, settingsError, bookingSitesError };
             for (const [key, error] of Object.entries(errors)) {
                 if (error) throw error;
             }
@@ -165,7 +157,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
             await dexieDB.transaction('rw', dexieDB.tables, async () => {
                 await dexieDB.portfolioItems.bulkPut(portfolioData || []);
                 await dexieDB.decorProducts.bulkPut(productsData || []);
-                await dexieDB.rentalProperties.bulkPut(rentalData || []);
                 await dexieDB.bookingSites.bulkPut(bookingSitesData || []);
                 if (settingsData && settingsData.length > 0) {
                     await dexieDB.siteSettings.bulkPut(settingsData);
@@ -183,7 +174,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
             setLoading(false);
         }
 
-        // Set up real-time subscriptions
         const channels = supabase.channel('pavo-db-changes')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'portfolioItems' }, (payload) => {
                 if(payload.eventType === 'DELETE') dexieDB.portfolioItems.delete(payload.old.id);
@@ -192,10 +182,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
             .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, (payload) => {
                 if(payload.eventType === 'DELETE') dexieDB.decorProducts.delete(payload.old.id);
                 else dexieDB.decorProducts.put(payload.new as Product);
-            })
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'rentalProperties' }, (payload) => {
-                if(payload.eventType === 'DELETE') dexieDB.rentalProperties.delete(payload.old.id);
-                else dexieDB.rentalProperties.put(payload.new as Property);
             })
              .on('postgres_changes', { event: '*', schema: 'public', table: 'siteSettings' }, (payload) => {
                 if(payload.eventType === 'DELETE') dexieDB.siteSettings.delete(payload.old.id);
@@ -221,14 +207,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
     } catch(error: any) {
         console.error("Error deleting image from Supabase storage:", error);
     }
-  }
+  };
 
   const addOrUpdateDecorProduct = (product: Omit<Product, 'image_url'> & { id: string }, imageFile?: File | null, onProgress?: (percent: number) => void) => {
     return saveDataWithFiles('products', product, { imageUrl: imageFile }, onProgress);
-  };
-  
-  const addOrUpdateRentalProperty = (property: Property, imageFile?: File | null, onProgress?: (percent: number) => void) => {
-      return saveDataWithFiles('rentalProperties', property, { imageUrl: imageFile }, onProgress);
   };
   
   const addOrUpdatePortfolioItem = (item: PortfolioItem, beforeImageFile?: File | null, afterImageFile?: File | null, onProgress?: (percent: number) => void) => {
@@ -244,29 +226,35 @@ export function DataProvider({ children }: { children: ReactNode }) {
   };
   
   const deleteDecorProduct = async (id: string) => {
-    const item = await dexieDB.decorProducts.get(id);
-    if(item && item.image_url) await deleteFromSupabaseStorage(item.image_url);
-    await supabase.from('products').delete().eq('id', id);
-  };
-  
-  const deleteRentalProperty = async (id: string) => {
-    const item = await dexieDB.rentalProperties.get(id);
-    if(item && item.imageUrl) await deleteFromSupabaseStorage(item.imageUrl);
-    await supabase.from('rentalProperties').delete().eq('id', id);
+    try {
+        const item = await dexieDB.decorProducts.get(id);
+        if(item && item.image_url) await deleteFromSupabaseStorage(item.image_url);
+        await supabase.from('products').delete().eq('id', id);
+    } catch (e: any) {
+         toast({ variant: 'destructive', title: 'Delete Failed', description: e.message });
+    }
   };
 
   const deletePortfolioItem = async (id: string) => {
-    const item = await dexieDB.portfolioItems.get(id);
-    if (!item) return;
-    if(item.imageUrl) await deleteFromSupabaseStorage(item.imageUrl);
-    if(item.beforeImageUrl) await deleteFromSupabaseStorage(item.beforeImageUrl);
-    await supabase.from('portfolioItems').delete().eq('id', id);
+    try {
+        const item = await dexieDB.portfolioItems.get(id);
+        if (!item) return;
+        if(item.imageUrl) await deleteFromSupabaseStorage(item.imageUrl);
+        if(item.beforeImageUrl) await deleteFromSupabaseStorage(item.beforeImageUrl);
+        await supabase.from('portfolioItems').delete().eq('id', id);
+    } catch (e: any) {
+        toast({ variant: 'destructive', title: 'Delete Failed', description: e.message });
+    }
   };
 
   const deleteBookingSite = async (id: string) => {
-    const item = await dexieDB.bookingSites.get(id);
-    if (item && item.imageUrl) await deleteFromSupabaseStorage(item.imageUrl);
-    await supabase.from('bookingSites').delete().eq('id', id);
+     try {
+        const item = await dexieDB.bookingSites.get(id);
+        if (item && item.imageUrl) await deleteFromSupabaseStorage(item.imageUrl);
+        await supabase.from('bookingSites').delete().eq('id', id);
+     } catch (e: any) {
+        toast({ variant: 'destructive', title: 'Delete Failed', description: e.message });
+     }
   };
 
   // --- LocalStorage based functions ---
@@ -301,6 +289,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   };
 
   // ---- Cart functionality (purely client-side with Dexie) ----
+  const cart = useLiveQuery(() => dexieDB.cart.toArray(), []);
   const addToCart = async (product: Product) => {
     const existingItem = await dexieDB.cart.get(product.id);
     if (existingItem) {
@@ -327,26 +316,23 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const cartCount = (cart || []).reduce((count, item) => count + item.quantity, 0);
 
   const decreaseStock = async (productId: string, amount: number) => {
-    const { error } = await supabase.rpc('decrease_stock', { product_id: productId, decrease_amount: amount });
+    const { error } = await supabase.rpc('decrease_stock', { p_product_id: productId, p_decrease_amount: amount });
     if(error) console.error("Error decreasing stock:", error);
   };
 
   const providerValue: DataContextType = {
     portfolioItems: portfolioItems || [],
     decorProducts: decorProducts || [],
-    rentalProperties: rentalProperties || [],
     bookingSites: bookingSites || [],
     orders: (orders || []).sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
-    bookings: bookings.sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
-    siteSettings: siteSettings?.[0] || initialSiteSettings,
+    bookings: (bookings || []).sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
+    siteSettings: siteSettings || initialSiteSettings,
     testimonials: testimonials,
-    loading: loading || portfolioItems === undefined || decorProducts === undefined || rentalProperties === undefined || bookingSites === undefined || siteSettings === undefined,
+    loading: loading || portfolioItems === undefined || decorProducts === undefined || bookingSites === undefined || siteSettings === undefined,
     addOrUpdatePortfolioItem,
     deletePortfolioItem,
     addOrUpdateDecorProduct,
     deleteDecorProduct,
-    addOrUpdateRentalProperty,
-    deleteRentalProperty,
     addOrUpdateBookingSite,
     deleteBookingSite,
     addOrder,
