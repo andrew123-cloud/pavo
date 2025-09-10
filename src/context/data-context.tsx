@@ -9,9 +9,9 @@ import { useToast } from '@/hooks/use-toast';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db as dexieDB, CartItem } from '@/lib/db';
 import { v4 as uuidv4 } from 'uuid';
-import { db as firestoreDB, storage } from '@/lib/firebase';
-import { collection, doc, onSnapshot, writeBatch, deleteDoc, setDoc, getDoc } from 'firebase/firestore';
-import { ref, deleteObject } from 'firebase/storage';
+import { rtdb, storage } from '@/lib/firebase';
+import { ref as dbRef, onValue, set, update, remove } from 'firebase/database';
+import { ref as storageRef, deleteObject } from 'firebase/storage';
 import axios from 'axios';
 import imageCompression from 'browser-image-compression';
 
@@ -57,7 +57,7 @@ const saveDataWithFiles = async (collectionName: string, data: any, files: { [ke
         if (data.hasOwnProperty(key)) {
             // Ensure we don't send undefined or null values that FormData might stringify
             if (data[key] !== null && data[key] !== undefined) {
-                 formData.append(key, data[key]);
+                 formData.append(key, String(data[key]));
             }
         }
     }
@@ -116,56 +116,55 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const siteSettings = useLiveQuery(() => dexieDB.siteSettings.get('default'), undefined);
   const cart = useLiveQuery(() => dexieDB.cart.toArray(), []);
 
-  // This effect syncs Firestore to Dexie in real-time
+  // This effect syncs RTDB to Dexie in real-time
   useEffect(() => {
-    console.log("Setting up Firestore real-time listeners...");
+    console.log("Setting up RTDB real-time listeners...");
     setLoading(true);
 
     const unsubscribers = collectionsToSync.map((collectionName: CollectionName) => {
-      const collRef = collection(firestoreDB, collectionName);
-      return onSnapshot(collRef, async (querySnapshot) => {
-        console.log(`[Firestore Sync] Received update for ${collectionName}`);
+      const collectionRef = dbRef(rtdb, collectionName);
+      return onValue(collectionRef, async (snapshot) => {
+        console.log(`[RTDB Sync] Received update for ${collectionName}`);
+        const data = snapshot.val();
+        const itemsArray = data ? Object.values(data) : [];
+
         const dexieTable = dexieDB[collectionName as keyof typeof dexieDB] as Dexie.Table<any,any>;
         try {
             await dexieDB.transaction('rw', dexieTable, async () => {
               const allKeys = await dexieTable.toCollection().keys();
-              const firestoreIds = new Set(querySnapshot.docs.map(d => d.id));
+              const rtdbIds = new Set(Object.keys(data || {}));
 
-              // Delete local items no longer in Firestore
-              const keysToDelete = (allKeys as string[]).filter(k => !firestoreIds.has(k) && k !== 'default');
+              const keysToDelete = (allKeys as string[]).filter(k => !rtdbIds.has(k) && k !== 'default');
               if (keysToDelete.length > 0) {
                 await dexieTable.bulkDelete(keysToDelete);
               }
 
-              // Add/update items from Firestore
-              if (!querySnapshot.empty) {
-                const itemsToAdd = querySnapshot.docs.map(d => ({ ...d.data(), id: d.id }));
-                await dexieTable.bulkPut(itemsToAdd);
+              if (itemsArray.length > 0) {
+                await dexieTable.bulkPut(itemsArray);
               }
             });
-             console.log(`[Firestore Sync] Successfully synced ${collectionName}`);
+             console.log(`[RTDB Sync] Successfully synced ${collectionName}`);
         } catch (error) {
              console.error(`[Dexie Error] Failed to transact for ${collectionName}:`, error);
         }
       }, (error) => {
-        console.error(`[Firestore Sync] Error listening to ${collectionName}:`, error);
+        console.error(`[RTDB Sync] Error listening to ${collectionName}:`, error);
         toast({ variant: 'destructive', title: 'Network Error', description: `Could not sync ${collectionName}. Using local data.`});
       });
     });
 
-    const settingsDocRef = doc(firestoreDB, 'siteSettings', 'default');
-    const settingsUnsubscriber = onSnapshot(settingsDocRef, async (doc) => {
-      if (doc.exists()) {
-        const settingsData = { ...doc.data(), id: 'default' } as SiteSettings;
+    const settingsRef = dbRef(rtdb, 'siteSettings/default');
+    const settingsUnsubscriber = onValue(settingsRef, async (snapshot) => {
+      if (snapshot.exists()) {
+        const settingsData = { ...snapshot.val(), id: 'default' } as SiteSettings;
         await dexieDB.siteSettings.put(settingsData);
-        console.log("[Firestore Sync] Successfully synced siteSettings");
+        console.log("[RTDB Sync] Successfully synced siteSettings");
       }
     });
 
     setLoading(false);
-    // Unsubscribe from listeners on cleanup
     return () => {
-        console.log("Cleaning up Firestore listeners.");
+        console.log("Cleaning up RTDB listeners.");
         unsubscribers.forEach(unsub => unsub());
         settingsUnsubscriber();
     }
@@ -174,13 +173,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const deleteImage = async (imageUrl: string) => {
     try {
         if (imageUrl && imageUrl.includes('firebasestorage.googleapis.com')) {
-            const imageRef = ref(storage, imageUrl);
+            const imageRef = storageRef(storage, imageUrl);
             await deleteObject(imageRef);
         }
     } catch(error: any) {
         if(error.code !== 'storage/object-not-found') {
             console.error("Error deleting image from storage:", error);
-            throw error; // re-throw if it's not a 'not found' error
+            throw error;
         }
         console.warn(`Image at ${imageUrl} not found in storage, skipping deletion.`);
     }
@@ -195,44 +194,33 @@ export function DataProvider({ children }: { children: ReactNode }) {
   };
   
   const addOrUpdatePortfolioItem = (item: PortfolioItem, beforeImageFile?: File | null, afterImageFile?: File | null, onProgress?: (percent: number) => void) => {
-      // Note: This only provides progress for one file. A more complex implementation
-      // would be needed to show combined progress for multiple files.
       return saveDataWithFiles('portfolioItems', item, { beforeImageUrl: beforeImageFile, imageUrl: afterImageFile }, onProgress);
   };
 
-  const deleteDecorProduct = async (id: string) => {
-    const docRef = doc(firestoreDB, 'decorProducts', id);
-    const docSnap = await getDoc(docRef);
-    const item = docSnap.data() as Product | undefined;
-    
-    if(item && item.imageUrl) await deleteImage(item.imageUrl);
+  const deleteFromRtdb = async (path: string) => await remove(dbRef(rtdb, path));
 
-    await deleteDoc(docRef);
+  const deleteDecorProduct = async (id: string) => {
+    const item = await dexieDB.decorProducts.get(id);
+    if(item && item.imageUrl) await deleteImage(item.imageUrl);
+    await deleteFromRtdb(`decorProducts/${id}`);
   };
   
   const deleteRentalProperty = async (id: string) => {
-    const docRef = doc(firestoreDB, 'rentalProperties', id);
-    const docSnap = await getDoc(docRef);
-    const item = docSnap.data() as Property | undefined;
+    const item = await dexieDB.rentalProperties.get(id);
     if(item && item.imageUrl) await deleteImage(item.imageUrl);
-    await deleteDoc(docRef);
+    await deleteFromRtdb(`rentalProperties/${id}`);
   };
 
   const deletePortfolioItem = async (id: string) => {
-    const docRef = doc(firestoreDB, 'portfolioItems', id);
-    const docSnap = await getDoc(docRef);
-    const item = docSnap.data() as PortfolioItem | undefined;
-
+    const item = await dexieDB.portfolioItems.get(id);
     if (!item) return;
-
     if(item.imageUrl) await deleteImage(item.imageUrl);
     if(item.beforeImageUrl) await deleteImage(item.beforeImageUrl);
-
-    await deleteDoc(docRef);
+    await deleteFromRtdb(`portfolioItems/${id}`);
   };
 
   const addOrder = async (order: Order) => {
-    await setDoc(doc(firestoreDB, 'orders', order.id), order);
+    await set(dbRef(rtdb, `orders/${order.id}`), order);
   };
   
   const addBooking = async (booking: Omit<Booking, 'id' | 'createdAt' | 'isRead'>) => {
@@ -243,16 +231,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
         createdAt: new Date().toISOString(),
         isRead: false
      }
-     await setDoc(doc(firestoreDB, 'bookings', docId), newBooking);
+     await set(dbRef(rtdb, `bookings/${docId}`), newBooking);
   };
   
   const updateSiteSettings = async (settings: SiteSettings, files: { [key: string]: File | null }) => {
-     // This function also needs to be updated to use the proxy for Site Settings images
      const dataToSave = {
         ...settings,
-        id: 'default' // ensure id is set for the proxy
+        id: 'default'
      };
-     // For simplicity, we assume one file at a time, but it can be extended.
      await saveDataWithFiles('siteSettings', dataToSave, files);
   };
 
@@ -278,31 +264,24 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const cartCount = (cart || []).reduce((count, item) => count + item.quantity, 0);
 
   const decreaseStock = async (productId: string, amount: number) => {
-    const productRef = doc(firestoreDB, 'decorProducts', productId);
-    try {
-        const productSnap = await getDoc(productRef);
-        if(productSnap.exists()) {
-            const product = productSnap.data() as Product;
-            const newStock = Math.max(0, product.stock - amount);
-            await setDoc(productRef, { stock: newStock }, { merge: true });
-        }
-    } catch (e) {
-        console.error("Failed to decrease stock", e);
+    const product = await dexieDB.decorProducts.get(productId);
+    if(product) {
+        const newStock = Math.max(0, product.stock - amount);
+        await update(dbRef(rtdb, `decorProducts/${productId}`), { stock: newStock });
     }
   };
 
   const markBookingAsRead = async (id: string) => {
-      await setDoc(doc(firestoreDB, 'bookings', id), { isRead: true }, { merge: true });
+      await update(dbRef(rtdb, `bookings/${id}`), { isRead: true });
   };
   const markAllBookingsAsRead = async () => {
     const unread = (bookings || []).filter(b => !b.isRead);
     if (unread.length === 0) return;
-    const batch = writeBatch(firestoreDB);
+    const updates: {[key: string]: any} = {};
     unread.forEach(b => {
-        const docRef = doc(firestoreDB, 'bookings', b.id);
-        batch.update(docRef, { isRead: true });
+        updates[`/bookings/${b.id}/isRead`] = true;
     });
-    await batch.commit();
+    await update(dbRef(rtdb), updates);
   };
 
   const providerValue: DataContextType = {

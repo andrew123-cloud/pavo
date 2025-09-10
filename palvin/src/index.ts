@@ -3,14 +3,14 @@ import {https} from "firebase-functions/v2";
 import * as admin from "firebase-admin";
 import cors from "cors";
 import busboy from "busboy";
-import * as path from "path";
-import * as os from "os";
-import * as fs from "fs";
+import *dpath from "path";
+import *os from "os";
+import *fs from "fs";
 
 admin.initializeApp();
 const corsHandler = cors({ origin: true });
 
-const db = admin.firestore();
+const rtdb = admin.database();
 const storage = admin.storage().bucket();
 
 export const saveData = https.onRequest({ memory: "512MiB", invoker: "public" }, (req, res) => {
@@ -44,7 +44,7 @@ export const saveData = https.onRequest({ memory: "512MiB", invoker: "public" },
         bb.on("file", (fieldname: string, file: NodeJS.ReadableStream, info: busboy.FileInfo) => {
             console.log(`Processed file ${info.filename} for field ${fieldname}`);
             const { filename, mimeType } = info;
-            const filepath = path.join(tmpdir, filename);
+            const filepath = dpath.join(tmpdir, filename);
             const writeStream = fs.createWriteStream(filepath);
             file.pipe(writeStream);
 
@@ -65,7 +65,8 @@ export const saveData = https.onRequest({ memory: "512MiB", invoker: "public" },
                 return;
             }
             if (!docId) {
-                docId = db.collection(collectionName).doc().id;
+                // For RTDB, we can use push() to generate a unique key.
+                docId = rtdb.ref(collectionName).push().key!;
             }
 
             try {
@@ -74,7 +75,7 @@ export const saveData = https.onRequest({ memory: "512MiB", invoker: "public" },
                 for (const fieldname in filesToUpload) {
                     if (Object.prototype.hasOwnProperty.call(filesToUpload, fieldname)) {
                         const { filePath, mimetype } = filesToUpload[fieldname];
-                        const destination = `${collectionName}/${docId}/${path.basename(filePath)}`;
+                        const destination = `${collectionName}/${docId}/${dpath.basename(filePath)}`;
                         
                         const [uploadedFile] = await storage.upload(filePath, {
                             destination: destination,
@@ -92,14 +93,16 @@ export const saveData = https.onRequest({ memory: "512MiB", invoker: "public" },
                     }
                 }
                 
-                console.log(`Attempting to write to collection: ${collectionName}, docId: ${docId}`, fields);
-                const docRef = db.collection(collectionName).doc(docId);
-                await docRef.set(fields, { merge: true });
+                const dbPath = `${collectionName}/${docId}`;
+                console.log(`Attempting to write to RTDB path: ${dbPath}`, fields);
 
-                res.status(200).json({ message: "Data saved successfully!", id: docId, ...fields });
+                const dataToSave = { ...fields, id: docId };
+                await rtdb.ref(dbPath).set(dataToSave);
+
+                res.status(200).json({ message: "Data saved successfully!", ...dataToSave });
 
             } catch (error: any) {
-                console.error(`Error during Firestore operation or file upload for docId "${docId}" in collection "${collectionName}":`, error);
+                console.error(`Error during RTDB operation or file upload for path "${collectionName}/${docId}":`, error);
                 res.status(500).json({ error: error.message || "An internal server error occurred." });
             }
         });
