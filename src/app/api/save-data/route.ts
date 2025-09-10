@@ -3,7 +3,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import axios from 'axios';
 import FormData from 'form-data';
-import { Readable } from 'stream';
 
 // This is your Firebase Function URL. 
 // It is now correctly read from your environment variables.
@@ -25,7 +24,7 @@ export async function POST(request: NextRequest) {
         // Convert Blob to Buffer to append to form-data
         const buffer = Buffer.from(await value.arrayBuffer());
         serverFormData.append(key, buffer, {
-            filename: value.name,
+            filename: value.name || 'file',
             contentType: value.type,
         });
       } else {
@@ -47,10 +46,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(response.data, { status: response.status });
 
   } catch (error: any) {
-    console.error('[API_PROXY_ERROR]', error);
+    console.error('[API_PROXY_ERROR]', error.message);
     if (axios.isAxiosError(error) && error.response) {
        console.error('[API_PROXY_ERROR_DETAILS]', error.response.data);
-       return NextResponse.json({ error: 'Error from Firebase Function.', details: error.response.data }, { status: error.response.status });
+       return NextResponse.json({ error: 'Error from backend function.', details: error.response.data }, { status: error.response.status });
     }
     return NextResponse.json({ error: 'An internal server error occurred in the proxy.', details: error.message }, { status: 500 });
   }

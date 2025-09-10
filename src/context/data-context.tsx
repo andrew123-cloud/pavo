@@ -154,9 +154,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
             }
             
             await dexieDB.transaction('rw', dexieDB.tables, async () => {
-                await dexieDB.portfolioItems.bulkPut(portfolioData || []);
-                await dexieDB.decorProducts.bulkPut(productsData || []);
-                await dexieDB.bookingSites.bulkPut(bookingSitesData || []);
+                if (portfolioData) await dexieDB.portfolioItems.bulkPut(portfolioData);
+                if (productsData) await dexieDB.decorProducts.bulkPut(productsData);
+                if (bookingSitesData) await dexieDB.bookingSites.bulkPut(bookingSitesData);
                 if (settingsData && settingsData.length > 0) {
                     await dexieDB.siteSettings.bulkPut(settingsData);
                 } else {
@@ -200,8 +200,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
   
   const deleteFromSupabaseStorage = async (imageUrl: string) => {
     try {
-        if (imageUrl && imageUrl.includes('supabase.co')) {
-            const path = imageUrl.substring(imageUrl.indexOf('/pavo-assets/') + '/pavo-assets/'.length);
+        if (imageUrl && imageUrl.includes(supabase.storage.from('pavo-assets').getPublicUrl('').data.publicUrl)) {
+            const path = new URL(imageUrl).pathname.split('/pavo-assets/')[1];
             await supabase.storage.from('pavo-assets').remove([path]);
         }
     } catch(error: any) {
