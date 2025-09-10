@@ -102,6 +102,61 @@ export function DataProvider({ children }: { children: ReactNode }) {
     } catch (e) { console.error("Failed to parse from localStorage", e); }
   }, []);
 
+  // Safe initial data fetch from Supabase
+  useEffect(() => {
+    let isCancelled = false;
+    const syncFromSupabase = async () => {
+        setLoading(true);
+        try {
+            const [
+                { data: productsData, error: productsError },
+                { data: portfolioData, error: portfolioError },
+                { data: settingsData, error: settingsError },
+                { data: bookingSitesData, error: bookingSitesError },
+            ] = await Promise.all([
+                supabase.from('products').select('*'),
+                supabase.from('portfolioItems').select('*'),
+                supabase.from('siteSettings').select('*'),
+                supabase.from('bookingSites').select('*'),
+            ]);
+
+            if (productsError) throw productsError;
+            if (portfolioError) throw portfolioError;
+            if (settingsError) throw settingsError;
+            if (bookingSitesError) throw bookingSitesError;
+            
+            if (!isCancelled) {
+              setDecorProducts(productsData || []);
+              setPortfolioItems(portfolioData || []);
+              setBookingSites(bookingSitesData || []);
+              if (settingsData && settingsData.length > 0) {
+                  setSiteSettings(settingsData[0]);
+              } else {
+                  setSiteSettings(initialSiteSettings);
+                  // Optionally push initial settings to DB if they don't exist
+                  await supabase.from('siteSettings').upsert(initialSiteSettings);
+              }
+            }
+
+        } catch (error: any) {
+            console.error("[Supabase Sync] Error syncing data:", error);
+            if (!isCancelled) {
+              toast({ variant: 'destructive', title: 'Network Error', description: `Could not sync data from server. ${error.message}`});
+            }
+        } finally {
+            if (!isCancelled) {
+              setLoading(false);
+            }
+        }
+    };
+    
+    syncFromSupabase();
+
+    return () => {
+      isCancelled = true;
+    };
+  },[session, toast]);
+
   const handlePortfolioChange = useCallback((payload: any) => {
     const { eventType, new: newRecord, old: oldRecord } = payload;
     if (eventType === 'INSERT' || eventType === 'UPDATE') {
@@ -159,50 +214,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
         setSiteSettings(newRecord);
       }
   }, []);
-
-  // Sync Supabase to state on initial load and setup real-time listeners
+  
+  // Setup real-time listeners
   useEffect(() => {
-    const syncFromSupabase = async () => {
-        setLoading(true);
-        try {
-            const [
-                { data: productsData, error: productsError },
-                { data: portfolioData, error: portfolioError },
-                { data: settingsData, error: settingsError },
-                { data: bookingSitesData, error: bookingSitesError },
-            ] = await Promise.all([
-                supabase.from('products').select('*'),
-                supabase.from('portfolioItems').select('*'),
-                supabase.from('siteSettings').select('*'),
-                supabase.from('bookingSites').select('*'),
-            ]);
-
-            if (productsError) throw new Error(`Products fetch failed: ${productsError.message}`);
-            if (portfolioError) throw new Error(`Portfolio fetch failed: ${portfolioError.message}`);
-            if (settingsError) throw new Error(`Settings fetch failed: ${settingsError.message}`);
-            if (bookingSitesError) throw new Error(`Booking Sites fetch failed: ${bookingSitesError.message}`);
-            
-            setDecorProducts(productsData || []);
-            setPortfolioItems(portfolioData || []);
-            setBookingSites(bookingSitesData || []);
-            if (settingsData && settingsData.length > 0) {
-                setSiteSettings(settingsData[0]);
-            } else {
-                setSiteSettings(initialSiteSettings);
-                // Optionally push initial settings to DB if they don't exist
-                await supabase.from('siteSettings').upsert(initialSiteSettings);
-            }
-
-        } catch (error: any) {
-            console.error("[Supabase Sync] Error syncing data:", error);
-            toast({ variant: 'destructive', title: 'Network Error', description: `Could not sync data from server. Some features might not work.`});
-        } finally {
-            setLoading(false);
-        }
-    };
-    
-    syncFromSupabase();
-
     const portfolioChannel = supabase.channel('portfolioItems_changes').on('postgres_changes', { event: '*', schema: 'public', table: 'portfolioItems' }, handlePortfolioChange).subscribe();
     const productsChannel = supabase.channel('products_changes').on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, handleProductChange).subscribe();
     const bookingSitesChannel = supabase.channel('bookingSites_changes').on('postgres_changes', { event: '*', schema: 'public', table: 'bookingSites' }, handleBookingSiteChange).subscribe();
@@ -214,7 +228,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         supabase.removeChannel(bookingSitesChannel);
         supabase.removeChannel(settingsChannel);
     };
-  },[session, toast, handlePortfolioChange, handleProductChange, handleBookingSiteChange, handleSettingsChange]);
+  },[session, handlePortfolioChange, handleProductChange, handleBookingSiteChange, handleSettingsChange]);
   
   const deleteFromSupabaseStorage = async (imageUrl: string) => {
     try {
