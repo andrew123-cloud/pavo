@@ -40,19 +40,26 @@ interface DataContextType extends PavoData {
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
 // This helper function handles the entire client-side process:
-// compressing, creating form data, and posting to the Next.js API proxy.
+// compressing, creating form data, and posting directly to the Firebase Function.
 const saveDataWithFiles = async (collectionName: string, data: any, files: { [key: string]: File | null | undefined }, onProgress?: (percent: number) => void) => {
+    // This is the publicly accessible URL of your Cloud Function.
+    // It uses the project ID and region, which are standard for Firebase.
+    const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+    if (!projectId) {
+        throw new Error('Save failed. Server configuration error: Function URL is missing.');
+    }
+    // This constructs the URL to the deployed 'saveData' function.
+    // NOTE: This assumes the function is deployed in 'us-central1'. 
+    // If you deploy to a different region, this URL part will need to be changed.
+    const functionUrl = `https://us-central1-${projectId}.cloudfunctions.net/saveData`;
+
     const formData = new FormData();
     formData.append('collectionName', collectionName);
     
-    // Append all data fields to formData
     for (const key in data) {
         if (data.hasOwnProperty(key)) {
-            // Ensure we don't send undefined or null values that FormData might stringify
             const value = data[key];
             if (value !== null && value !== undefined) {
-                 // Handle nested objects by stringifying them.
-                 // The backend will now parse these strings back into objects/numbers/booleans.
                 if (typeof value === 'object') {
                     formData.append(key, JSON.stringify(value));
                 } else {
@@ -71,7 +78,6 @@ const saveDataWithFiles = async (collectionName: string, data: any, files: { [ke
         },
     };
 
-    // Compress and append each file
     for (const key in files) {
         const file = files[key];
         if (file) {
@@ -85,16 +91,14 @@ const saveDataWithFiles = async (collectionName: string, data: any, files: { [ke
         }
     }
 
-    // Use the local Next.js API route as a proxy
-    const response = await axios.post('/api/save-data', formData, {
+    const response = await axios.post(functionUrl, formData, {
         headers: {
-            // Let the browser set the Content-Type header for FormData
+            // Let browser set Content-Type for FormData
         },
-         onUploadProgress: (progressEvent) => {
+        onUploadProgress: (progressEvent) => {
             if (onProgress && progressEvent.total) {
                 const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-                // Upload is the second 50% of the total progress
-                onProgress(50 + percentCompleted * 0.5);
+                onProgress(50 + percentCompleted * 0.5); // Upload is second 50%
             }
         }
     });
@@ -200,24 +204,26 @@ export function DataProvider({ children }: { children: ReactNode }) {
   
   const deleteFromSupabaseStorage = async (imageUrl: string) => {
     try {
-        if (imageUrl && imageUrl.includes(supabase.storage.from('pavo-assets').getPublicUrl('').data.publicUrl)) {
-            const path = new URL(imageUrl).pathname.split('/pavo-assets/')[1];
+        const urlObj = new URL(imageUrl);
+        const path = urlObj.pathname.split('/pavo-assets/')[1];
+        if (path) {
             await supabase.storage.from('pavo-assets').remove([path]);
         }
     } catch(error: any) {
         console.error("Error deleting image from Supabase storage:", error);
+        // Do not re-throw, allow the database record deletion to proceed
     }
   };
 
-  const addOrUpdateDecorProduct = (product: Omit<Product, 'image_url' | 'aiHint'> & { id: string }, imageFile?: File | null, onProgress?: (percent: number) => void) => {
+  const addOrUpdateDecorProduct = async (product: Omit<Product, 'image_url' | 'aiHint'> & { id: string }, imageFile?: File | null, onProgress?: (percent: number) => void) => {
     return saveDataWithFiles('products', product, { imageFile: imageFile }, onProgress);
   };
   
-  const addOrUpdatePortfolioItem = (item: Omit<PortfolioItem, 'imageUrl' | 'beforeImageUrl' | 'aiHint'> & { id: string }, beforeImageFile?: File | null, afterImageFile?: File | null, onProgress?: (percent: number) => void) => {
+  const addOrUpdatePortfolioItem = async (item: Omit<PortfolioItem, 'imageUrl' | 'beforeImageUrl' | 'aiHint'> & { id: string }, beforeImageFile?: File | null, afterImageFile?: File | null, onProgress?: (percent: number) => void) => {
       return saveDataWithFiles('portfolioItems', item, { beforeImageFile: beforeImageFile, imageFile: afterImageFile }, onProgress);
   };
 
-  const addOrUpdateBookingSite = (site: Omit<BookingSite, 'imageUrl' | 'aiHint'> & { id: string }, imageFile?: File | null, onProgress?: (percent: number) => void) => {
+  const addOrUpdateBookingSite = async (site: Omit<BookingSite, 'imageUrl' | 'aiHint'> & { id: string }, imageFile?: File | null, onProgress?: (percent: number) => void) => {
     return saveDataWithFiles('bookingSites', site, { imageFile: imageFile }, onProgress);
   };
 
