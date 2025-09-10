@@ -16,7 +16,8 @@ import {
   Bell,
   Check,
   BookMarked,
-  CalendarCheck
+  CalendarCheck,
+  Building
 } from 'lucide-react';
 
 import { usePathname, useRouter } from 'next/navigation';
@@ -118,6 +119,17 @@ function AdminLayout({ children }: { children: React.ReactNode }) {
                   Decors
                 </Link>
                 <Link
+                  href="/admin/booking-sites"
+                  className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-all hover:text-primary ${
+                    pathname.startsWith('/admin/booking-sites')
+                      ? 'bg-muted text-primary'
+                      : 'text-muted-foreground'
+                  }`}
+                >
+                  <Building className="h-4 w-4" />
+                  Booking Sites
+                </Link>
+                <Link
                   href="/admin/bookings-management"
                   className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-all hover:text-primary ${
                     pathname.startsWith('/admin/bookings-management')
@@ -193,6 +205,13 @@ function AdminLayout({ children }: { children: React.ReactNode }) {
                   >
                     <Sparkles className="h-5 w-5" />
                     Decors
+                  </Link>
+                  <Link
+                    href="/admin/booking-sites"
+                    className="mx-[-0.65rem] flex items-center gap-4 rounded-xl px-3 py-2 text-muted-foreground hover:text-foreground"
+                  >
+                    <Building className="h-5 w-5" />
+                    Booking Sites
                   </Link>
                   <Link
                     href="/admin/bookings-management"

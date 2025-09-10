@@ -3,7 +3,7 @@
 'use client';
 
 import React, { createContext, useContext, ReactNode, useEffect, useState } from 'react';
-import type { PavoData, PortfolioItem, Product, Property, Order, SiteSettings, Booking } from '@/lib/types';
+import type { PavoData, PortfolioItem, Product, Property, Order, SiteSettings, Booking, BookingSite } from '@/lib/types';
 import { siteSettings as initialSiteSettings, testimonials } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
 import { useLiveQuery } from 'dexie-react-hooks';
@@ -22,6 +22,8 @@ interface DataContextType extends PavoData {
   deleteDecorProduct: (id: string) => Promise<void>;
   addOrUpdateRentalProperty: (property: Property, imageFile?: File | null, onProgress?: (percent: number) => void) => Promise<any>;
   deleteRentalProperty: (id: string) => Promise<void>;
+  addOrUpdateBookingSite: (site: Omit<BookingSite, 'imageUrl'> & { id: string }, imageFile?: File | null, onProgress?: (percent: number) => void) => Promise<any>;
+  deleteBookingSite: (id: string) => Promise<void>;
   addOrder: (order: Order) => Promise<void>;
   decreaseStock: (productId: string, amount: number) => Promise<void>;
   addBooking: (booking: Omit<Booking, 'id' | 'createdAt' | 'isRead'>) => Promise<void>;
@@ -112,6 +114,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const portfolioItems = useLiveQuery(() => dexieDB.portfolioItems.toArray(), []);
   const decorProducts = useLiveQuery(() => dexieDB.decorProducts.toArray(), []);
   const rentalProperties = useLiveQuery(() => dexieDB.rentalProperties.toArray(), []);
+  const bookingSites = useLiveQuery(() => dexieDB.bookingSites.toArray(), []);
   const cart = useLiveQuery(() => dexieDB.cart.toArray(), []);
 
   // State for localStorage-backed data
@@ -157,15 +160,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 { data: portfolioData, error: portfolioError },
                 { data: rentalData, error: rentalError },
                 { data: settingsData, error: settingsError },
+                { data: bookingSitesData, error: bookingSitesError },
             ] = await Promise.all([
                 supabase.from('products').select('*'),
                 supabase.from('portfolioItems').select('*'),
                 supabase.from('rentalProperties').select('*'),
                 supabase.from('siteSettings').select('*'),
+                supabase.from('bookingSites').select('*'),
             ]);
 
             // Consolidate error checking
-            const errors = { productsError, portfolioError, rentalError, settingsError };
+            const errors = { productsError, portfolioError, rentalError, settingsError, bookingSitesError };
             for (const [key, error] of Object.entries(errors)) {
                 if (error) throw error;
             }
@@ -175,6 +180,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 await dexieDB.portfolioItems.bulkPut(portfolioData || []);
                 await dexieDB.decorProducts.bulkPut(productsData || []);
                 await dexieDB.rentalProperties.bulkPut(rentalData || []);
+                await dexieDB.bookingSites.bulkPut(bookingSitesData || []);
             });
 
             if (settingsData && settingsData.length > 0) {
@@ -211,16 +217,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
              .on('postgres_changes', { event: '*', schema: 'public', table: 'siteSettings' }, (payload) => {
                 setSiteSettings(payload.new as SiteSettings)
             })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'bookingSites' }, (payload) => {
+              if (payload.eventType === 'DELETE') dexieDB.bookingSites.delete(payload.old.id);
+              else dexieDB.bookingSites.put(payload.new as BookingSite);
+            })
             .subscribe();
 
         return () => {
             supabase.removeChannel(channels);
         };
-    };
-    
-    syncFromSupabase();
-
-  }, [toast]);
+    }, [toast]);
   
   const deleteFromSupabaseStorage = async (imageUrl: string) => {
     try {
@@ -245,6 +251,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
       return saveDataWithFiles('portfolioItems', item, { beforeImageUrl: beforeImageFile, imageUrl: afterImageFile }, onProgress);
   };
 
+  const addOrUpdateBookingSite = (site: Omit<BookingSite, 'imageUrl'> & { id: string }, imageFile?: File | null, onProgress?: (percent: number) => void) => {
+    return saveDataWithFiles('bookingSites', site, { imageUrl: imageFile }, onProgress);
+  };
+
   const updateSiteSettings = async (settings: SiteSettings, files: { [key: string]: File | null }) => {
     return saveDataWithFiles('siteSettings', settings, files);
   };
@@ -267,6 +277,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
     if(item.imageUrl) await deleteFromSupabaseStorage(item.imageUrl);
     if(item.beforeImageUrl) await deleteFromSupabaseStorage(item.beforeImageUrl);
     await supabase.from('portfolioItems').delete().eq('id', id);
+  };
+
+  const deleteBookingSite = async (id: string) => {
+    const item = await dexieDB.bookingSites.get(id);
+    if (item && item.imageUrl) await deleteFromSupabaseStorage(item.imageUrl);
+    await supabase.from('bookingSites').delete().eq('id', id);
   };
 
   // --- LocalStorage based functions ---
@@ -335,6 +351,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     portfolioItems: portfolioItems || [],
     decorProducts: decorProducts || [],
     rentalProperties: rentalProperties || [],
+    bookingSites: bookingSites || [],
     orders: (orders || []).sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
     bookings: bookings.sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
     siteSettings: siteSettings,
@@ -346,6 +363,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
     deleteDecorProduct,
     addOrUpdateRentalProperty,
     deleteRentalProperty,
+    addOrUpdateBookingSite,
+    deleteBookingSite,
     addOrder,
     decreaseStock,
     addBooking,

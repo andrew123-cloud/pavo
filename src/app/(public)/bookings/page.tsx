@@ -2,33 +2,70 @@
 // src/app/(public)/bookings/page.tsx
 'use client';
 import Image from 'next/image';
-import Link from 'next/link';
 import {
   Home,
   UtensilsCrossed,
   ConciergeBell,
-  Calendar as CalendarIcon,
-  Users,
   MapPin,
-  Search,
+  Sparkles,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { usePavoData } from '@/context/data-context';
 import { useState, useEffect } from 'react';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar } from '@/components/ui/calendar';
-import { cn } from '@/lib/utils';
-import { format } from 'date-fns';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import type { BookingSite } from '@/lib/types';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { BookingForm } from '@/components/shared/booking-form';
+import { Skeleton } from '@/components/ui/skeleton';
 
+const BookingSiteCard = ({ site }: { site: BookingSite }) => (
+    <Card className="overflow-hidden transition-all duration-300 ease-in-out hover:shadow-2xl hover:-translate-y-2 bg-secondary/50 border-0 flex flex-col">
+        <CardContent className="p-0 flex-grow">
+            <div className="group">
+                <div className="relative h-64 w-full overflow-hidden">
+                    <Image
+                        src={site.imageUrl || 'https://placehold.co/400x250.png?text=Image+Not+Available'}
+                        alt={site.name}
+                        layout="fill"
+                        objectFit="cover"
+                        className="transition-transform duration-500 ease-in-out group-hover:scale-105"
+                        data-ai-hint={site.aiHint}
+                    />
+                    {site.location && <Badge className="absolute left-3 top-3 bg-primary/80 text-primary-foreground backdrop-blur-sm">{site.location}</Badge>}
+                </div>
+                <div className="p-4 text-left">
+                    <h3 className="mt-2 font-headline font-semibold text-xl text-foreground">{site.name}</h3>
+                    <p className="text-sm text-muted-foreground mt-1">{site.description}</p>
+                    {site.priceInfo && <p className="text-md font-semibold text-primary mt-2">{site.priceInfo}</p>}
+                </div>
+            </div>
+        </CardContent>
+        <CardFooter className="p-4 pt-0">
+             <Dialog>
+                <DialogTrigger asChild>
+                    <Button variant="secondary" size="lg" className="w-full">Book Now</Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-2xl">
+                    <DialogHeader>
+                        <DialogTitle className="font-headline text-2xl">Book: {site.name}</DialogTitle>
+                        <DialogDescription>
+                            Please fill out the form below to complete your booking.
+                        </DialogDescription>
+                    </DialogHeader>
+                    {/* The booking form would go here. For now, it's a placeholder */}
+                    <div className='py-4'>
+                      <BookingForm />
+                    </div>
+                </DialogContent>
+            </Dialog>
+        </CardFooter>
+    </Card>
+);
 
 export default function PavoBookingsPage() {
-  const { siteSettings } = usePavoData();
+  const { bookingSites, siteSettings, loading } = usePavoData();
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
   const heroImages = siteSettings.heroImages.homes;
@@ -42,6 +79,31 @@ export default function PavoBookingsPage() {
     }
   }, [heroImages.length]);
 
+  const homes = bookingSites.filter(s => s.type === 'home');
+  const restaurants = bookingSites.filter(s => s.type === 'restaurant');
+  const caterers = bookingSites.filter(s => s.type === 'caterer');
+
+  const renderContent = (sites: BookingSite[]) => {
+    if (loading) {
+      return (
+        <div className="mt-12 grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-96 w-full" />)}
+        </div>
+      )
+    }
+    if (sites.length === 0) {
+      return (
+        <div className="text-center py-20">
+          <p className="text-muted-foreground">No listings available in this category yet.</p>
+        </div>
+      );
+    }
+    return (
+      <div className="mt-12 grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
+        {sites.map(site => <BookingSiteCard key={site.id} site={site} />)}
+      </div>
+    );
+  };
 
   return (
     <div className="flex flex-col dark bg-background text-foreground">
@@ -74,118 +136,23 @@ export default function PavoBookingsPage() {
 
       <section className="py-20 md:py-24 -mt-24 relative z-10">
         <div className="container mx-auto px-4">
-            <Tabs defaultValue="homes" className="w-full max-w-4xl mx-auto">
-                <TabsList className="grid w-full grid-cols-3 h-16">
-                    <TabsTrigger value="homes" className="h-full text-lg"><Home className="mr-2"/> Homes</TabsTrigger>
-                    <TabsTrigger value="restaurants" className="h-full text-lg"><UtensilsCrossed className="mr-2"/> Restaurants</TabsTrigger>
-                    <TabsTrigger value="catering" className="h-full text-lg"><ConciergeBell className="mr-2"/> Catering</TabsTrigger>
-                </TabsList>
+          <Tabs defaultValue="homes" className="w-full">
+            <TabsList className="grid w-full grid-cols-3 h-16">
+              <TabsTrigger value="homes" className="h-full text-lg"><Home className="mr-2" /> Homes</TabsTrigger>
+              <TabsTrigger value="restaurants" className="h-full text-lg"><UtensilsCrossed className="mr-2" /> Restaurants</TabsTrigger>
+              <TabsTrigger value="catering" className="h-full text-lg"><ConciergeBell className="mr-2" /> Catering</TabsTrigger>
+            </TabsList>
 
-                <Card className="mt-4 bg-background/80 backdrop-blur-sm border-0 shadow-2xl">
-                    <TabsContent value="homes" className="p-0">
-                        <CardHeader>
-                            <CardTitle className="font-headline text-3xl">Find a Home</CardTitle>
-                            <CardDescription>Search for your perfect stay in Tanzania.</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                             <form className="grid grid-cols-1 items-end gap-4 md:grid-cols-4">
-                                <div className="space-y-2 text-left md:col-span-2">
-                                    <Label htmlFor="location">Location</Label>
-                                    <div className="relative">
-                                    <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                                    <Input id="location" placeholder="e.g., Zanzibar, Arusha..." className="pl-10 h-12" />
-                                    </div>
-                                </div>
-                                <div className="space-y-2 text-left">
-                                    <Label htmlFor="checkin">Check in</Label>
-                                    <Input id="checkin" type="date" className="h-12" />
-                                </div>
-                                <Button size="lg" className="w-full h-12">
-                                    <Search className="mr-2 h-5 w-5" /> Search
-                                </Button>
-                            </form>
-                        </CardContent>
-                    </TabsContent>
-                    <TabsContent value="restaurants" className="p-0">
-                        <CardHeader>
-                            <CardTitle className="font-headline text-3xl">Book a Restaurant</CardTitle>
-                            <CardDescription>Reserve a table for your next dining experience.</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                             <form className="grid grid-cols-1 items-end gap-4 md:grid-cols-3">
-                                <div className="space-y-2 text-left">
-                                    <Label htmlFor="diners">Number of Diners</Label>
-                                    <Input id="diners" type="number" placeholder="2" className="h-12" />
-                                </div>
-                                <div className="space-y-2 text-left">
-                                    <Label htmlFor="res-date">Date</Label>
-                                     <Popover>
-                                        <PopoverTrigger asChild>
-                                             <Button variant="outline" className={cn("w-full justify-start text-left font-normal h-12", !true && "text-muted-foreground")}>
-                                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                                <span>Pick a date</span>
-                                            </Button>
-                                        </PopoverTrigger>
-                                        <PopoverContent className="w-auto p-0"><Calendar mode="single" initialFocus /></PopoverContent>
-                                    </Popover>
-                                </div>
-                                 <div className="space-y-2 text-left">
-                                    <Label htmlFor="res-time">Time</Label>
-                                    <Input id="res-time" type="time" className="h-12" />
-                                </div>
-                                <div className="md:col-span-3">
-                                     <Button size="lg" className="w-full h-12">
-                                        <Search className="mr-2 h-5 w-5" /> Find a Table
-                                    </Button>
-                                </div>
-                            </form>
-                        </CardContent>
-                    </TabsContent>
-                    <TabsContent value="catering" className="p-0">
-                         <CardHeader>
-                            <CardTitle className="font-headline text-3xl">Book Catering</CardTitle>
-                            <CardDescription>Let us handle the food for your special event.</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                             <form className="grid grid-cols-1 items-end gap-4 md:grid-cols-3">
-                                <div className="space-y-2 text-left">
-                                    <Label htmlFor="event-type">Type of Event</Label>
-                                    <Select>
-                                        <SelectTrigger className="h-12"><SelectValue placeholder="Select event type" /></SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="wedding">Wedding</SelectItem>
-                                            <SelectItem value="corporate">Corporate</SelectItem>
-                                            <SelectItem value="party">Private Party</SelectItem>
-                                            <SelectItem value="other">Other</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                                <div className="space-y-2 text-left">
-                                    <Label htmlFor="guests">Number of Guests</Label>
-                                    <Input id="guests" type="number" placeholder="50" className="h-12" />
-                                </div>
-                                <div className="space-y-2 text-left">
-                                    <Label htmlFor="event-date">Date of Event</Label>
-                                     <Popover>
-                                        <PopoverTrigger asChild>
-                                             <Button variant="outline" className={cn("w-full justify-start text-left font-normal h-12", !true && "text-muted-foreground")}>
-                                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                                <span>Pick a date</span>
-                                            </Button>
-                                        </PopoverTrigger>
-                                        <PopoverContent className="w-auto p-0"><Calendar mode="single" initialFocus /></PopoverContent>
-                                    </Popover>
-                                </div>
-                                 <div className="md:col-span-3">
-                                     <Button size="lg" className="w-full h-12">
-                                        <Search className="mr-2 h-5 w-5" /> Get a Quote
-                                    </Button>
-                                </div>
-                            </form>
-                        </CardContent>
-                    </TabsContent>
-                </Card>
-            </Tabs>
+            <TabsContent value="homes">
+                {renderContent(homes)}
+            </TabsContent>
+            <TabsContent value="restaurants">
+                {renderContent(restaurants)}
+            </TabsContent>
+            <TabsContent value="catering">
+                {renderContent(caterers)}
+            </TabsContent>
+          </Tabs>
         </div>
       </section>
     </div>

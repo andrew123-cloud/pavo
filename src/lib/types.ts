@@ -23,7 +23,7 @@ export interface Product {
   name: string;
   price: number;
   category: string;
-  image_url: string; // Corrected field name
+  image_url: string;
   aiHint: string;
   stock: number;
 }
@@ -79,6 +79,18 @@ export interface Booking {
   completionDate?: string; // Storing as formatted string
 }
 
+export interface BookingSite {
+  id: string;
+  name: string;
+  type: 'home' | 'restaurant' | 'caterer';
+  description: string;
+  imageUrl: string;
+  location?: string;
+  priceInfo?: string;
+  aiHint?: string;
+  created_at?: string;
+}
+
 
 export interface SiteSettings {
   id: string; // 'default'
@@ -105,6 +117,7 @@ export interface PavoData {
   portfolioItems: PortfolioItem[];
   decorProducts: Product[];
   rentalProperties: Property[];
+  bookingSites: BookingSite[];
   orders: Order[];
   bookings: Booking[];
   siteSettings: SiteSettings;
