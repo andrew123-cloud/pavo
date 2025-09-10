@@ -9,11 +9,9 @@ import { useToast } from '@/hooks/use-toast';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db as dexieDB, CartItem } from '@/lib/db';
 import { v4 as uuidv4 } from 'uuid';
-import { rtdb, storage } from '@/lib/firebase';
-import { ref as dbRef, onValue, set, update, remove } from 'firebase/database';
-import { ref as storageRef, deleteObject } from 'firebase/storage';
 import axios from 'axios';
 import imageCompression from 'browser-image-compression';
+import { supabase } from '@/lib/supabase';
 
 
 interface DataContextType extends PavoData {
@@ -41,17 +39,12 @@ interface DataContextType extends PavoData {
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
-const collectionsToSync = ['portfolioItems', 'decorProducts', 'rentalProperties', 'orders', 'bookings'] as const;
-type CollectionName = typeof collectionsToSync[number];
-
-
 // This helper function handles the entire client-side process:
 // compressing, creating form data, and posting to the Next.js API proxy.
 const saveDataWithFiles = async (collectionName: string, data: any, files: { [key: string]: File | null | undefined }, onProgress?: (percent: number) => void) => {
     const formData = new FormData();
     formData.append('collectionName', collectionName);
-    formData.append('id', data.id);
-
+    
     // Append all data fields to formData
     for (const key in data) {
         if (data.hasOwnProperty(key)) {
@@ -107,7 +100,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
 
-  // Live queries from Dexie.js - UI reads from here.
+  // Live queries from Dexie.js - UI reads from here for instant updates.
   const portfolioItems = useLiveQuery(() => dexieDB.portfolioItems.toArray(), []);
   const decorProducts = useLiveQuery(() => dexieDB.decorProducts.toArray(), []);
   const rentalProperties = useLiveQuery(() => dexieDB.rentalProperties.toArray(), []);
@@ -116,72 +109,103 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const siteSettings = useLiveQuery(() => dexieDB.siteSettings.get('default'), undefined);
   const cart = useLiveQuery(() => dexieDB.cart.toArray(), []);
 
-  // This effect syncs RTDB to Dexie in real-time
+  // This effect syncs Supabase to Dexie on initial load
   useEffect(() => {
-    console.log("Setting up RTDB real-time listeners...");
-    setLoading(true);
+    const syncFromSupabase = async () => {
+        console.log("Setting up Supabase real-time listeners and initial data fetch...");
+        setLoading(true);
 
-    const unsubscribers = collectionsToSync.map((collectionName: CollectionName) => {
-      const collectionRef = dbRef(rtdb, collectionName);
-      return onValue(collectionRef, async (snapshot) => {
-        console.log(`[RTDB Sync] Received update for ${collectionName}`);
-        const data = snapshot.val();
-        const itemsArray = data ? Object.values(data) : [];
-
-        const dexieTable = dexieDB[collectionName as keyof typeof dexieDB] as Dexie.Table<any,any>;
         try {
-            await dexieDB.transaction('rw', dexieTable, async () => {
-              const allKeys = await dexieTable.toCollection().keys();
-              const rtdbIds = new Set(Object.keys(data || {}));
+            // Fetch initial data
+            const [
+                { data: portfolioData, error: portfolioError },
+                { data: decorData, error: decorError },
+                { data: rentalData, error: rentalError },
+                { data: ordersData, error: ordersError },
+                { data: bookingsData, error: bookingsError },
+                { data: settingsData, error: settingsError },
+            ] = await Promise.all([
+                supabase.from('portfolioItems').select('*'),
+                supabase.from('decorProducts').select('*'),
+                supabase.from('rentalProperties').select('*'),
+                supabase.from('orders').select('*'),
+                supabase.from('bookings').select('*'),
+                supabase.from('siteSettings').select('*').eq('id', 'default').single(),
+            ]);
 
-              const keysToDelete = (allKeys as string[]).filter(k => !rtdbIds.has(k) && k !== 'default');
-              if (keysToDelete.length > 0) {
-                await dexieTable.bulkDelete(keysToDelete);
-              }
+            if(portfolioError) throw portfolioError;
+            if(decorError) throw decorError;
+            if(rentalError) throw rentalError;
+            if(ordersError) throw ordersError;
+            if(bookingsError) throw bookingsError;
+            if(settingsError && settingsError.code !== 'PGRST116') throw settingsError; // Ignore "exact one row" error for settings if not found
 
-              if (itemsArray.length > 0) {
-                await dexieTable.bulkPut(itemsArray);
-              }
+            await dexieDB.transaction('rw', dexieDB.tables, async () => {
+                await dexieDB.portfolioItems.bulkPut(portfolioData || []);
+                await dexieDB.decorProducts.bulkPut(decorData || []);
+                await dexieDB.rentalProperties.bulkPut(rentalData || []);
+                await dexieDB.orders.bulkPut(ordersData || []);
+                await dexieDB.bookings.bulkPut(bookingsData || []);
+                if (settingsData) {
+                    await dexieDB.siteSettings.put(settingsData);
+                } else {
+                    await dexieDB.siteSettings.put(initialSiteSettings);
+                }
             });
-             console.log(`[RTDB Sync] Successfully synced ${collectionName}`);
-        } catch (error) {
-             console.error(`[Dexie Error] Failed to transact for ${collectionName}:`, error);
+            
+             console.log("Initial data sync from Supabase successful.");
+
+        } catch (error: any) {
+            console.error("[Supabase Sync] Error syncing data:", error);
+            toast({ variant: 'destructive', title: 'Network Error', description: `Could not sync data from server. Using local data.`});
+        } finally {
+            setLoading(false);
         }
-      }, (error) => {
-        console.error(`[RTDB Sync] Error listening to ${collectionName}:`, error);
-        toast({ variant: 'destructive', title: 'Network Error', description: `Could not sync ${collectionName}. Using local data.`});
-      });
-    });
 
-    const settingsRef = dbRef(rtdb, 'siteSettings/default');
-    const settingsUnsubscriber = onValue(settingsRef, async (snapshot) => {
-      if (snapshot.exists()) {
-        const settingsData = { ...snapshot.val(), id: 'default' } as SiteSettings;
-        await dexieDB.siteSettings.put(settingsData);
-        console.log("[RTDB Sync] Successfully synced siteSettings");
-      }
-    });
+        // Set up real-time subscriptions
+        const channels = supabase.channel('pavo-db-changes')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'portfolioItems' }, (payload) => {
+                if(payload.eventType === 'DELETE') dexieDB.portfolioItems.delete(payload.old.id);
+                else dexieDB.portfolioItems.put(payload.new as PortfolioItem);
+            })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'decorProducts' }, (payload) => {
+                if(payload.eventType === 'DELETE') dexieDB.decorProducts.delete(payload.old.id);
+                else dexieDB.decorProducts.put(payload.new as Product);
+            })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'rentalProperties' }, (payload) => {
+                if(payload.eventType === 'DELETE') dexieDB.rentalProperties.delete(payload.old.id);
+                else dexieDB.rentalProperties.put(payload.new as Property);
+            })
+             .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, (payload) => {
+                if(payload.eventType === 'DELETE') dexieDB.orders.delete(payload.old.id);
+                else dexieDB.orders.put(payload.new as Order);
+            })
+             .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings' }, (payload) => {
+                if(payload.eventType === 'DELETE') dexieDB.bookings.delete(payload.old.id);
+                else dexieDB.bookings.put(payload.new as Booking);
+            })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'siteSettings' }, (payload) => {
+                dexieDB.siteSettings.put(payload.new as SiteSettings);
+            })
+            .subscribe();
 
-    setLoading(false);
-    return () => {
-        console.log("Cleaning up RTDB listeners.");
-        unsubscribers.forEach(unsub => unsub());
-        settingsUnsubscriber();
-    }
+        return () => {
+            supabase.removeChannel(channels);
+        };
+    };
+    
+    syncFromSupabase();
+
   }, [toast]);
   
-  const deleteImage = async (imageUrl: string) => {
+  const deleteFromSupabaseStorage = async (imageUrl: string) => {
     try {
-        if (imageUrl && imageUrl.includes('firebasestorage.googleapis.com')) {
-            const imageRef = storageRef(storage, imageUrl);
-            await deleteObject(imageRef);
+        if (imageUrl && imageUrl.includes('supabase.co')) {
+            const path = imageUrl.substring(imageUrl.indexOf('/pavo-assets/') + '/pavo-assets/'.length);
+            await supabase.storage.from('pavo-assets').remove([path]);
         }
     } catch(error: any) {
-        if(error.code !== 'storage/object-not-found') {
-            console.error("Error deleting image from storage:", error);
-            throw error;
-        }
-        console.warn(`Image at ${imageUrl} not found in storage, skipping deletion.`);
+        console.error("Error deleting image from Supabase storage:", error);
     }
   }
 
@@ -196,42 +220,40 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const addOrUpdatePortfolioItem = (item: PortfolioItem, beforeImageFile?: File | null, afterImageFile?: File | null, onProgress?: (percent: number) => void) => {
       return saveDataWithFiles('portfolioItems', item, { beforeImageUrl: beforeImageFile, imageUrl: afterImageFile }, onProgress);
   };
-
-  const deleteFromRtdb = async (path: string) => await remove(dbRef(rtdb, path));
-
+  
   const deleteDecorProduct = async (id: string) => {
     const item = await dexieDB.decorProducts.get(id);
-    if(item && item.imageUrl) await deleteImage(item.imageUrl);
-    await deleteFromRtdb(`decorProducts/${id}`);
+    if(item && item.imageUrl) await deleteFromSupabaseStorage(item.imageUrl);
+    await supabase.from('decorProducts').delete().eq('id', id);
   };
   
   const deleteRentalProperty = async (id: string) => {
     const item = await dexieDB.rentalProperties.get(id);
-    if(item && item.imageUrl) await deleteImage(item.imageUrl);
-    await deleteFromRtdb(`rentalProperties/${id}`);
+    if(item && item.imageUrl) await deleteFromSupabaseStorage(item.imageUrl);
+    await supabase.from('rentalProperties').delete().eq('id', id);
   };
 
   const deletePortfolioItem = async (id: string) => {
     const item = await dexieDB.portfolioItems.get(id);
     if (!item) return;
-    if(item.imageUrl) await deleteImage(item.imageUrl);
-    if(item.beforeImageUrl) await deleteImage(item.beforeImageUrl);
-    await deleteFromRtdb(`portfolioItems/${id}`);
+    if(item.imageUrl) await deleteFromSupabaseStorage(item.imageUrl);
+    if(item.beforeImageUrl) await deleteFromSupabaseStorage(item.beforeImageUrl);
+    await supabase.from('portfolioItems').delete().eq('id', id);
   };
 
   const addOrder = async (order: Order) => {
-    await set(dbRef(rtdb, `orders/${order.id}`), order);
+    await supabase.from('orders').upsert(order);
   };
   
   const addBooking = async (booking: Omit<Booking, 'id' | 'createdAt' | 'isRead'>) => {
      const docId = uuidv4();
-     const newBooking = { 
+     const newBooking: Booking = { 
         ...booking,
         id: docId,
         createdAt: new Date().toISOString(),
         isRead: false
      }
-     await set(dbRef(rtdb, `bookings/${docId}`), newBooking);
+     await supabase.from('bookings').insert(newBooking);
   };
   
   const updateSiteSettings = async (settings: SiteSettings, files: { [key: string]: File | null }) => {
@@ -264,24 +286,18 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const cartCount = (cart || []).reduce((count, item) => count + item.quantity, 0);
 
   const decreaseStock = async (productId: string, amount: number) => {
-    const product = await dexieDB.decorProducts.get(productId);
-    if(product) {
-        const newStock = Math.max(0, product.stock - amount);
-        await update(dbRef(rtdb, `decorProducts/${productId}`), { stock: newStock });
-    }
+    const { error } = await supabase.rpc('decrease_stock', { product_id: productId, decrease_amount: amount });
+    if(error) console.error("Error decreasing stock:", error);
   };
 
   const markBookingAsRead = async (id: string) => {
-      await update(dbRef(rtdb, `bookings/${id}`), { isRead: true });
+      await supabase.from('bookings').update({ isRead: true }).eq('id', id);
   };
   const markAllBookingsAsRead = async () => {
     const unread = (bookings || []).filter(b => !b.isRead);
     if (unread.length === 0) return;
-    const updates: {[key: string]: any} = {};
-    unread.forEach(b => {
-        updates[`/bookings/${b.id}/isRead`] = true;
-    });
-    await update(dbRef(rtdb), updates);
+    const idsToUpdate = unread.map(b => b.id);
+    await supabase.from('bookings').update({ isRead: true }).in('id', idsToUpdate);
   };
 
   const providerValue: DataContextType = {

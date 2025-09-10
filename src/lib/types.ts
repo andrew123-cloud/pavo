@@ -81,6 +81,7 @@ export interface Booking {
 
 
 export interface SiteSettings {
+  id: string; // 'default'
   brandDescriptions: {
     interiors: string;
     decors: string;
