@@ -3,7 +3,7 @@
 'use client';
 
 import React, { createContext, useContext, ReactNode, useEffect, useState } from 'react';
-import type { PavoData, PortfolioItem, Product, Property, Order, SiteSettings, Booking, BookingSite } from '@/lib/types';
+import type { PavoData, PortfolioItem, Product, Order, SiteSettings, Booking, BookingSite } from '@/lib/types';
 import { siteSettings as initialSiteSettings, testimonials } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
 import { useLiveQuery } from 'dexie-react-hooks';
@@ -16,7 +16,7 @@ import { supabase } from '@/lib/supabase';
 
 interface DataContextType extends PavoData {
   loading: boolean;
-  addOrUpdatePortfolioItem: (item: PortfolioItem, beforeImageFile?: File | null, afterImageFile?: File | null, onProgress?: (percent: number) => void) => Promise<any>;
+  addOrUpdatePortfolioItem: (item: Omit<PortfolioItem, 'imageUrl' | 'beforeImageUrl'> & { id: string }, beforeImageFile?: File | null, afterImageFile?: File | null, onProgress?: (percent: number) => void) => Promise<any>;
   deletePortfolioItem: (id: string) => Promise<void>;
   addOrUpdateDecorProduct: (product: Omit<Product, 'image_url'> & { id: string }, imageFile?: File | null, onProgress?: (percent: number) => void) => Promise<any>;
   deleteDecorProduct: (id: string) => Promise<void>;
@@ -213,7 +213,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     return saveDataWithFiles('products', product, { imageUrl: imageFile }, onProgress);
   };
   
-  const addOrUpdatePortfolioItem = (item: PortfolioItem, beforeImageFile?: File | null, afterImageFile?: File | null, onProgress?: (percent: number) => void) => {
+  const addOrUpdatePortfolioItem = (item: Omit<PortfolioItem, 'imageUrl' | 'beforeImageUrl'> & { id: string }, beforeImageFile?: File | null, afterImageFile?: File | null, onProgress?: (percent: number) => void) => {
       return saveDataWithFiles('portfolioItems', item, { beforeImageUrl: beforeImageFile, imageUrl: afterImageFile }, onProgress);
   };
 
