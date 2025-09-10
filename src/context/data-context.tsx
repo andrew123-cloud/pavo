@@ -1,4 +1,3 @@
-
 // src/context/data-context.tsx
 'use client';
 
@@ -9,7 +8,6 @@ import { useToast } from '@/hooks/use-toast';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db as dexieDB, CartItem } from '@/lib/db';
 import { v4 as uuidv4 } from 'uuid';
-import axios from 'axios';
 import imageCompression from 'browser-image-compression';
 import { supabase } from '@/lib/supabase';
 
@@ -39,36 +37,8 @@ interface DataContextType extends PavoData {
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
-// This helper function handles the entire client-side process:
-// compressing, creating form data, and posting directly to the Firebase Function.
-const saveDataWithFiles = async (collectionName: string, data: any, files: { [key: string]: File | null | undefined }, onProgress?: (percent: number) => void) => {
-    // This is the publicly accessible URL of your Cloud Function.
-    // It uses the project ID and region, which are standard for Firebase.
-    const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
-    if (!projectId) {
-        throw new Error('Save failed. Server configuration error: Function URL is missing.');
-    }
-    // This constructs the URL to the deployed 'saveData' function.
-    // NOTE: This assumes the function is deployed in 'us-central1'. 
-    // If you deploy to a different region, this URL part will need to be changed.
-    const functionUrl = `https://us-central1-${projectId}.cloudfunctions.net/saveData`;
-
-    const formData = new FormData();
-    formData.append('collectionName', collectionName);
-    
-    for (const key in data) {
-        if (data.hasOwnProperty(key)) {
-            const value = data[key];
-            if (value !== null && value !== undefined) {
-                if (typeof value === 'object') {
-                    formData.append(key, JSON.stringify(value));
-                } else {
-                    formData.append(key, String(value));
-                }
-            }
-        }
-    }
-
+// Helper for compressing and uploading a single file to Supabase Storage
+const uploadFile = async (file: File, bucketPath: string, onProgress?: (percent: number) => void) => {
     const compressionOptions = {
         maxSizeMB: 1,
         maxWidthOrHeight: 1920,
@@ -77,33 +47,22 @@ const saveDataWithFiles = async (collectionName: string, data: any, files: { [ke
             if (onProgress) onProgress(p * 0.5); // Compression is first 50%
         },
     };
+    
+    const compressedFile = await imageCompression(file, compressionOptions);
+    const { error: uploadError } = await supabase.storage
+        .from('pavo-assets')
+        .upload(bucketPath, compressedFile, {
+            upsert: true,
+            contentType: compressedFile.type,
+        });
 
-    for (const key in files) {
-        const file = files[key];
-        if (file) {
-            try {
-                const compressedFile = await imageCompression(file, compressionOptions);
-                formData.append(key, compressedFile, compressedFile.name);
-            } catch (error) {
-                console.error("Compression Error:", error);
-                formData.append(key, file, file.name); // Fallback to original file
-            }
-        }
-    }
+    if (uploadError) throw uploadError;
 
-    const response = await axios.post(functionUrl, formData, {
-        headers: {
-            // Let browser set Content-Type for FormData
-        },
-        onUploadProgress: (progressEvent) => {
-            if (onProgress && progressEvent.total) {
-                const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-                onProgress(50 + percentCompleted * 0.5); // Upload is second 50%
-            }
-        }
-    });
-
-    return response.data;
+    const { data: { publicUrl } } = supabase.storage
+        .from('pavo-assets')
+        .getPublicUrl(bucketPath);
+    
+    return publicUrl;
 };
 
 
@@ -199,7 +158,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         return () => {
             supabase.removeChannel(channels);
         };
-  }}, [toast]);
+  }, [toast]);
   
   
   const deleteFromSupabaseStorage = async (imageUrl: string) => {
@@ -216,19 +175,66 @@ export function DataProvider({ children }: { children: ReactNode }) {
   };
 
   const addOrUpdateDecorProduct = async (product: Omit<Product, 'image_url' | 'aiHint'> & { id: string }, imageFile?: File | null, onProgress?: (percent: number) => void) => {
-    return saveDataWithFiles('products', product, { imageFile: imageFile }, onProgress);
+    const dataToSave: any = { ...product };
+    if (imageFile) {
+        const filePath = `products/${Date.now()}-${imageFile.name}`;
+        const imageUrl = await uploadFile(imageFile, filePath, onProgress);
+        dataToSave.image_url = imageUrl;
+    }
+    const { data, error } = await supabase.from('products').upsert(dataToSave).select();
+    if (error) throw error;
+    return data;
   };
   
   const addOrUpdatePortfolioItem = async (item: Omit<PortfolioItem, 'imageUrl' | 'beforeImageUrl' | 'aiHint'> & { id: string }, beforeImageFile?: File | null, afterImageFile?: File | null, onProgress?: (percent: number) => void) => {
-      return saveDataWithFiles('portfolioItems', item, { beforeImageFile: beforeImageFile, imageFile: afterImageFile }, onProgress);
+      const dataToSave: any = { ...item };
+      if (beforeImageFile) {
+          const filePath = `portfolioItems/${Date.now()}-before-${beforeImageFile.name}`;
+          dataToSave.beforeImageUrl = await uploadFile(beforeImageFile, filePath);
+      }
+      if (afterImageFile) {
+          const filePath = `portfolioItems/${Date.now()}-after-${afterImageFile.name}`;
+          dataToSave.imageUrl = await uploadFile(afterImageFile, filePath);
+      }
+      const { data, error } = await supabase.from('portfolioItems').upsert(dataToSave).select();
+      if (error) throw error;
+      return data;
   };
 
   const addOrUpdateBookingSite = async (site: Omit<BookingSite, 'imageUrl' | 'aiHint'> & { id: string }, imageFile?: File | null, onProgress?: (percent: number) => void) => {
-    return saveDataWithFiles('bookingSites', site, { imageFile: imageFile }, onProgress);
+    const dataToSave: any = { ...site };
+    if (imageFile) {
+        const filePath = `bookingSites/${Date.now()}-${imageFile.name}`;
+        const imageUrl = await uploadFile(imageFile, filePath, onProgress);
+        dataToSave.imageUrl = imageUrl;
+    }
+    const { data, error } = await supabase.from('bookingSites').upsert(dataToSave).select();
+    if (error) throw error;
+    return data;
   };
 
   const updateSiteSettings = async (settings: SiteSettings, files: { [key: string]: File | null }) => {
-    return saveDataWithFiles('siteSettings', settings, files);
+    const dataToSave = JSON.parse(JSON.stringify(settings)); // Deep copy
+
+    for (const key in files) {
+        const file = files[key];
+        if (file) {
+            const filePath = `siteSettings/${Date.now()}-${file.name}`;
+            const publicUrl = await uploadFile(file, filePath);
+            
+            // This is complex, relies on key format like 'heroImages.interiors.0'
+            const parts = key.split('.');
+            let current = dataToSave;
+            for (let i = 0; i < parts.length - 1; i++) {
+                current = current[parts[i]];
+            }
+            current[parts[parts.length - 1]] = publicUrl;
+        }
+    }
+    
+    const { data, error } = await supabase.from('siteSettings').upsert(dataToSave).select();
+    if (error) throw error;
+    return data;
   };
   
   const deleteDecorProduct = async (id: string) => {
