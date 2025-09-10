@@ -100,10 +100,11 @@ export const saveData = functions
                   .from('pavo-assets')
                   .getPublicUrl(destination);
               
-              if (fieldname === 'imageUrl') {
+              // Map the form field name to the correct Supabase column name
+              if (fieldname === 'imageFile') {
                   fields['image_url'] = publicUrl;
               } else {
-                  fields[fieldname] = publicUrl;
+                  fields[fieldname] = publicUrl; // for beforeImageUrl, etc.
               }
               fs.unlinkSync(filePath);
           }
@@ -136,3 +137,5 @@ export const saveData = functions
       req.pipe(bb);
     });
   });
+
+    

@@ -16,11 +16,11 @@ import { supabase } from '@/lib/supabase';
 
 interface DataContextType extends PavoData {
   loading: boolean;
-  addOrUpdatePortfolioItem: (item: Omit<PortfolioItem, 'imageUrl' | 'beforeImageUrl'> & { id: string }, beforeImageFile?: File | null, afterImageFile?: File | null, onProgress?: (percent: number) => void) => Promise<any>;
+  addOrUpdatePortfolioItem: (item: Omit<PortfolioItem, 'imageUrl' | 'beforeImageUrl' | 'aiHint'> & { id: string }, beforeImageFile?: File | null, afterImageFile?: File | null, onProgress?: (percent: number) => void) => Promise<any>;
   deletePortfolioItem: (id: string) => Promise<void>;
-  addOrUpdateDecorProduct: (product: Omit<Product, 'image_url'> & { id: string }, imageFile?: File | null, onProgress?: (percent: number) => void) => Promise<any>;
+  addOrUpdateDecorProduct: (product: Omit<Product, 'image_url' | 'aiHint'> & { id: string }, imageFile?: File | null, onProgress?: (percent: number) => void) => Promise<any>;
   deleteDecorProduct: (id: string) => Promise<void>;
-  addOrUpdateBookingSite: (site: Omit<BookingSite, 'imageUrl'> & { id: string }, imageFile?: File | null, onProgress?: (percent: number) => void) => Promise<any>;
+  addOrUpdateBookingSite: (site: Omit<BookingSite, 'imageUrl' | 'aiHint'> & { id: string }, imageFile?: File | null, onProgress?: (percent: number) => void) => Promise<any>;
   deleteBookingSite: (id: string) => Promise<void>;
   addOrder: (order: Order) => Promise<void>;
   decreaseStock: (productId: string, amount: number) => Promise<void>;
@@ -209,16 +209,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const addOrUpdateDecorProduct = (product: Omit<Product, 'image_url'> & { id: string }, imageFile?: File | null, onProgress?: (percent: number) => void) => {
-    return saveDataWithFiles('products', product, { imageUrl: imageFile }, onProgress);
+  const addOrUpdateDecorProduct = (product: Omit<Product, 'image_url' | 'aiHint'> & { id: string }, imageFile?: File | null, onProgress?: (percent: number) => void) => {
+    return saveDataWithFiles('products', product, { imageFile: imageFile }, onProgress);
   };
   
-  const addOrUpdatePortfolioItem = (item: Omit<PortfolioItem, 'imageUrl' | 'beforeImageUrl'> & { id: string }, beforeImageFile?: File | null, afterImageFile?: File | null, onProgress?: (percent: number) => void) => {
-      return saveDataWithFiles('portfolioItems', item, { beforeImageUrl: beforeImageFile, imageUrl: afterImageFile }, onProgress);
+  const addOrUpdatePortfolioItem = (item: Omit<PortfolioItem, 'imageUrl' | 'beforeImageUrl' | 'aiHint'> & { id: string }, beforeImageFile?: File | null, afterImageFile?: File | null, onProgress?: (percent: number) => void) => {
+      return saveDataWithFiles('portfolioItems', item, { beforeImageFile: beforeImageFile, imageFile: afterImageFile }, onProgress);
   };
 
-  const addOrUpdateBookingSite = (site: Omit<BookingSite, 'imageUrl'> & { id: string }, imageFile?: File | null, onProgress?: (percent: number) => void) => {
-    return saveDataWithFiles('bookingSites', site, { imageUrl: imageFile }, onProgress);
+  const addOrUpdateBookingSite = (site: Omit<BookingSite, 'imageUrl' | 'aiHint'> & { id: string }, imageFile?: File | null, onProgress?: (percent: number) => void) => {
+    return saveDataWithFiles('bookingSites', site, { imageFile: imageFile }, onProgress);
   };
 
   const updateSiteSettings = async (settings: SiteSettings, files: { [key: string]: File | null }) => {
