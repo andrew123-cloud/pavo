@@ -51,10 +51,9 @@ const saveDataWithFiles = async (collectionName: string, data: any, files: { [ke
             // Ensure we don't send undefined or null values that FormData might stringify
             const value = data[key];
             if (value !== null && value !== undefined) {
-                 // Handle nested objects by stringifying them
-                if (typeof value === 'object' && !Array.isArray(value)) {
-                    formData.append(key, JSON.stringify(value));
-                } else if (Array.isArray(value)) {
+                 // Handle nested objects by stringifying them.
+                 // The backend will now parse these strings back into objects/numbers/booleans.
+                if (typeof value === 'object') {
                     formData.append(key, JSON.stringify(value));
                 } else {
                     formData.append(key, String(value));
@@ -196,7 +195,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         return () => {
             supabase.removeChannel(channels);
         };
-  }}, [toast]);
+  }, [toast]);
   
   
   const deleteFromSupabaseStorage = async (imageUrl: string) => {
@@ -366,5 +365,4 @@ export function usePavoData() {
     throw new Error('usePavoData must be used within a DataProvider');
   }
   return context;
-
 }

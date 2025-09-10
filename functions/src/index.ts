@@ -12,6 +12,37 @@ import { createClient } from '@supabase/supabase-js';
 admin.initializeApp();
 const corsHandler = cors({ origin: true });
 
+// Helper to recursively parse string values to their likely types
+const parseValue = (value: any): any => {
+    if (typeof value !== 'string') return value;
+    if (value === 'true') return true;
+    if (value === 'false') return false;
+    // Check if it's a number but avoid parsing strings with leading zeros as octal, and ignore empty strings.
+    if (!isNaN(Number(value)) && !/^\s*$/.test(value) && !/^0\d/.test(value)) return Number(value);
+    
+    // Try parsing as JSON, but return original string on failure
+    try {
+        const parsed = JSON.parse(value);
+        // If it's an object, we recursively parse its properties.
+        if (typeof parsed === 'object' && parsed !== null) {
+            // Handle arrays
+            if(Array.isArray(parsed)){
+                return parsed.map(item => parseValue(item));
+            }
+            // Handle objects
+            for (const key in parsed) {
+                if (Object.prototype.hasOwnProperty.call(parsed, key)) {
+                    parsed[key] = parseValue(parsed[key]);
+                }
+            }
+        }
+        return parsed;
+    } catch (e) {
+        return value; // It's just a string, return as is.
+    }
+};
+
+
 export const saveData = functions
   .runWith({ memory: '512MB', secrets: ["SUPABASE_SERVICE_ROLE_KEY", "NEXT_PUBLIC_SUPABASE_URL"] })
   .https.onRequest((req, res) => {
@@ -37,18 +68,8 @@ export const saveData = functions
       let collectionName = '';
 
       bb.on('field', (fieldname, val) => {
-        // Handle nested JSON objects that were stringified on the client
-        try {
-            const parsed = JSON.parse(val);
-            if (typeof parsed === 'object' && parsed !== null) {
-                fields[fieldname] = parsed;
-            } else {
-                fields[fieldname] = val;
-            }
-        } catch(e) {
-            fields[fieldname] = val;
-        }
-
+        // We will parse all values in the finish step to ensure consistency
+        fields[fieldname] = val;
         if (fieldname === 'collectionName') {
             collectionName = val;
         }
@@ -56,7 +77,7 @@ export const saveData = functions
 
       bb.on('file', (fieldname, file, info) => {
         const { filename, mimeType } = info;
-        const sanitizedFilename = `${Date.now()}-${filename.replace(/[^a-zA-Z0-9.]/g, '_')}`;
+        const sanitizedFilename = `${Date.now()}-${filename.replace(/[^a-zA-Z0-9.-_]/g, '_')}`;
         const filepath = path.join(tmpdir, sanitizedFilename);
         const writeStream = fs.createWriteStream(filepath);
         file.pipe(writeStream);
@@ -80,15 +101,21 @@ export const saveData = functions
         
         try {
           await Promise.all(fileWrites);
+          
+          // Parse all field values from strings to their correct types
+          for(const key in fields) {
+              if (Object.prototype.hasOwnProperty.call(fields, key)) {
+                  fields[key] = parseValue(fields[key]);
+              }
+          }
 
           for (const fieldname in filesToUpload) {
               const { filePath, mimetype, fileName } = filesToUpload[fieldname];
               const fileContent = fs.readFileSync(filePath);
-              // In Supabase, it's common to organize by table name in the bucket
               const destination = `${collectionName}/${fileName}`;
               
-              const { data, error: uploadError } = await supabase.storage
-                  .from('pavo-assets') // Assumes a single bucket for all assets
+              const { error: uploadError } = await supabase.storage
+                  .from('pavo-assets')
                   .upload(destination, fileContent, {
                       contentType: mimetype,
                       upsert: true,
@@ -100,24 +127,29 @@ export const saveData = functions
                   .from('pavo-assets')
                   .getPublicUrl(destination);
               
-              // Map the form field name to the correct Supabase column name
               if (fieldname === 'imageFile') {
                   fields['image_url'] = publicUrl;
+              } else if (fieldname === 'beforeImageFile') {
+                  fields['beforeImageUrl'] = publicUrl;
               } else {
-                  fields[fieldname] = publicUrl; // for beforeImageUrl, etc.
+                 // For hero images and founder images in site settings
+                 // The fieldname will be like 'heroImages.interiors.0' or 'founder.imageUrls.0'
+                 const parts = fieldname.split('.');
+                 let current = fields;
+                 for(let i=0; i < parts.length -1; i++){
+                    if (current[parts[i]] === undefined) {
+                        // Create nested object/array if it doesn't exist
+                        current[parts[i]] = /^\d+$/.test(parts[i+1]) ? [] : {};
+                    }
+                    current = current[parts[i]];
+                 }
+                 current[parts[parts.length -1]] = publicUrl;
               }
               fs.unlinkSync(filePath);
           }
           
-          // Remove collectionName as it's not a field in the tables
           const { collectionName: _, ...dataToSave } = fields;
 
-          // Convert numeric types for all relevant tables
-          if(dataToSave.price) dataToSave.price = Number(dataToSave.price);
-          if(dataToSave.stock) dataToSave.stock = Number(dataToSave.stock);
-          if(dataToSave.pricePerNight) dataToSave.pricePerNight = Number(dataToSave.pricePerNight);
-          if(dataToSave.rating) dataToSave.rating = Number(dataToSave.rating);
-          
           // Supabase upsert
           const { data: dbData, error: dbError } = await supabase
             .from(collectionName)
@@ -137,5 +169,3 @@ export const saveData = functions
       req.pipe(bb);
     });
   });
-
-    
