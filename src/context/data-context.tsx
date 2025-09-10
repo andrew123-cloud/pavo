@@ -50,20 +50,22 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const { session } = useAuth();
   const { toast } = useToast();
 
-  // Re-initialize Supabase client when auth session changes.
-  const supabase = new SupabaseClient(supabaseUrl, supabaseAnonKey, {
-      global: {
-          headers: {
-              Authorization: `Bearer ${session?.access_token}`,
-          },
-      },
-  });
+  const [supabase, setSupabase] = useState(() => createClient(supabaseUrl, supabaseAnonKey));
 
-  // Loading and error states
+  useEffect(() => {
+    const newSupabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
+      global: {
+        headers: {
+          Authorization: `Bearer ${session?.access_token}`,
+        },
+      },
+    });
+    setSupabase(newSupabaseClient);
+  }, [session]);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Application data states
   const [portfolioItems, setPortfolioItems] = useState<PortfolioItem[]>([]);
   const [decorProducts, setDecorProducts] = useState<Product[]>([]);
   const [bookingSites, setBookingSites] = useState<BookingSite[]>([]);
@@ -72,41 +74,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [siteSettings, setSiteSettings] = useState<SiteSettings>(defaultSiteSettings);
   const [cart, setCart] = useState<CartItem[]>([]);
   
-  // Memoized derived state for cart
   const cartCount = cart.reduce((count, item) => count + item.quantity, 0);
   const cartTotal = cart.reduce((total, item) => total + item.price * item.quantity, 0);
 
-
-  // Generic upload function
-  const uploadFile = async (file: File, collectionName: string, onProgress?: (p: number) => void): Promise<string> => {
-        const compressedFile = await imageCompression(file, {
-            maxSizeMB: 1,
-            maxWidthOrHeight: 1920,
-            useWebWorker: true,
-            onProgress: onProgress,
-        });
-
-        const formData = new FormData();
-        formData.append('collectionName', collectionName);
-        formData.append('imageFile', compressedFile, compressedFile.name);
-
-        const response = await axios.post('/api/saveData', formData, {
-            headers: { 'Content-Type': 'multipart/form-data' },
-             onUploadProgress: (progressEvent) => {
-                if (progressEvent.total) {
-                    const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-                    if(onProgress) onProgress(percentCompleted);
-                }
-            }
-        });
-
-        if (response.data.error || !response.data.image_url) {
-            throw new Error(response.data.error || 'File upload failed, URL not returned.');
-        }
-        return response.data.image_url;
-  };
-
-  const saveDataWithFiles = async (
+  const saveDataWithFiles = useCallback(async (
     collectionName: string,
     data: any,
     files?: { [key: string]: File | null },
@@ -115,11 +86,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     const formData = new FormData();
     formData.append('collectionName', collectionName);
 
-    // Append all data fields to FormData
     for (const key in data) {
         if (data[key] !== null && data[key] !== undefined) {
           const value = data[key];
-          if (typeof value === 'object') {
+          if (typeof value === 'object' && !Array.isArray(value)) {
             formData.append(key, JSON.stringify(value));
           } else {
             formData.append(key, String(value));
@@ -127,7 +97,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         }
     }
     
-    // Append all file fields to FormData
     if (files) {
       for(const key in files) {
         if(files[key]){
@@ -161,16 +130,14 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         toast({ variant: 'destructive', title: 'Save Failed', description: errorMessage });
         throw new Error(errorMessage);
     }
-  };
+  }, [toast]);
 
-
-  // Stable CRUD function handlers
   const addOrUpdatePortfolioItem = useCallback(async (item: Partial<PortfolioItem>, beforeImageFile?: File | null, afterImageFile?: File | null, onProgress?: (p: number) => void) => {
       const files: { [key: string]: File | null } = {};
       if(beforeImageFile) files['beforeImageFile'] = beforeImageFile;
       if(afterImageFile) files['imageFile'] = afterImageFile;
       await saveDataWithFiles('portfolioItems', item, files, onProgress);
-  }, [toast]);
+  }, [saveDataWithFiles]);
 
   const deletePortfolioItem = useCallback(async (id: number) => {
     const { error } = await supabase.from('portfolioItems').delete().match({ id });
@@ -183,7 +150,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const addOrUpdateDecorProduct = useCallback(async (product: Partial<Product>, imageFile?: File | null, onProgress?: (p: number) => void) => {
       const files = imageFile ? { imageFile } : undefined;
       await saveDataWithFiles('products', product, files, onProgress);
-  }, [toast]);
+  }, [saveDataWithFiles]);
 
   const deleteDecorProduct = useCallback(async (id: number) => {
     const { error } = await supabase.from('products').delete().match({ id });
@@ -196,7 +163,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const addOrUpdateBookingSite = useCallback(async (site: Partial<BookingSite>, imageFile?: File | null, onProgress?: (p: number) => void) => {
     const files = imageFile ? { imageFile } : undefined;
     await saveDataWithFiles('bookingSites', site, files, onProgress);
-  }, [toast]);
+  }, [saveDataWithFiles]);
 
   const deleteBookingSite = useCallback(async (id: number) => {
     const { error } = await supabase.from('bookingSites').delete().match({ id });
@@ -208,7 +175,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   
   const updateSiteSettings = useCallback(async (settings: SiteSettings, files: {[key: string]: File | null}) => {
      await saveDataWithFiles('siteSettings', settings, files);
-  }, [toast]);
+  }, [saveDataWithFiles]);
 
   const addBooking = useCallback(async (booking: Omit<Booking, 'id' | 'createdAt' | 'isRead'>) => {
       const newBooking = { ...booking, isRead: false, createdAt: new Date().toISOString() };
@@ -231,10 +198,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   }, [supabase, bookings]);
 
   const addOrder = useCallback((order: Order) => {
-    // This is primarily for the client-side flow after payment.
-    // The source of truth for orders should ideally be a secure backend that verifies payment.
     setOrders(prev => [order, ...prev]);
-    // In a real app, you'd also save this to Supabase from a secure server-side function.
   }, []);
   
   const decreaseStock = useCallback(async (productId: number, quantity: number) => {
@@ -245,8 +209,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     }
   }, [supabase, toast]);
 
-
-  // --- Cart Logic ---
   useEffect(() => {
     const savedCart = localStorage.getItem('pavo-cart');
     if (savedCart) {
@@ -255,10 +217,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (cart.length > 0) {
+    if (cart.length > 0 || localStorage.getItem('pavo-cart')) {
       localStorage.setItem('pavo-cart', JSON.stringify(cart));
-    } else {
-      localStorage.removeItem('pavo-cart');
     }
   }, [cart]);
 
@@ -304,10 +264,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   const clearCart = useCallback(() => {
     setCart([]);
+    localStorage.removeItem('pavo-cart');
   }, []);
 
-
-  // --- Initial Data Load ---
   useEffect(() => {
     const syncFromSupabase = async () => {
       setLoading(true);
@@ -328,13 +287,13 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           supabase.from('siteSettings').select('*').eq('id', 'default').single(),
           supabase.from('orders').select('*').order('created_at', { ascending: false }),
         ]);
-
-        if (productsRes.error) throw new Error(`Products fetch failed: ${productsRes.error.message}`);
-        if (portfolioRes.error) throw new Error(`Portfolio fetch failed: ${portfolioRes.error.message}`);
-        if (bookingsRes.error) throw new Error(`Bookings fetch failed: ${bookingsRes.error.message}`);
-        if (bookingSitesRes.error) throw new Error(`Booking Sites fetch failed: ${bookingSitesRes.error.message}`);
-        if (settingsRes.error && settingsRes.status !== 406) throw new Error(`Settings fetch failed: ${settingsRes.error.message}`);
-        if (ordersRes.error) throw new Error(`Orders fetch failed: ${ordersRes.error.message}`);
+        
+        if (productsRes.error) throw productsRes.error;
+        if (portfolioRes.error) throw portfolioRes.error;
+        if (bookingsRes.error) throw bookingsRes.error;
+        if (bookingSitesRes.error) throw bookingSitesRes.error;
+        if (settingsRes.error && settingsRes.status !== 406) throw settingsRes.error; // 406 means no rows, which is ok on first run
+        if (ordersRes.error) throw ordersRes.error;
         
         setDecorProducts(productsRes.data || []);
         setPortfolioItems(portfolioRes.data || []);
@@ -344,89 +303,51 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         if(settingsRes.data) setSiteSettings(settingsRes.data);
 
       } catch (e: any) {
-        console.error('[Supabase Sync] Error syncing data:', e);
-        setError(e.message);
-        toast({ variant: 'destructive', title: 'Data Sync Failed', description: e.message });
+        const errorMessage = e.message || 'An unknown error occurred during data sync.';
+        console.error('[Supabase Sync] Error syncing data:', errorMessage);
+        setError(errorMessage);
+        toast({ variant: 'destructive', title: 'Data Sync Failed', description: errorMessage });
       } finally {
         setLoading(false);
       }
     };
     syncFromSupabase();
-  }, [supabase]); // Re-sync if the supabase client instance changes (i.e., on login/logout)
+  }, [supabase, toast]);
 
-
-  // --- Real-time Subscriptions ---
   useEffect(() => {
     const handlePortfolioChange = (payload: any) => {
-        if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-            setPortfolioItems(prev => {
-                const index = prev.findIndex(item => item.id === payload.new.id);
-                if (index > -1) {
-                    const newItems = [...prev];
-                    newItems[index] = payload.new;
-                    return newItems;
-                }
-                return [...prev, payload.new];
-            });
-        } else if (payload.eventType === 'DELETE') {
-            setPortfolioItems(prev => prev.filter(item => item.id !== payload.old.id));
-        }
+      if (payload.eventType === 'INSERT') setPortfolioItems(prev => [...prev, payload.new]);
+      if (payload.eventType === 'UPDATE') setPortfolioItems(prev => prev.map(item => item.id === payload.new.id ? payload.new : item));
+      if (payload.eventType === 'DELETE') setPortfolioItems(prev => prev.filter(item => item.id !== payload.old.id));
     };
     const handleProductChange = (payload: any) => {
-        if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-            setDecorProducts(prev => {
-                const index = prev.findIndex(item => item.id === payload.new.id);
-                if (index > -1) {
-                    const newItems = [...prev];
-                    newItems[index] = payload.new;
-                    return newItems;
-                }
-                return [...prev, payload.new];
-            });
-        } else if (payload.eventType === 'DELETE') {
-            setDecorProducts(prev => prev.filter(item => item.id !== payload.old.id));
-        }
+      if (payload.eventType === 'INSERT') setDecorProducts(prev => [...prev, payload.new]);
+      if (payload.eventType === 'UPDATE') setDecorProducts(prev => prev.map(item => item.id === payload.new.id ? payload.new : item));
+      if (payload.eventType === 'DELETE') setDecorProducts(prev => prev.filter(item => item.id !== payload.old.id));
     };
     const handleBookingChange = (payload: any) => {
-         if (payload.eventType === 'INSERT') {
-            setBookings(prev => [payload.new, ...prev]);
-        } else if (payload.eventType === 'UPDATE') {
-             setBookings(prev => prev.map(b => b.id === payload.new.id ? payload.new : b));
-        }
+      if (payload.eventType === 'INSERT') setBookings(prev => [payload.new, ...prev]);
+      if (payload.eventType === 'UPDATE') setBookings(prev => prev.map(b => b.id === payload.new.id ? payload.new : b));
     };
-     const handleBookingSiteChange = (payload: any) => {
-        if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-            setBookingSites(prev => {
-                const index = prev.findIndex(item => item.id === payload.new.id);
-                if (index > -1) {
-                    const newItems = [...prev];
-                    newItems[index] = payload.new;
-                    return newItems;
-                }
-                return [...prev, payload.new];
-            });
-        } else if (payload.eventType === 'DELETE') {
-            setBookingSites(prev => prev.filter(item => item.id !== payload.old.id));
-        }
+    const handleBookingSiteChange = (payload: any) => {
+      if (payload.eventType === 'INSERT') setBookingSites(prev => [...prev, payload.new]);
+      if (payload.eventType === 'UPDATE') setBookingSites(prev => prev.map(item => item.id === payload.new.id ? payload.new : item));
+      if (payload.eventType === 'DELETE') setBookingSites(prev => prev.filter(item => item.id !== payload.old.id));
     };
     const handleSettingsChange = (payload: any) => {
-      if(payload.eventType === 'UPDATE' && payload.new.id === 'default') {
-        setSiteSettings(payload.new);
-      }
+      if(payload.eventType === 'UPDATE' && payload.new.id === 'default') setSiteSettings(payload.new);
     };
 
-    const portfolioChannel = supabase.channel('portfolioItems').on('postgres_changes', { event: '*', schema: 'public', table: 'portfolioItems' }, handlePortfolioChange).subscribe();
-    const productsChannel = supabase.channel('products').on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, handleProductChange).subscribe();
-    const bookingsChannel = supabase.channel('bookings').on('postgres_changes', { event: '*', schema: 'public', table: 'bookings' }, handleBookingChange).subscribe();
-    const bookingSitesChannel = supabase.channel('bookingSites').on('postgres_changes', { event: '*', schema: 'public', table: 'bookingSites' }, handleBookingSiteChange).subscribe();
-    const siteSettingsChannel = supabase.channel('siteSettings').on('postgres_changes', { event: '*', schema: 'public', table: 'siteSettings' }, handleSettingsChange).subscribe();
+    const channels = [
+      supabase.channel('portfolioItems').on('postgres_changes', { event: '*', schema: 'public', table: 'portfolioItems' }, handlePortfolioChange).subscribe(),
+      supabase.channel('products').on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, handleProductChange).subscribe(),
+      supabase.channel('bookings').on('postgres_changes', { event: '*', schema: 'public', table: 'bookings' }, handleBookingChange).subscribe(),
+      supabase.channel('bookingSites').on('postgres_changes', { event: '*', schema: 'public', table: 'bookingSites' }, handleBookingSiteChange).subscribe(),
+      supabase.channel('siteSettings').on('postgres_changes', { event: '*', schema: 'public', table: 'siteSettings' }, handleSettingsChange).subscribe()
+    ];
 
     return () => {
-      supabase.removeChannel(portfolioChannel);
-      supabase.removeChannel(productsChannel);
-      supabase.removeChannel(bookingsChannel);
-      supabase.removeChannel(bookingSitesChannel);
-      supabase.removeChannel(siteSettingsChannel);
+      channels.forEach(channel => supabase.removeChannel(channel));
     };
   }, [supabase]);
 
