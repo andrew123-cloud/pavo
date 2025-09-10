@@ -1,5 +1,6 @@
 
 
+
 export interface PortfolioItem {
   id: string;
   title: string;
@@ -26,16 +27,6 @@ export interface Product {
   image_url: string;
   aiHint: string;
   stock: number;
-}
-
-export interface Property {
-  id: string;
-  title: string;
-  location: string;
-  pricePerNight: number;
-  rating: number;
-  imageUrl: string;
-  aiHint: string;
 }
 
 export interface OrderItem { 
@@ -116,9 +107,9 @@ export interface SiteSettings {
 export interface PavoData {
   portfolioItems: PortfolioItem[];
   decorProducts: Product[];
-  rentalProperties: Property[];
   bookingSites: BookingSite[];
   orders: Order[];
   bookings: Booking[];
   siteSettings: SiteSettings;
+  testimonials: Testimonial[];
 }

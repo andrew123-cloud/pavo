@@ -196,7 +196,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
         return () => {
             supabase.removeChannel(channels);
         };
-    }, [toast]);
+  }}, [toast]);
+  
   
   const deleteFromSupabaseStorage = async (imageUrl: string) => {
     try {
@@ -365,4 +366,5 @@ export function usePavoData() {
     throw new Error('usePavoData must be used within a DataProvider');
   }
   return context;
+
 }
