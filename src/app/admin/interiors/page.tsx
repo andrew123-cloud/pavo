@@ -16,7 +16,6 @@ import type { PortfolioItem } from '@/lib/types';
 import { usePavoData } from '@/context/data-context';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { v4 as uuidv4 } from 'uuid';
 import { Progress } from '@/components/ui/progress';
 
 export default function InteriorsAdmin() {
@@ -24,7 +23,7 @@ export default function InteriorsAdmin() {
   const { toast } = useToast();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [editingItem, setEditingItem] = useState<PortfolioItem | null>(null);
+  const [editingItem, setEditingItem] = useState<Partial<PortfolioItem> | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [beforeImageFile, setBeforeImageFile] = useState<File | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -53,11 +52,10 @@ export default function InteriorsAdmin() {
     setUploadProgress(0);
     
     const form = event.currentTarget;
-    const docId = editingItem?.id || uuidv4();
 
     try {
-      const portfolioData: Omit<PortfolioItem, 'imageUrl' | 'beforeImageUrl' | 'aiHint'> & { id: string } = {
-        id: docId,
+      const portfolioData: Partial<PortfolioItem> = {
+        ...editingItem,
         title: form.title.value,
         location: form.location.value,
         description: form.description.value,
@@ -76,7 +74,7 @@ export default function InteriorsAdmin() {
     }
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (id: number) => {
     try {
       await deletePortfolioItem(id);
       toast({
@@ -184,9 +182,9 @@ export default function InteriorsAdmin() {
             <DialogContent className="sm:max-w-2xl">
                  <form onSubmit={handleSubmit}>
                     <DialogHeader>
-                        <DialogTitle>{editingItem ? 'Edit Portfolio Item' : 'Add New Portfolio Item'}</DialogTitle>
+                        <DialogTitle>{editingItem?.id ? 'Edit Portfolio Item' : 'Add New Portfolio Item'}</DialogTitle>
                         <DialogDescription>
-                            {editingItem ? 'Update the details of your portfolio item.' : 'Add a new project to your portfolio.'}
+                            {editingItem?.id ? 'Update the details of your portfolio item.' : 'Add a new project to your portfolio.'}
                         </DialogDescription>
                     </DialogHeader>
                     <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-4">
@@ -248,7 +246,7 @@ export default function InteriorsAdmin() {
                             <div className="grid grid-cols-4 items-center gap-4">
                                 <Label className="text-right">Preview</Label>
                                 <Image
-                                    src={imageFile ? URL.createObjectURL(imageFile) : editingItem!.imageUrl}
+                                    src={imageFile ? URL.createObjectURL(imageFile) : editingItem!.imageUrl!}
                                     alt="preview"
                                     width={64}
                                     height={64}
@@ -268,7 +266,7 @@ export default function InteriorsAdmin() {
                         </DialogClose>
                         <Button type="submit" disabled={isSubmitting}>
                             {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                           {isSubmitting ? 'Saving...' : (editingItem ? 'Save Changes' : 'Add Item')}
+                           {isSubmitting ? 'Saving...' : (editingItem?.id ? 'Save Changes' : 'Add Item')}
                         </Button>
                     </DialogFooter>
                  </form>

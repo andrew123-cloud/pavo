@@ -16,7 +16,6 @@ import { Textarea } from '@/components/ui/textarea';
 import type { BookingSite } from '@/lib/types';
 import { usePavoData } from '@/context/data-context';
 import { useToast } from '@/hooks/use-toast';
-import { v4 as uuidv4 } from 'uuid';
 import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
@@ -25,7 +24,7 @@ export default function BookingSitesAdmin() {
   const { toast } = useToast();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [editingSite, setEditingSite] = useState<BookingSite | null>(null);
+  const [editingSite, setEditingSite] = useState<Partial<BookingSite> | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
 
@@ -51,11 +50,10 @@ export default function BookingSitesAdmin() {
     setUploadProgress(0);
 
     const form = event.currentTarget;
-    const docId = editingSite?.id || uuidv4();
     
     try {
-      const siteData = {
-          id: docId,
+      const siteData: Partial<BookingSite> = {
+          ...editingSite,
           name: form.name.value,
           type: form.type.value,
           description: form.description.value,
@@ -64,13 +62,7 @@ export default function BookingSitesAdmin() {
           aiHint: form.aiHint.value,
       };
 
-      // The type from the form is a string, so we need to assert it
-      const finalSiteData: Omit<BookingSite, 'imageUrl'> & { id: string } = {
-          ...siteData,
-          type: siteData.type as 'home' | 'restaurant' | 'caterer'
-      };
-
-      await addOrUpdateBookingSite(finalSiteData, imageFile, setUploadProgress);
+      await addOrUpdateBookingSite(siteData, imageFile, setUploadProgress);
 
       toast({ title: 'Success!', description: 'Booking site saved successfully.' });
       closeForm();
@@ -84,7 +76,7 @@ export default function BookingSitesAdmin() {
     }
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (id: number) => {
     try {
       await deleteBookingSite(id);
       toast({
@@ -194,9 +186,9 @@ export default function BookingSitesAdmin() {
             <DialogContent className="sm:max-w-2xl">
                 <form onSubmit={handleSubmit}>
                     <DialogHeader>
-                        <DialogTitle>{editingSite ? 'Edit Site' : 'Add New Site'}</DialogTitle>
+                        <DialogTitle>{editingSite?.id ? 'Edit Site' : 'Add New Site'}</DialogTitle>
                         <DialogDescription>
-                            {editingSite ? 'Update the details of this bookable site.' : 'Add a new site to your bookings page.'}
+                            {editingSite?.id ? 'Update the details of this bookable site.' : 'Add a new site to your bookings page.'}
                         </DialogDescription>
                     </DialogHeader>
                     <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-4">
@@ -243,7 +235,7 @@ export default function BookingSitesAdmin() {
                             <div className="grid grid-cols-4 items-center gap-4">
                                 <Label className="text-right">Preview</Label>
                                 <Image
-                                    src={imageFile ? URL.createObjectURL(imageFile) : editingSite!.imageUrl}
+                                    src={imageFile ? URL.createObjectURL(imageFile) : editingSite!.imageUrl!}
                                     alt="preview"
                                     width={64}
                                     height={64}
@@ -263,7 +255,7 @@ export default function BookingSitesAdmin() {
                         </DialogClose>
                         <Button type="submit" disabled={isSubmitting}>
                             {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            {isSubmitting ? `Saving...` : (editingSite ? 'Save Changes' : 'Add Site')}
+                            {isSubmitting ? `Saving...` : (editingSite?.id ? 'Save Changes' : 'Add Site')}
                         </Button>
                     </DialogFooter>
                 </form>

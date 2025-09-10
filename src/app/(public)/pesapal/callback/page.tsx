@@ -34,8 +34,6 @@ function CallbackContent() {
                     throw new Error(status.error.message || 'Failed to get transaction status.');
                 }
                 
-                // Create a new order object to save
-                // In a real app, you'd fetch customer details from your pre-payment order record
                 const newOrder: Order = {
                     id: status.merchant_reference,
                     pesapal_order_tracking_id: orderTrackingId,
@@ -60,7 +58,6 @@ function CallbackContent() {
 
                 if (status.status_code === 1) { // COMPLETED
                     setMessage('Payment successful! Redirecting...');
-                    // Decrease stock for each item in the cart
                     cart.forEach(item => {
                         decreaseStock(item.id, item.quantity);
                     });
@@ -69,7 +66,6 @@ function CallbackContent() {
                     setMessage('Payment was not successful. Redirecting...');
                 }
                 
-                // Redirect to the confirmation page
                 router.replace(`/order-confirmation?OrderTrackingId=${orderTrackingId}`);
 
             } catch (error: any) {
@@ -84,7 +80,6 @@ function CallbackContent() {
             }
         };
 
-        // Delay status check slightly to give Pesapal time to process the IPN
         const timer = setTimeout(checkStatus, 3000);
 
         return () => clearTimeout(timer);

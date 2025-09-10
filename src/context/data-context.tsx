@@ -8,29 +8,28 @@ import { siteSettings as initialSiteSettings, testimonials } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db as dexieDB, CartItem } from '@/lib/db';
-import { v4 as uuidv4 } from 'uuid';
 import imageCompression from 'browser-image-compression';
 import { supabase } from '@/lib/supabase';
 
 
 interface DataContextType extends PavoData {
   loading: boolean;
-  addOrUpdatePortfolioItem: (item: Omit<PortfolioItem, 'imageUrl' | 'beforeImageUrl' | 'aiHint'> & { id: string }, beforeImageFile?: File | null, afterImageFile?: File | null, onProgress?: (percent: number) => void) => Promise<any>;
-  deletePortfolioItem: (id: string) => Promise<void>;
-  addOrUpdateDecorProduct: (product: Omit<Product, 'image_url' | 'aiHint'> & { id: string }, imageFile?: File | null, onProgress?: (percent: number) => void) => Promise<any>;
-  deleteDecorProduct: (id: string) => Promise<void>;
-  addOrUpdateBookingSite: (site: Omit<BookingSite, 'imageUrl'> & { id: string }, imageFile?: File | null, onProgress?: (percent: number) => void) => Promise<any>;
-  deleteBookingSite: (id: string) => Promise<void>;
+  addOrUpdatePortfolioItem: (item: Partial<PortfolioItem>, beforeImageFile?: File | null, afterImageFile?: File | null, onProgress?: (percent: number) => void) => Promise<any>;
+  deletePortfolioItem: (id: number) => Promise<void>;
+  addOrUpdateDecorProduct: (product: Partial<Product>, imageFile?: File | null, onProgress?: (percent: number) => void) => Promise<any>;
+  deleteDecorProduct: (id: number) => Promise<void>;
+  addOrUpdateBookingSite: (site: Partial<BookingSite>, imageFile?: File | null, onProgress?: (percent: number) => void) => Promise<any>;
+  deleteBookingSite: (id: number) => Promise<void>;
   addOrder: (order: Order) => Promise<void>;
-  decreaseStock: (productId: string, amount: number) => Promise<void>;
+  decreaseStock: (productId: number, amount: number) => Promise<void>;
   addBooking: (booking: Omit<Booking, 'id' | 'createdAt' | 'isRead'>) => Promise<void>;
-  markBookingAsRead: (id: string) => Promise<void>;
+  markBookingAsRead: (id: number) => Promise<void>;
   markAllBookingsAsRead: () => Promise<void>;
   updateSiteSettings: (settings: SiteSettings, files: { [key: string]: File | null }) => Promise<void>;
   cart: CartItem[];
   addToCart: (product: Product) => void;
-  updateCartQuantity: (productId: string, quantity: number) => void;
-  removeFromCart: (productId: string) => void;
+  updateCartQuantity: (productId: number, quantity: number) => void;
+  removeFromCart: (productId: number) => void;
   clearCart: () => void;
   cartTotal: number;
   cartCount: number;
@@ -175,87 +174,105 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const addOrUpdateDecorProduct = async (product: Omit<Product, 'image_url' | 'aiHint'> & { id: string }, imageFile?: File | null, onProgress?: (percent: number) => void) => {
-    try {
-      const dataToSave: any = { ...product };
-      if (imageFile) {
-          const filePath = `products/${Date.now()}-${imageFile.name}`;
-          const imageUrl = await uploadFile(imageFile, filePath, onProgress);
-          dataToSave.image_url = imageUrl;
-      }
-      const { data, error } = await supabase.from('products').upsert(dataToSave).select();
-      if (error) throw error;
-      return data;
-    } catch(error) {
-      // Reject the promise with the error so it can be caught in the component
-      return Promise.reject(error);
-    }
+  const addOrUpdateDecorProduct = (product: Partial<Product>, imageFile?: File | null, onProgress?: (percent: number) => void) => {
+    return new Promise(async (resolve, reject) => {
+        try {
+            const dataToSave: any = { ...product };
+            if (dataToSave.id) { // This is an update
+                delete dataToSave.id;
+            }
+
+            if (imageFile) {
+                const filePath = `products/${Date.now()}-${imageFile.name}`;
+                const imageUrl = await uploadFile(imageFile, filePath, onProgress);
+                dataToSave.image_url = imageUrl;
+            }
+
+            const { data, error } = await supabase.from('products').upsert(dataToSave).select();
+            if (error) throw error;
+            resolve(data);
+        } catch (error) {
+            reject(error);
+        }
+    });
   };
   
-  const addOrUpdatePortfolioItem = async (item: Omit<PortfolioItem, 'imageUrl' | 'beforeImageUrl' | 'aiHint'> & { id: string }, beforeImageFile?: File | null, afterImageFile?: File | null, onProgress?: (percent: number) => void) => {
-    try {
-        const dataToSave: any = { ...item };
-        if (beforeImageFile) {
-            const filePath = `portfolioItems/${Date.now()}-before-${beforeImageFile.name}`;
-            dataToSave.beforeImageUrl = await uploadFile(beforeImageFile, filePath);
+  const addOrUpdatePortfolioItem = (item: Partial<PortfolioItem>, beforeImageFile?: File | null, afterImageFile?: File | null, onProgress?: (percent: number) => void) => {
+    return new Promise(async (resolve, reject) => {
+        try {
+            const dataToSave: any = { ...item };
+            if (dataToSave.id) {
+                delete dataToSave.id;
+            }
+
+            if (beforeImageFile) {
+                const filePath = `portfolioItems/${Date.now()}-before-${beforeImageFile.name}`;
+                dataToSave.beforeImageUrl = await uploadFile(beforeImageFile, filePath);
+            }
+            if (afterImageFile) {
+                const filePath = `portfolioItems/${Date.now()}-after-${afterImageFile.name}`;
+                dataToSave.imageUrl = await uploadFile(afterImageFile, filePath);
+            }
+            const { data, error } = await supabase.from('portfolioItems').upsert(dataToSave).select();
+            if (error) throw error;
+            resolve(data);
+        } catch (error) {
+            reject(error);
         }
-        if (afterImageFile) {
-            const filePath = `portfolioItems/${Date.now()}-after-${afterImageFile.name}`;
-            dataToSave.imageUrl = await uploadFile(afterImageFile, filePath);
+    });
+  };
+
+  const addOrUpdateBookingSite = (site: Partial<BookingSite>, imageFile?: File | null, onProgress?: (percent: number) => void) => {
+    return new Promise(async (resolve, reject) => {
+        try {
+            const dataToSave: any = { ...site };
+            if (dataToSave.id) {
+                delete dataToSave.id;
+            }
+            if (imageFile) {
+                const filePath = `bookingSites/${Date.now()}-${imageFile.name}`;
+                const imageUrl = await uploadFile(imageFile, filePath, onProgress);
+                dataToSave.imageUrl = imageUrl;
+            }
+            const { data, error } = await supabase.from('bookingSites').upsert(dataToSave).select();
+            if (error) throw error;
+            resolve(data);
+        } catch (error) {
+            reject(error);
         }
-        const { data, error } = await supabase.from('portfolioItems').upsert(dataToSave).select();
+    });
+  };
+
+  const updateSiteSettings = (settings: SiteSettings, files: { [key: string]: File | null }) => {
+     return new Promise(async (resolve, reject) => {
+        try {
+        const dataToSave = JSON.parse(JSON.stringify(settings)); // Deep copy
+
+        for (const key in files) {
+            const file = files[key];
+            if (file) {
+                const filePath = `siteSettings/${Date.now()}-${file.name}`;
+                const publicUrl = await uploadFile(file, filePath);
+                
+                const parts = key.split('.');
+                let current = dataToSave;
+                for (let i = 0; i < parts.length - 1; i++) {
+                    current = current[parts[i]];
+                }
+                current[parts[parts.length - 1]] = publicUrl;
+            }
+        }
+        
+        const { data, error } = await supabase.from('siteSettings').upsert(dataToSave).select();
         if (error) throw error;
-        return data;
-    } catch(error) {
-      return Promise.reject(error);
-    }
-  };
-
-  const addOrUpdateBookingSite = async (site: Omit<BookingSite, 'imageUrl'> & { id: string }, imageFile?: File | null, onProgress?: (percent: number) => void) => {
-    try {
-      const dataToSave: any = { ...site };
-      if (imageFile) {
-          const filePath = `bookingSites/${Date.now()}-${imageFile.name}`;
-          const imageUrl = await uploadFile(imageFile, filePath, onProgress);
-          dataToSave.imageUrl = imageUrl;
-      }
-      const { data, error } = await supabase.from('bookingSites').upsert(dataToSave).select();
-      if (error) throw error;
-      return data;
-    } catch (error) {
-      return Promise.reject(error);
-    }
-  };
-
-  const updateSiteSettings = async (settings: SiteSettings, files: { [key: string]: File | null }) => {
-    try {
-      const dataToSave = JSON.parse(JSON.stringify(settings)); // Deep copy
-
-      for (const key in files) {
-          const file = files[key];
-          if (file) {
-              const filePath = `siteSettings/${Date.now()}-${file.name}`;
-              const publicUrl = await uploadFile(file, filePath);
-              
-              // This is complex, relies on key format like 'heroImages.interiors.0'
-              const parts = key.split('.');
-              let current = dataToSave;
-              for (let i = 0; i < parts.length - 1; i++) {
-                  current = current[parts[i]];
-              }
-              current[parts[parts.length - 1]] = publicUrl;
-          }
-      }
-      
-      const { data, error } = await supabase.from('siteSettings').upsert(dataToSave).select();
-      if (error) throw error;
-      return data;
-    } catch (error) {
-      return Promise.reject(error);
-    }
+        resolve(data);
+        } catch (error) {
+            reject(error);
+        }
+    });
   };
   
-  const deleteDecorProduct = async (id: string) => {
+  const deleteDecorProduct = async (id: number) => {
     try {
         const item = await dexieDB.decorProducts.get(id);
         if(item && item.image_url) await deleteFromSupabaseStorage(item.image_url);
@@ -267,7 +284,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const deletePortfolioItem = async (id: string) => {
+  const deletePortfolioItem = async (id: number) => {
     try {
         const item = await dexieDB.portfolioItems.get(id);
         if (!item) return;
@@ -281,7 +298,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const deleteBookingSite = async (id: string) => {
+  const deleteBookingSite = async (id: number) => {
      try {
         const item = await dexieDB.bookingSites.get(id);
         if (item && item.imageUrl) await deleteFromSupabaseStorage(item.imageUrl);
@@ -303,7 +320,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const addBooking = async (booking: Omit<Booking, 'id' | 'createdAt' | 'isRead'>) => {
      const newBooking: Booking = { 
         ...booking,
-        id: uuidv4(),
+        id: Math.floor(Math.random() * 1000000), // temp id
         createdAt: new Date().toISOString(),
         isRead: false
      }
@@ -312,7 +329,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
      localStorage.setItem('pavo-bookings', JSON.stringify(updatedBookings));
   };
   
-  const markBookingAsRead = async (id: string) => {
+  const markBookingAsRead = async (id: number) => {
       const updatedBookings = bookings.map(b => b.id === id ? { ...b, isRead: true } : b);
       setBookings(updatedBookings);
       localStorage.setItem('pavo-bookings', JSON.stringify(updatedBookings));
@@ -339,19 +356,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
       await dexieDB.cart.add(cartProduct);
     }
   };
-  const updateCartQuantity = async (productId: string, quantity: number) => {
+  const updateCartQuantity = async (productId: number, quantity: number) => {
     if (quantity <= 0) {
       await dexieDB.cart.delete(productId);
     } else {
       await dexieDB.cart.update(productId, { quantity });
     }
   };
-  const removeFromCart = (productId: string) => dexieDB.cart.delete(productId);
+  const removeFromCart = (productId: number) => dexieDB.cart.delete(productId);
   const clearCart = () => dexieDB.cart.clear();
   const cartTotal = (cart || []).reduce((total, item) => total + item.price * item.quantity, 0);
   const cartCount = (cart || []).reduce((count, item) => count + item.quantity, 0);
 
-  const decreaseStock = async (productId: string, amount: number) => {
+  const decreaseStock = async (productId: number, amount: number) => {
     const { error } = await supabase.rpc('decrease_stock', { p_product_id: productId, p_decrease_amount: amount });
     if(error) console.error("Error decreasing stock:", error);
   };

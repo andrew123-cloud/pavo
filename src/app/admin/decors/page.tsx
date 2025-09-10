@@ -16,7 +16,6 @@ import { Label } from '@/components/ui/label';
 import type { Product } from '@/lib/types';
 import { usePavoData } from '@/context/data-context';
 import { useToast } from '@/hooks/use-toast';
-import { v4 as uuidv4 } from 'uuid';
 import { Progress } from '@/components/ui/progress';
 
 export default function DecorsAdmin() {
@@ -24,7 +23,7 @@ export default function DecorsAdmin() {
   const { toast } = useToast();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [editingProduct, setEditingProduct] = useState<Partial<Product> | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
 
@@ -50,11 +49,10 @@ export default function DecorsAdmin() {
     setUploadProgress(0);
 
     const form = event.currentTarget;
-    const docId = editingProduct?.id || uuidv4();
     
     try {
-      const productData: Omit<Product, 'image_url' | 'aiHint'> & { id: string } = {
-          id: docId,
+      const productData: Partial<Product> = {
+          ...editingProduct,
           name: form.name.value,
           category: form.category.value,
           price: Number(form.price.value),
@@ -75,7 +73,7 @@ export default function DecorsAdmin() {
     }
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (id: number) => {
     try {
       await deleteDecorProduct(id);
       toast({
@@ -197,9 +195,9 @@ export default function DecorsAdmin() {
             <DialogContent className="sm:max-w-[425px]">
                 <form onSubmit={handleSubmit}>
                     <DialogHeader>
-                        <DialogTitle>{editingProduct ? 'Edit Product' : 'Add New Product'}</DialogTitle>
+                        <DialogTitle>{editingProduct?.id ? 'Edit Product' : 'Add New Product'}</DialogTitle>
                         <DialogDescription>
-                            {editingProduct ? 'Update the details of this product.' : 'Add a new product to your catalog.'}
+                            {editingProduct?.id ? 'Update the details of this product.' : 'Add a new product to your catalog.'}
                         </DialogDescription>
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
@@ -227,7 +225,7 @@ export default function DecorsAdmin() {
                             <div className="grid grid-cols-4 items-center gap-4">
                                 <Label className="text-right">Preview</Label>
                                 <Image
-                                    src={imageFile ? URL.createObjectURL(imageFile) : editingProduct!.image_url}
+                                    src={imageFile ? URL.createObjectURL(imageFile) : editingProduct!.image_url!}
                                     alt="preview"
                                     width={64}
                                     height={64}
@@ -247,7 +245,7 @@ export default function DecorsAdmin() {
                         </DialogClose>
                         <Button type="submit" disabled={isSubmitting}>
                             {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            {isSubmitting ? `Saving...` : (editingProduct ? 'Save Changes' : 'Add Product')}
+                            {isSubmitting ? `Saving...` : (editingProduct?.id ? 'Save Changes' : 'Add Product')}
                         </Button>
                     </DialogFooter>
                 </form>

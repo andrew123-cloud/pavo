@@ -48,7 +48,7 @@ export default function BookingsAdminPage() {
   const { bookings, markBookingAsRead } = usePavoData();
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
 
-  const handleMarkAsRead = (id: string) => {
+  const handleMarkAsRead = (id: number) => {
     markBookingAsRead(id);
   };
   

@@ -1,8 +1,9 @@
 
 
 
+
 export interface PortfolioItem {
-  id: string;
+  id: number;
   title: string;
   location: string;
   imageUrl: string;
@@ -20,7 +21,7 @@ export interface Testimonial {
 }
 
 export interface Product {
-  id: string;
+  id: number;
   name: string;
   price: number;
   category: string;
@@ -30,7 +31,7 @@ export interface Product {
 }
 
 export interface OrderItem { 
-  id: string;
+  id: number;
   name: string; 
   quantity: number; 
   price: number;
@@ -52,7 +53,7 @@ export interface Order {
 }
 
 export interface Booking {
-  id: string;
+  id: number;
   createdAt: string;
   isRead: boolean;
   fullName: string;
@@ -71,7 +72,7 @@ export interface Booking {
 }
 
 export interface BookingSite {
-  id: string;
+  id: number;
   name: string;
   type: 'home' | 'restaurant' | 'caterer';
   description: string;
