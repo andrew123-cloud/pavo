@@ -1,3 +1,4 @@
+
 // src/app/admin/(auth)/login/page.tsx
 'use client';
 
@@ -16,10 +17,16 @@ import { useAuth } from '@/context/auth-context';
 import { Feather, Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 export default function LoginPage() {
   const router = useRouter();
-  const { login } = useAuth();
+  const { login } = useAuth(); // We still use login to update the context for UI purposes
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -31,17 +38,28 @@ export default function LoginPage() {
     const email = formData.get('email') as string;
     const password = formData.get('password') as string;
 
-    // Mock authentication
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      if (email === 'admin@pavo.com' && password === 'password') {
-        login({ name: 'Palvin Atugonza', email });
+      // Use Supabase auth instead of mock
+      const { data, error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (authError) {
+        throw authError;
+      }
+      
+      if (data.user) {
+        // The onAuthStateChange listener in AuthProvider will handle setting the user/session.
+        // We can optimistically update the UI if we want.
+        login({ name: data.user.user_metadata?.name || 'Admin', email: data.user.email! });
         router.push('/admin/dashboard');
       } else {
-        throw new Error('Invalid email or password.');
+         throw new Error('Login failed. Please try again.');
       }
+
     } catch (err: any) {
-      setError(err.message);
+      setError(err.message || 'An unexpected error occurred.');
       setIsLoading(false);
     }
   };

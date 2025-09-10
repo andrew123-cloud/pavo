@@ -9,7 +9,9 @@ import { useToast } from '@/hooks/use-toast';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db as dexieDB, CartItem } from '@/lib/db';
 import imageCompression from 'browser-image-compression';
-import { supabase } from '@/lib/supabase';
+import { createClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { useAuth } from './auth-context';
 
 
 interface DataContextType extends PavoData {
@@ -36,6 +38,12 @@ interface DataContextType extends PavoData {
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
+
+// Initialize Supabase client
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+let supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKey);
+
 
 // Helper for compressing and uploading a single file to Supabase Storage
 const uploadFile = async (file: File, bucketPath: string, onProgress?: (percent: number) => void) => {
@@ -68,7 +76,21 @@ const uploadFile = async (file: File, bucketPath: string, onProgress?: (percent:
 
 export function DataProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
+  const { session } = useAuth(); // Use the session from AuthContext
   const [loading, setLoading] = useState(true);
+
+  // Re-initialize Supabase client when auth state changes
+  useEffect(() => {
+    if (session) {
+      const newSupabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
+        global: { headers: { Authorization: `Bearer ${session.access_token}` } },
+      });
+      supabase = newSupabaseClient;
+    } else {
+       supabase = createClient(supabaseUrl, supabaseAnonKey);
+    }
+  }, [session]);
+
 
   // Dexie live queries for Supabase-backed data
   const portfolioItems = useLiveQuery(() => dexieDB.portfolioItems.toArray(), []);
@@ -158,7 +180,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         return () => {
             supabase.removeChannel(channels);
         };
-  }, [toast]);
+   },[toast]);
   
   
   const deleteFromSupabaseStorage = async (imageUrl: string) => {
@@ -177,10 +199,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const addOrUpdateDecorProduct = (product: Partial<Product>, imageFile?: File | null, onProgress?: (percent: number) => void) => {
     return new Promise(async (resolve, reject) => {
         try {
-            const dataToSave: any = { ...product };
-            if (dataToSave.id) { // This is an update
-                delete dataToSave.id;
-            }
+            const { id, ...productData } = product;
+            const dataToSave: any = { ...productData };
 
             if (imageFile) {
                 const filePath = `products/${Date.now()}-${imageFile.name}`;
@@ -188,7 +208,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 dataToSave.image_url = imageUrl;
             }
 
-            const { data, error } = await supabase.from('products').upsert(dataToSave).select();
+            const query = id ? supabase.from('products').update(dataToSave).eq('id', id) : supabase.from('products').insert(dataToSave);
+            const { data, error } = await query.select();
+            
             if (error) throw error;
             resolve(data);
         } catch (error) {
@@ -200,10 +222,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const addOrUpdatePortfolioItem = (item: Partial<PortfolioItem>, beforeImageFile?: File | null, afterImageFile?: File | null, onProgress?: (percent: number) => void) => {
     return new Promise(async (resolve, reject) => {
         try {
-            const dataToSave: any = { ...item };
-            if (dataToSave.id) {
-                delete dataToSave.id;
-            }
+            const { id, ...itemData } = item;
+            const dataToSave: any = { ...itemData };
 
             if (beforeImageFile) {
                 const filePath = `portfolioItems/${Date.now()}-before-${beforeImageFile.name}`;
@@ -213,7 +233,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 const filePath = `portfolioItems/${Date.now()}-after-${afterImageFile.name}`;
                 dataToSave.imageUrl = await uploadFile(afterImageFile, filePath);
             }
-            const { data, error } = await supabase.from('portfolioItems').upsert(dataToSave).select();
+
+            const query = id ? supabase.from('portfolioItems').update(dataToSave).eq('id', id) : supabase.from('portfolioItems').insert(dataToSave);
+            const { data, error } = await query.select();
+
             if (error) throw error;
             resolve(data);
         } catch (error) {
@@ -225,16 +248,18 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const addOrUpdateBookingSite = (site: Partial<BookingSite>, imageFile?: File | null, onProgress?: (percent: number) => void) => {
     return new Promise(async (resolve, reject) => {
         try {
-            const dataToSave: any = { ...site };
-            if (dataToSave.id) {
-                delete dataToSave.id;
-            }
+            const { id, ...siteData } = site;
+            const dataToSave: any = { ...siteData };
+            
             if (imageFile) {
                 const filePath = `bookingSites/${Date.now()}-${imageFile.name}`;
                 const imageUrl = await uploadFile(imageFile, filePath, onProgress);
                 dataToSave.imageUrl = imageUrl;
             }
-            const { data, error } = await supabase.from('bookingSites').upsert(dataToSave).select();
+
+            const query = id ? supabase.from('bookingSites').update(dataToSave).eq('id', id) : supabase.from('bookingSites').insert(dataToSave);
+            const { data, error } = await query.select();
+            
             if (error) throw error;
             resolve(data);
         } catch (error) {

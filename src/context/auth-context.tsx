@@ -1,6 +1,13 @@
+
 'use client';
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { createClient, Session } from '@supabase/supabase-js';
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 interface User {
   name: string;
@@ -9,6 +16,7 @@ interface User {
 
 interface AuthContextType {
   user: User | null;
+  session: Session | null; // Expose session
   loading: boolean;
   login: (user: User) => void;
   logout: () => void;
@@ -18,34 +26,56 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // In a real app, you'd verify a token with a backend
-    try {
-        const storedUser = localStorage.getItem('pavo-user');
-        if (storedUser) {
-            setUser(JSON.parse(storedUser));
-        }
-    } catch (error) {
-        console.error("Failed to parse user from localStorage", error);
-        localStorage.removeItem('pavo-user');
-    }
-    setLoading(false);
+    const getSession = async () => {
+        const { data: { session } } = await supabase.auth.getSession();
+        setSession(session);
+        setUser(session?.user?.user_metadata as User | null);
+        setLoading(false);
+    };
+
+    getSession();
+
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      async (_event, session) => {
+        setSession(session);
+        setUser(session?.user?.user_metadata as User | null);
+        setLoading(false);
+      }
+    );
+
+    return () => {
+      authListener?.subscription.unsubscribe();
+    };
   }, []);
 
   const login = (userData: User) => {
-    localStorage.setItem('pavo-user', JSON.stringify(userData));
-    setUser(userData);
+     // This function is now mostly a placeholder for the mock login page.
+     // In a real Supabase auth flow, you'd use supabase.auth.signInWithPassword()
+     // and the onAuthStateChange listener would handle the rest.
+     // For the mock, we'll manually set the user state to keep the UI responsive.
+     setUser(userData);
   };
 
-  const logout = () => {
-    localStorage.removeItem('pavo-user');
+  const logout = async () => {
+    await supabase.auth.signOut();
     setUser(null);
+    setSession(null);
+  };
+
+  const value = {
+    user,
+    session,
+    loading,
+    login,
+    logout,
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );
