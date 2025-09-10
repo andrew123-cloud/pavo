@@ -23,7 +23,7 @@ export interface Product {
   name: string;
   price: number;
   category: string;
-  imageUrl: string;
+  image_url: string; // Corrected field name
   aiHint: string;
   stock: number;
 }

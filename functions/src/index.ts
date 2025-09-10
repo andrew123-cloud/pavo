@@ -1,3 +1,4 @@
+
 // functions/src/index.ts
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
@@ -71,6 +72,7 @@ export const saveData = functions
           for (const fieldname in filesToUpload) {
               const { filePath, mimetype, fileName } = filesToUpload[fieldname];
               const fileContent = fs.readFileSync(filePath);
+              // In Supabase, it's common to organize by table name in the bucket
               const destination = `${collectionName}/${fileName}`;
               
               const { data, error: uploadError } = await supabase.storage
@@ -86,14 +88,19 @@ export const saveData = functions
                   .from('pavo-assets')
                   .getPublicUrl(destination);
 
-              fields[fieldname] = publicUrl;
+              // Use 'image_url' for products table as specified
+              if (collectionName === 'products' && fieldname === 'imageUrl') {
+                  fields['image_url'] = publicUrl;
+              } else {
+                  fields[fieldname] = publicUrl;
+              }
               fs.unlinkSync(filePath);
           }
           
           // Remove collectionName as it's not a field in the tables
           const { collectionName: _, ...dataToSave } = fields;
 
-          // Convert numeric types
+          // Convert numeric types for all relevant tables
           if(dataToSave.price) dataToSave.price = Number(dataToSave.price);
           if(dataToSave.stock) dataToSave.stock = Number(dataToSave.stock);
           if(dataToSave.pricePerNight) dataToSave.pricePerNight = Number(dataToSave.pricePerNight);

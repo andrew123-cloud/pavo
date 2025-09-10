@@ -1,4 +1,5 @@
 
+
 // src/app/(public)/decors/page.tsx
 'use client';
 import Image from 'next/image';
@@ -11,6 +12,7 @@ import { usePavoData } from '@/context/data-context';
 import { useToast } from '@/hooks/use-toast';
 import { useState, useEffect } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
+import type { Product } from '@/lib/types';
 
 export default function PavoDecorsHome() {
   const { decorProducts, addToCart, siteSettings, loading } = usePavoData();
@@ -29,7 +31,7 @@ export default function PavoDecorsHome() {
     }
   }, [heroImages.length]);
 
-  const handleAddToCart = (product: (typeof decorProducts)[0]) => {
+  const handleAddToCart = (product: Product) => {
     addToCart(product);
     toast({
       title: "Added to Cart",
@@ -123,7 +125,7 @@ export default function PavoDecorsHome() {
                     <div className="group">
                         <div className="relative h-96 w-full overflow-hidden rounded-lg">
                         <Image
-                            src={product.imageUrl || 'https://placehold.co/400x400.png?text=Image+Not+Available'}
+                            src={product.image_url || 'https://placehold.co/400x400.png?text=Image+Not+Available'}
                             alt={product.name}
                             layout="fill"
                             objectFit="cover"

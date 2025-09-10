@@ -1,3 +1,4 @@
+
 // src/app/admin/decors/page.tsx
 'use client';
 
@@ -53,7 +54,7 @@ export default function DecorsAdmin() {
     const docId = editingProduct?.id || uuidv4();
     
     try {
-      const productData: Omit<Product, 'imageUrl' | 'aiHint'> & { id: string } = {
+      const productData: Omit<Product, 'image_url' | 'aiHint'> & { id: string } = {
           id: docId,
           name: form.name.value,
           category: form.category.value,
@@ -101,7 +102,7 @@ export default function DecorsAdmin() {
         <Card className="mt-4">
             <CardHeader>
                 <CardTitle>Products</CardTitle>
-                <CardDescription>Manage your decor products. Data is synced with Firestore.</CardDescription>
+                <CardDescription>Manage your decor products. Data is synced with Supabase.</CardDescription>
             </CardHeader>
             <CardContent>
                 {loading ? (
@@ -130,7 +131,7 @@ export default function DecorsAdmin() {
                                         alt={product.name}
                                         className="aspect-square rounded-md object-cover"
                                         height="64"
-                                        src={product.imageUrl || 'https://placehold.co/64x64/png'}
+                                        src={product.image_url || 'https://placehold.co/64x64/png'}
                                         width="64"
                                         data-ai-hint={product.aiHint}
                                     />
@@ -168,7 +169,7 @@ export default function DecorsAdmin() {
                                                 <AlertDialogHeader>
                                                 <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                                                 <AlertDialogDescription>
-                                                    This action cannot be undone. This will permanently delete the product from Firestore.
+                                                    This action cannot be undone. This will permanently delete the product from Supabase.
                                                 </AlertDialogDescription>
                                                 </AlertDialogHeader>
                                                 <AlertDialogFooter>
@@ -223,11 +224,11 @@ export default function DecorsAdmin() {
                             <Label htmlFor="imageFile" className="text-right">Image</Label>
                             <Input id="imageFile" name="imageFile" type="file" onChange={(e) => setImageFile(e.target.files?.[0] || null)} className="col-span-3" />
                         </div>
-                        { (editingProduct?.imageUrl || imageFile) &&
+                        { (editingProduct?.image_url || imageFile) &&
                             <div className="grid grid-cols-4 items-center gap-4">
                                 <Label className="text-right">Preview</Label>
                                 <Image
-                                    src={imageFile ? URL.createObjectURL(imageFile) : editingProduct!.imageUrl}
+                                    src={imageFile ? URL.createObjectURL(imageFile) : editingProduct!.image_url}
                                     alt="preview"
                                     width={64}
                                     height={64}

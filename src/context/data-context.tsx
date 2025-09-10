@@ -18,7 +18,7 @@ interface DataContextType extends PavoData {
   loading: boolean;
   addOrUpdatePortfolioItem: (item: PortfolioItem, beforeImageFile?: File | null, afterImageFile?: File | null, onProgress?: (percent: number) => void) => Promise<any>;
   deletePortfolioItem: (id: string) => Promise<void>;
-  addOrUpdateDecorProduct: (product: Product, imageFile?: File | null, onProgress?: (percent: number) => void) => Promise<any>;
+  addOrUpdateDecorProduct: (product: Omit<Product, 'image_url'> & { id: string }, imageFile?: File | null, onProgress?: (percent: number) => void) => Promise<any>;
   deleteDecorProduct: (id: string) => Promise<void>;
   addOrUpdateRentalProperty: (property: Property, imageFile?: File | null, onProgress?: (percent: number) => void) => Promise<any>;
   deleteRentalProperty: (id: string) => Promise<void>;
@@ -126,7 +126,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 { data: settingsData, error: settingsError },
             ] = await Promise.all([
                 supabase.from('portfolioItems').select('*'),
-                supabase.from('decorProducts').select('*'),
+                supabase.from('products').select('*'), // Corrected table name
                 supabase.from('rentalProperties').select('*'),
                 supabase.from('orders').select('*'),
                 supabase.from('bookings').select('*'),
@@ -168,7 +168,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 if(payload.eventType === 'DELETE') dexieDB.portfolioItems.delete(payload.old.id);
                 else dexieDB.portfolioItems.put(payload.new as PortfolioItem);
             })
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'decorProducts' }, (payload) => {
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, (payload) => { // Corrected table name
                 if(payload.eventType === 'DELETE') dexieDB.decorProducts.delete(payload.old.id);
                 else dexieDB.decorProducts.put(payload.new as Product);
             })
@@ -209,8 +209,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  const addOrUpdateDecorProduct = (product: Product, imageFile?: File | null, onProgress?: (percent: number) => void) => {
-    return saveDataWithFiles('decorProducts', product, { imageUrl: imageFile }, onProgress);
+  const addOrUpdateDecorProduct = (product: Omit<Product, 'image_url'> & { id: string }, imageFile?: File | null, onProgress?: (percent: number) => void) => {
+    // The backend expects the file field to be 'imageUrl', which it will then map to 'image_url' in the database.
+    return saveDataWithFiles('products', product, { imageUrl: imageFile }, onProgress);
   };
   
   const addOrUpdateRentalProperty = (property: Property, imageFile?: File | null, onProgress?: (percent: number) => void) => {
@@ -223,8 +224,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
   
   const deleteDecorProduct = async (id: string) => {
     const item = await dexieDB.decorProducts.get(id);
-    if(item && item.imageUrl) await deleteFromSupabaseStorage(item.imageUrl);
-    await supabase.from('decorProducts').delete().eq('id', id);
+    if(item && item.image_url) await deleteFromSupabaseStorage(item.image_url);
+    await supabase.from('products').delete().eq('id', id);
   };
   
   const deleteRentalProperty = async (id: string) => {
@@ -270,7 +271,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
     if (existingItem) {
       await dexieDB.cart.update(product.id, { quantity: existingItem.quantity + 1 });
     } else {
-      await dexieDB.cart.add({ ...product, quantity: 1 });
+      const cartProduct: CartItem = {
+          ...product,
+          imageUrl: product.image_url,
+          quantity: 1,
+      };
+      await dexieDB.cart.add(cartProduct);
     }
   };
   const updateCartQuantity = async (productId: string, quantity: number) => {
