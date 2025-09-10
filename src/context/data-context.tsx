@@ -120,10 +120,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 supabase.from('bookingSites').select('*'),
             ]);
 
-            if (productsError) throw productsError;
-            if (portfolioError) throw portfolioError;
-            if (settingsError) throw settingsError;
-            if (bookingSitesError) throw bookingSitesError;
+            if (productsError) throw new Error(`Products fetch failed: ${productsError.message}`);
+            if (portfolioError) throw new Error(`Portfolio fetch failed: ${portfolioError.message}`);
+            if (settingsError) throw new Error(`Settings fetch failed: ${settingsError.message}`);
+            if (bookingSitesError) throw new Error(`Booking Sites fetch failed: ${bookingSitesError.message}`);
             
             if (!isCancelled) {
               setDecorProducts(productsData || []);
@@ -139,7 +139,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
             }
 
         } catch (error: any) {
-            console.error("[Supabase Sync] Error syncing data:", error);
+            console.error("[Supabase Sync] Error syncing data:", error.message);
             if (!isCancelled) {
               toast({ variant: 'destructive', title: 'Network Error', description: `Could not sync data from server. ${error.message}`});
             }
