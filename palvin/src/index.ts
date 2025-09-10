@@ -10,7 +10,7 @@ import * as fs from "fs";
 admin.initializeApp();
 const corsHandler = cors({ origin: true });
 
-const rtdb = admin.database();
+const db = admin.firestore();
 const storage = admin.storage().bucket();
 
 export const saveData = https.onRequest({ memory: "512MiB", invoker: "public" }, (req, res) => {
@@ -23,14 +23,14 @@ export const saveData = https.onRequest({ memory: "512MiB", invoker: "public" },
         const bb = busboy({ headers: req.headers });
         const tmpdir = os.tmpdir();
 
-        const fields: { [key: string]: any } = {};
+        const fields: { [key: string]: string } = {};
         const fileWrites: Promise<any>[] = [];
         const filesToUpload: { [fieldname: string]: { filePath: string; mimetype: string } } = {};
         
         let collectionName = "";
         let docId = "";
 
-        bb.on("field", (fieldname: string, val: any) => {
+        bb.on("field", (fieldname: string, val: string) => {
             console.log(`Processed field ${fieldname}: ${val}.`);
             if (fieldname === "collectionName") {
                 collectionName = val;
@@ -65,8 +65,7 @@ export const saveData = https.onRequest({ memory: "512MiB", invoker: "public" },
                 return;
             }
             if (!docId) {
-                // For RTDB, we can use push() to generate a unique key.
-                docId = rtdb.ref(collectionName).push().key!;
+                docId = db.collection(collectionName).doc().id;
             }
 
             try {
@@ -93,20 +92,21 @@ export const saveData = https.onRequest({ memory: "512MiB", invoker: "public" },
                     }
                 }
                 
-                const dbPath = `${collectionName}/${docId}`;
-                console.log(`Attempting to write to RTDB path: ${dbPath}`, fields);
+                const docRef = db.collection(collectionName).doc(docId);
+                console.log(`Attempting to write to Firestore path: ${collectionName}/${docId}`, fields);
 
-                const dataToSave = { ...fields, id: docId };
-                await rtdb.ref(dbPath).set(dataToSave);
+                // Use set with merge to handle both creation and updates atomically
+                await docRef.set(fields, { merge: true });
 
-                res.status(200).json({ message: "Data saved successfully!", ...dataToSave });
+                res.status(200).json({ message: "Data saved successfully!", id: docId, ...fields });
 
             } catch (error: any) {
-                console.error(`Error during RTDB operation or file upload for path "${collectionName}/${docId}":`, error);
+                console.error(`Error during Firestore operation or file upload for path "${collectionName}/${docId}":`, error);
                 res.status(500).json({ error: error.message || "An internal server error occurred." });
             }
         });
 
-        (req as any).pipe(bb);
+        // Correctly pipe the request to busboy for a 2nd Gen function
+        req.pipe(bb);
     });
 });
