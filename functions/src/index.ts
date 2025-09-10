@@ -9,17 +9,18 @@ import * as os from 'os';
 import * as fs from 'fs';
 import { createClient } from '@supabase/supabase-js';
 
-// Initialize Supabase Admin Client
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
 admin.initializeApp();
 const corsHandler = cors({ origin: true });
 
 export const saveData = functions
   .runWith({ memory: '512MB', secrets: ["SUPABASE_SERVICE_ROLE_KEY", "NEXT_PUBLIC_SUPABASE_URL"] })
   .https.onRequest((req, res) => {
+    // Initialize Supabase Admin Client inside the function
+    // to access secrets properly.
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
     corsHandler(req, res, () => {
       if (req.method !== 'POST') {
         res.status(405).send('Method Not Allowed');
@@ -114,7 +115,7 @@ export const saveData = functions
 
           if (dbError) throw dbError;
 
-          res.status(200).json({ message: 'Data saved successfully!', ...dbData[0] });
+          res.status(200).json({ message: 'Data saved successfully!', ...(dbData ? dbData[0] : {}) });
 
         } catch (error: any) {
           console.error(`Supabase backend error in table ${collectionName}:`, error);
@@ -122,6 +123,6 @@ export const saveData = functions
         }
       });
 
-      (req as any).pipe(bb);
+      req.pipe(bb);
     });
   });

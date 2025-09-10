@@ -116,25 +116,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
         setLoading(true);
 
         try {
-            // Fetch initial data
-            const [
-                { data: portfolioData, error: portfolioError },
-                { data: decorData, error: decorError },
-                { data: rentalData, error: rentalError },
-                { data: ordersData, error: ordersError },
-                { data: bookingsData, error: bookingsError },
-                { data: settingsData, error: settingsError },
-            ] = await Promise.all([
-                supabase.from('portfolioItems').select('*'),
-                supabase.from('products').select('*'), // Corrected table name
-                supabase.from('rentalProperties').select('*'),
-                supabase.from('orders').select('*'),
-                supabase.from('bookings').select('*'),
-                supabase.from('siteSettings').select('*').eq('id', 'default').single(),
-            ]);
+            // Fetch initial data with improved logging as requested
+            const { data: productsData, error: productsError } = await supabase.from('products').select('*');
+            console.log("Products DATA:", productsData);
+            console.log("Products ERROR:", productsError);
+
+            const { data: portfolioData, error: portfolioError } = await supabase.from('portfolioItems').select('*');
+            const { data: rentalData, error: rentalError } = await supabase.from('rentalProperties').select('*');
+            const { data: ordersData, error: ordersError } = await supabase.from('orders').select('*');
+            const { data: bookingsData, error: bookingsError } = await supabase.from('bookings').select('*');
+            const { data: settingsData, error: settingsError } = await supabase.from('siteSettings').select('*').eq('id', 'default').single();
 
             if(portfolioError) throw portfolioError;
-            if(decorError) throw decorError;
+            if(productsError) throw productsError;
             if(rentalError) throw rentalError;
             if(ordersError) throw ordersError;
             if(bookingsError) throw bookingsError;
@@ -142,7 +136,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
             await dexieDB.transaction('rw', dexieDB.tables, async () => {
                 await dexieDB.portfolioItems.bulkPut(portfolioData || []);
-                await dexieDB.decorProducts.bulkPut(decorData || []);
+                await dexieDB.decorProducts.bulkPut(productsData || []);
                 await dexieDB.rentalProperties.bulkPut(rentalData || []);
                 await dexieDB.orders.bulkPut(ordersData || []);
                 await dexieDB.bookings.bulkPut(bookingsData || []);
