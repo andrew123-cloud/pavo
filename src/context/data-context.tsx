@@ -163,36 +163,24 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
     const handleChanges = (payload: any) => {
         console.log('Realtime Change received!', payload);
-        if (payload.new) {
-            switch(payload.table) {
-                case 'products':
-                    dexieDB.decorProducts.put(payload.new as Product);
-                    break;
-                case 'portfolioItems':
-                    dexieDB.portfolioItems.put(payload.new as PortfolioItem);
-                    break;
-                case 'bookingSites':
-                    dexieDB.bookingSites.put(payload.new as BookingSite);
-                    break;
-                case 'siteSettings':
-                    dexieDB.siteSettings.put(payload.new as SiteSettings);
-                    break;
-            }
+        const { eventType, table, new: newRecord, old: oldRecord } = payload;
+        
+        let targetTable: any;
+        switch(table) {
+            case 'products': targetTable = dexieDB.decorProducts; break;
+            case 'portfolioItems': targetTable = dexieDB.portfolioItems; break;
+            case 'bookingSites': targetTable = dexieDB.bookingSites; break;
+            case 'siteSettings': targetTable = dexieDB.siteSettings; break;
+            default: return;
         }
-        if (payload.eventType === 'DELETE') {
-             switch(payload.table) {
-                case 'products':
-                    dexieDB.decorProducts.delete(payload.old.id);
-                    break;
-                case 'portfolioItems':
-                    dexieDB.portfolioItems.delete(payload.old.id);
-                    break;
-                case 'bookingSites':
-                    dexieDB.bookingSites.delete(payload.old.id);
-                    break;
-                case 'siteSettings':
-                    dexieDB.siteSettings.delete(payload.old.id);
-                    break;
+
+        if (eventType === 'INSERT' || eventType === 'UPDATE') {
+            if (newRecord) {
+                targetTable.put(newRecord).catch((err: any) => console.error(`Dexie put error in ${table}:`, err));
+            }
+        } else if (eventType === 'DELETE') {
+            if (oldRecord && oldRecord.id) {
+                targetTable.delete(oldRecord.id).catch((err: any) => console.error(`Dexie delete error in ${table}:`, err));
             }
         }
     };
@@ -243,8 +231,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 dataToSave.image_url = imageUrl;
             }
             
-            // Use 'id' as the conflict resolution column
-            const { data, error } = await supabase.from('products').upsert(dataToSave, { onConflict: 'id' }).select();
+            const recordToSave = id ? { id, ...dataToSave } : dataToSave;
+            const { data, error } = await supabase.from('products').upsert(recordToSave).select();
             
             if (error) throw error;
             resolve(data);
@@ -269,7 +257,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 dataToSave.imageUrl = await uploadFile(afterImageFile, filePath);
             }
 
-            const { data, error } = await supabase.from('portfolioItems').upsert(dataToSave, { onConflict: 'id' }).select();
+            const recordToSave = id ? { id, ...dataToSave } : dataToSave;
+            const { data, error } = await supabase.from('portfolioItems').upsert(recordToSave).select();
 
             if (error) throw error;
             resolve(data);
@@ -291,7 +280,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 dataToSave.imageUrl = imageUrl;
             }
 
-            const { data, error } = await supabase.from('bookingSites').upsert(dataToSave, { onConflict: 'id' }).select();
+            const recordToSave = id ? { id, ...dataToSave } : dataToSave;
+            const { data, error } = await supabase.from('bookingSites').upsert(recordToSave).select();
             
             if (error) throw error;
             resolve(data);
@@ -339,7 +329,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const { error } = await supabase.from('products').delete().eq('id', id);
         if (error) throw error;
         
-        await dexieDB.decorProducts.delete(id);
     } catch (e: any) {
          toast({ variant: 'destructive', title: 'Delete Failed', description: e.message });
          throw e;
@@ -357,7 +346,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const { error } = await supabase.from('portfolioItems').delete().eq('id', id);
         if (error) throw error;
 
-        await dexieDB.portfolioItems.delete(id);
     } catch (e: any) {
         toast({ variant: 'destructive', title: 'Delete Failed', description: e.message });
         throw e;
@@ -372,7 +360,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const { error } = await supabase.from('bookingSites').delete().eq('id', id);
         if (error) throw error;
 
-        await dexieDB.bookingSites.delete(id);
      } catch (e: any) {
         toast({ variant: 'destructive', title: 'Delete Failed', description: e.message });
         throw e;
