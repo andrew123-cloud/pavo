@@ -199,7 +199,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         return () => {
             supabase.removeChannel(channels);
         };
-  }, [toast]);
+  }}, [toast]);
   
   
   const deleteFromSupabaseStorage = async (imageUrl: string) => {
