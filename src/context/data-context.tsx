@@ -1,3 +1,4 @@
+
 // src/context/data-context.tsx
 'use client';
 
@@ -18,7 +19,7 @@ interface DataContextType extends PavoData {
   deletePortfolioItem: (id: string) => Promise<void>;
   addOrUpdateDecorProduct: (product: Omit<Product, 'image_url' | 'aiHint'> & { id: string }, imageFile?: File | null, onProgress?: (percent: number) => void) => Promise<any>;
   deleteDecorProduct: (id: string) => Promise<void>;
-  addOrUpdateBookingSite: (site: Omit<BookingSite, 'imageUrl' | 'aiHint'> & { id: string }, imageFile?: File | null, onProgress?: (percent: number) => void) => Promise<any>;
+  addOrUpdateBookingSite: (site: Omit<BookingSite, 'imageUrl'> & { id: string }, imageFile?: File | null, onProgress?: (percent: number) => void) => Promise<any>;
   deleteBookingSite: (id: string) => Promise<void>;
   addOrder: (order: Order) => Promise<void>;
   decreaseStock: (productId: string, amount: number) => Promise<void>;
@@ -175,66 +176,83 @@ export function DataProvider({ children }: { children: ReactNode }) {
   };
 
   const addOrUpdateDecorProduct = async (product: Omit<Product, 'image_url' | 'aiHint'> & { id: string }, imageFile?: File | null, onProgress?: (percent: number) => void) => {
-    const dataToSave: any = { ...product };
-    if (imageFile) {
-        const filePath = `products/${Date.now()}-${imageFile.name}`;
-        const imageUrl = await uploadFile(imageFile, filePath, onProgress);
-        dataToSave.image_url = imageUrl;
+    try {
+      const dataToSave: any = { ...product };
+      if (imageFile) {
+          const filePath = `products/${Date.now()}-${imageFile.name}`;
+          const imageUrl = await uploadFile(imageFile, filePath, onProgress);
+          dataToSave.image_url = imageUrl;
+      }
+      const { data, error } = await supabase.from('products').upsert(dataToSave).select();
+      if (error) throw error;
+      return data;
+    } catch(error) {
+      // Reject the promise with the error so it can be caught in the component
+      return Promise.reject(error);
     }
-    const { data, error } = await supabase.from('products').upsert(dataToSave).select();
-    if (error) throw error;
-    return data;
   };
   
   const addOrUpdatePortfolioItem = async (item: Omit<PortfolioItem, 'imageUrl' | 'beforeImageUrl' | 'aiHint'> & { id: string }, beforeImageFile?: File | null, afterImageFile?: File | null, onProgress?: (percent: number) => void) => {
-      const dataToSave: any = { ...item };
-      if (beforeImageFile) {
-          const filePath = `portfolioItems/${Date.now()}-before-${beforeImageFile.name}`;
-          dataToSave.beforeImageUrl = await uploadFile(beforeImageFile, filePath);
-      }
-      if (afterImageFile) {
-          const filePath = `portfolioItems/${Date.now()}-after-${afterImageFile.name}`;
-          dataToSave.imageUrl = await uploadFile(afterImageFile, filePath);
-      }
-      const { data, error } = await supabase.from('portfolioItems').upsert(dataToSave).select();
-      if (error) throw error;
-      return data;
+    try {
+        const dataToSave: any = { ...item };
+        if (beforeImageFile) {
+            const filePath = `portfolioItems/${Date.now()}-before-${beforeImageFile.name}`;
+            dataToSave.beforeImageUrl = await uploadFile(beforeImageFile, filePath);
+        }
+        if (afterImageFile) {
+            const filePath = `portfolioItems/${Date.now()}-after-${afterImageFile.name}`;
+            dataToSave.imageUrl = await uploadFile(afterImageFile, filePath);
+        }
+        const { data, error } = await supabase.from('portfolioItems').upsert(dataToSave).select();
+        if (error) throw error;
+        return data;
+    } catch(error) {
+      return Promise.reject(error);
+    }
   };
 
-  const addOrUpdateBookingSite = async (site: Omit<BookingSite, 'imageUrl' | 'aiHint'> & { id: string }, imageFile?: File | null, onProgress?: (percent: number) => void) => {
-    const dataToSave: any = { ...site };
-    if (imageFile) {
-        const filePath = `bookingSites/${Date.now()}-${imageFile.name}`;
-        const imageUrl = await uploadFile(imageFile, filePath, onProgress);
-        dataToSave.imageUrl = imageUrl;
+  const addOrUpdateBookingSite = async (site: Omit<BookingSite, 'imageUrl'> & { id: string }, imageFile?: File | null, onProgress?: (percent: number) => void) => {
+    try {
+      const dataToSave: any = { ...site };
+      if (imageFile) {
+          const filePath = `bookingSites/${Date.now()}-${imageFile.name}`;
+          const imageUrl = await uploadFile(imageFile, filePath, onProgress);
+          dataToSave.imageUrl = imageUrl;
+      }
+      const { data, error } = await supabase.from('bookingSites').upsert(dataToSave).select();
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      return Promise.reject(error);
     }
-    const { data, error } = await supabase.from('bookingSites').upsert(dataToSave).select();
-    if (error) throw error;
-    return data;
   };
 
   const updateSiteSettings = async (settings: SiteSettings, files: { [key: string]: File | null }) => {
-    const dataToSave = JSON.parse(JSON.stringify(settings)); // Deep copy
+    try {
+      const dataToSave = JSON.parse(JSON.stringify(settings)); // Deep copy
 
-    for (const key in files) {
-        const file = files[key];
-        if (file) {
-            const filePath = `siteSettings/${Date.now()}-${file.name}`;
-            const publicUrl = await uploadFile(file, filePath);
-            
-            // This is complex, relies on key format like 'heroImages.interiors.0'
-            const parts = key.split('.');
-            let current = dataToSave;
-            for (let i = 0; i < parts.length - 1; i++) {
-                current = current[parts[i]];
-            }
-            current[parts[parts.length - 1]] = publicUrl;
-        }
+      for (const key in files) {
+          const file = files[key];
+          if (file) {
+              const filePath = `siteSettings/${Date.now()}-${file.name}`;
+              const publicUrl = await uploadFile(file, filePath);
+              
+              // This is complex, relies on key format like 'heroImages.interiors.0'
+              const parts = key.split('.');
+              let current = dataToSave;
+              for (let i = 0; i < parts.length - 1; i++) {
+                  current = current[parts[i]];
+              }
+              current[parts[parts.length - 1]] = publicUrl;
+          }
+      }
+      
+      const { data, error } = await supabase.from('siteSettings').upsert(dataToSave).select();
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      return Promise.reject(error);
     }
-    
-    const { data, error } = await supabase.from('siteSettings').upsert(dataToSave).select();
-    if (error) throw error;
-    return data;
   };
   
   const deleteDecorProduct = async (id: string) => {

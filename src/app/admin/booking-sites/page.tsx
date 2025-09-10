@@ -1,4 +1,3 @@
-
 // src/app/admin/booking-sites/page.tsx
 'use client';
 
@@ -78,7 +77,7 @@ export default function BookingSitesAdmin() {
 
     } catch (error: any) {
         console.error("Error saving booking site:", error);
-        toast({ variant: 'destructive', title: 'Save Failed', description: error.response?.data?.error || error.message || 'An unknown error occurred' });
+        toast({ variant: 'destructive', title: 'Save Failed', description: error.message || 'An unknown error occurred' });
     } finally {
         setIsSubmitting(false);
         setUploadProgress(0);

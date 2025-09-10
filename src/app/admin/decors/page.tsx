@@ -1,4 +1,3 @@
-
 // src/app/admin/decors/page.tsx
 'use client';
 
@@ -69,7 +68,7 @@ export default function DecorsAdmin() {
 
     } catch (error: any) {
         console.error("Error saving product:", error);
-        toast({ variant: 'destructive', title: 'Save Failed', description: error.response?.data?.error || error.message || 'An unknown error occurred' });
+        toast({ variant: 'destructive', title: 'Save Failed', description: error.message || 'An unknown error occurred' });
     } finally {
         setIsSubmitting(false);
         setUploadProgress(0);
