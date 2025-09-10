@@ -114,7 +114,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     } catch (e) { console.error("Failed to parse orders from localStorage", e); }
   }, []);
 
-  // Sync Supabase to Dexie on initial load
+  // Sync Supabase to Dexie on initial load and setup real-time listeners
   useEffect(() => {
     const syncFromSupabase = async () => {
         console.log("Setting up Supabase real-time listeners and initial data fetch...");
@@ -157,38 +157,73 @@ export function DataProvider({ children }: { children: ReactNode }) {
         } finally {
             setLoading(false);
         }
+    };
+    
+    syncFromSupabase();
 
-        const channels = supabase.channel('pavo-db-changes')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'portfolioItems' }, (payload) => {
-                if(payload.eventType === 'DELETE') dexieDB.portfolioItems.delete(payload.old.id);
-                else dexieDB.portfolioItems.put(payload.new as PortfolioItem);
-            })
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, (payload) => {
-                if(payload.eventType === 'DELETE') dexieDB.decorProducts.delete(payload.old.id);
-                else dexieDB.decorProducts.put(payload.new as Product);
-            })
-             .on('postgres_changes', { event: '*', schema: 'public', table: 'siteSettings' }, (payload) => {
-                if(payload.eventType === 'DELETE') dexieDB.siteSettings.delete(payload.old.id);
-                else dexieDB.siteSettings.put(payload.new as SiteSettings);
-            })
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'bookingSites' }, (payload) => {
-              if (payload.eventType === 'DELETE') dexieDB.bookingSites.delete(payload.old.id);
-              else dexieDB.bookingSites.put(payload.new as BookingSite);
-            })
-            .subscribe();
+    const handleChanges = (payload: any) => {
+        console.log('Realtime Change received!', payload);
+        if (payload.new) {
+            switch(payload.table) {
+                case 'products':
+                    dexieDB.decorProducts.put(payload.new as Product);
+                    break;
+                case 'portfolioItems':
+                    dexieDB.portfolioItems.put(payload.new as PortfolioItem);
+                    break;
+                case 'bookingSites':
+                    dexieDB.bookingSites.put(payload.new as BookingSite);
+                    break;
+                case 'siteSettings':
+                    dexieDB.siteSettings.put(payload.new as SiteSettings);
+                    break;
+            }
+        }
+        if (payload.eventType === 'DELETE') {
+             switch(payload.table) {
+                case 'products':
+                    dexieDB.decorProducts.delete(payload.old.id);
+                    break;
+                case 'portfolioItems':
+                    dexieDB.portfolioItems.delete(payload.old.id);
+                    break;
+                case 'bookingSites':
+                    dexieDB.bookingSites.delete(payload.old.id);
+                    break;
+                case 'siteSettings':
+                    dexieDB.siteSettings.delete(payload.old.id);
+                    break;
+            }
+        }
+    };
 
-        return () => {
-            supabase.removeChannel(channels);
-        };
-   },[toast]);
+    const channels = supabase.channel('pavo-db-changes')
+        .on('postgres_changes', { event: '*', schema: 'public' }, handleChanges)
+        .subscribe((status, err) => {
+            if (status === 'SUBSCRIBED') {
+                console.log('Connected to Supabase real-time!');
+            }
+            if (status === 'CHANNEL_ERROR') {
+                console.error('Real-time channel error:', err);
+            }
+        });
+
+    return () => {
+        supabase.removeChannel(channels);
+    };
+   // eslint-disable-next-line react-hooks/exhaustive-deps
+   },[session]); // Rerun effect when session changes to get new data for new user
   
   
   const deleteFromSupabaseStorage = async (imageUrl: string) => {
     try {
+        // Correctly extract the path from the public URL
         const urlObj = new URL(imageUrl);
         const path = urlObj.pathname.split('/pavo-assets/')[1];
         if (path) {
-            await supabase.storage.from('pavo-assets').remove([path]);
+            console.log(`Attempting to delete from storage: pavo-assets/${path}`);
+            const { error } = await supabase.storage.from('pavo-assets').remove([path]);
+            if (error) throw error;
         }
     } catch(error: any) {
         console.error("Error deleting image from Supabase storage:", error);
@@ -196,7 +231,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const addOrUpdateDecorProduct = (product: Partial<Product>, imageFile?: File | null, onProgress?: (percent: number) => void) => {
+  const addOrUpdateDecorProduct = (product: Partial<Product>, imageFile?: File | null, onProgress?: (percent: number) => void): Promise<any> => {
     return new Promise(async (resolve, reject) => {
         try {
             const { id, ...productData } = product;
@@ -207,9 +242,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 const imageUrl = await uploadFile(imageFile, filePath, onProgress);
                 dataToSave.image_url = imageUrl;
             }
-
-            const query = id ? supabase.from('products').update(dataToSave).eq('id', id) : supabase.from('products').insert(dataToSave);
-            const { data, error } = await query.select();
+            
+            // Use 'id' as the conflict resolution column
+            const { data, error } = await supabase.from('products').upsert(dataToSave, { onConflict: 'id' }).select();
             
             if (error) throw error;
             resolve(data);
@@ -219,7 +254,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     });
   };
   
-  const addOrUpdatePortfolioItem = (item: Partial<PortfolioItem>, beforeImageFile?: File | null, afterImageFile?: File | null, onProgress?: (percent: number) => void) => {
+  const addOrUpdatePortfolioItem = (item: Partial<PortfolioItem>, beforeImageFile?: File | null, afterImageFile?: File | null, onProgress?: (percent: number) => void): Promise<any> => {
     return new Promise(async (resolve, reject) => {
         try {
             const { id, ...itemData } = item;
@@ -234,8 +269,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 dataToSave.imageUrl = await uploadFile(afterImageFile, filePath);
             }
 
-            const query = id ? supabase.from('portfolioItems').update(dataToSave).eq('id', id) : supabase.from('portfolioItems').insert(dataToSave);
-            const { data, error } = await query.select();
+            const { data, error } = await supabase.from('portfolioItems').upsert(dataToSave, { onConflict: 'id' }).select();
 
             if (error) throw error;
             resolve(data);
@@ -245,7 +279,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     });
   };
 
-  const addOrUpdateBookingSite = (site: Partial<BookingSite>, imageFile?: File | null, onProgress?: (percent: number) => void) => {
+  const addOrUpdateBookingSite = (site: Partial<BookingSite>, imageFile?: File | null, onProgress?: (percent: number) => void): Promise<any> => {
     return new Promise(async (resolve, reject) => {
         try {
             const { id, ...siteData } = site;
@@ -257,8 +291,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 dataToSave.imageUrl = imageUrl;
             }
 
-            const query = id ? supabase.from('bookingSites').update(dataToSave).eq('id', id) : supabase.from('bookingSites').insert(dataToSave);
-            const { data, error } = await query.select();
+            const { data, error } = await supabase.from('bookingSites').upsert(dataToSave, { onConflict: 'id' }).select();
             
             if (error) throw error;
             resolve(data);
@@ -268,7 +301,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     });
   };
 
-  const updateSiteSettings = (settings: SiteSettings, files: { [key: string]: File | null }) => {
+  const updateSiteSettings = (settings: SiteSettings, files: { [key: string]: File | null }): Promise<any> => {
      return new Promise(async (resolve, reject) => {
         try {
         const dataToSave = JSON.parse(JSON.stringify(settings)); // Deep copy
@@ -279,6 +312,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 const filePath = `siteSettings/${Date.now()}-${file.name}`;
                 const publicUrl = await uploadFile(file, filePath);
                 
+                // This logic correctly handles nested paths like "heroImages.suite.0"
                 const parts = key.split('.');
                 let current = dataToSave;
                 for (let i = 0; i < parts.length - 1; i++) {
@@ -299,10 +333,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
   
   const deleteDecorProduct = async (id: number) => {
     try {
-        const item = await dexieDB.decorProducts.get(id);
-        if(item && item.image_url) await deleteFromSupabaseStorage(item.image_url);
+        const itemToDelete = await dexieDB.decorProducts.get(id);
+        if(itemToDelete && itemToDelete.image_url) await deleteFromSupabaseStorage(itemToDelete.image_url);
+        
         const { error } = await supabase.from('products').delete().eq('id', id);
         if (error) throw error;
+        
+        await dexieDB.decorProducts.delete(id);
     } catch (e: any) {
          toast({ variant: 'destructive', title: 'Delete Failed', description: e.message });
          throw e;
@@ -311,12 +348,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const deletePortfolioItem = async (id: number) => {
     try {
-        const item = await dexieDB.portfolioItems.get(id);
-        if (!item) return;
-        if(item.imageUrl) await deleteFromSupabaseStorage(item.imageUrl);
-        if(item.beforeImageUrl) await deleteFromSupabaseStorage(item.beforeImageUrl);
+        const itemToDelete = await dexieDB.portfolioItems.get(id);
+        if (!itemToDelete) return;
+        
+        if(itemToDelete.imageUrl) await deleteFromSupabaseStorage(itemToDelete.imageUrl);
+        if(itemToDelete.beforeImageUrl) await deleteFromSupabaseStorage(itemToDelete.beforeImageUrl);
+        
         const { error } = await supabase.from('portfolioItems').delete().eq('id', id);
         if (error) throw error;
+
+        await dexieDB.portfolioItems.delete(id);
     } catch (e: any) {
         toast({ variant: 'destructive', title: 'Delete Failed', description: e.message });
         throw e;
@@ -325,10 +366,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const deleteBookingSite = async (id: number) => {
      try {
-        const item = await dexieDB.bookingSites.get(id);
-        if (item && item.imageUrl) await deleteFromSupabaseStorage(item.imageUrl);
+        const itemToDelete = await dexieDB.bookingSites.get(id);
+        if (itemToDelete && itemToDelete.imageUrl) await deleteFromSupabaseStorage(itemToDelete.imageUrl);
+        
         const { error } = await supabase.from('bookingSites').delete().eq('id', id);
         if (error) throw error;
+
+        await dexieDB.bookingSites.delete(id);
      } catch (e: any) {
         toast({ variant: 'destructive', title: 'Delete Failed', description: e.message });
         throw e;
@@ -345,7 +389,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const addBooking = async (booking: Omit<Booking, 'id' | 'createdAt' | 'isRead'>) => {
      const newBooking: Booking = { 
         ...booking,
-        id: Math.floor(Math.random() * 1000000), // temp id
+        id: Date.now(), // Use timestamp for a simple unique ID
         createdAt: new Date().toISOString(),
         isRead: false
      }
