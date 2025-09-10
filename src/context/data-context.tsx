@@ -229,9 +229,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
     try {
         const item = await dexieDB.decorProducts.get(id);
         if(item && item.image_url) await deleteFromSupabaseStorage(item.image_url);
-        await supabase.from('products').delete().eq('id', id);
+        const { error } = await supabase.from('products').delete().eq('id', id);
+        if (error) throw error;
     } catch (e: any) {
          toast({ variant: 'destructive', title: 'Delete Failed', description: e.message });
+         throw e;
     }
   };
 
@@ -241,9 +243,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
         if (!item) return;
         if(item.imageUrl) await deleteFromSupabaseStorage(item.imageUrl);
         if(item.beforeImageUrl) await deleteFromSupabaseStorage(item.beforeImageUrl);
-        await supabase.from('portfolioItems').delete().eq('id', id);
+        const { error } = await supabase.from('portfolioItems').delete().eq('id', id);
+        if (error) throw error;
     } catch (e: any) {
         toast({ variant: 'destructive', title: 'Delete Failed', description: e.message });
+        throw e;
     }
   };
 
@@ -251,9 +255,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
      try {
         const item = await dexieDB.bookingSites.get(id);
         if (item && item.imageUrl) await deleteFromSupabaseStorage(item.imageUrl);
-        await supabase.from('bookingSites').delete().eq('id', id);
+        const { error } = await supabase.from('bookingSites').delete().eq('id', id);
+        if (error) throw error;
      } catch (e: any) {
         toast({ variant: 'destructive', title: 'Delete Failed', description: e.message });
+        throw e;
      }
   };
 
