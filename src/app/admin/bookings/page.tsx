@@ -1,3 +1,4 @@
+
 // src/app/admin/bookings/page.tsx
 'use client';
 
@@ -124,7 +125,7 @@ export default function BookingsAdminPage() {
             </Table>
           ) : (
              <div className="text-center py-16">
-                <p className="text-muted-foreground">No bookings in this category.</p>
+                <p className="text-muted-foreground">No requests in this category.</p>
              </div>
           )}
         </CardContent>
@@ -168,7 +169,7 @@ export default function BookingsAdminPage() {
       </div>
        <Card className="mt-4">
         <CardHeader>
-          <CardTitle>Booking Requests</CardTitle>
+          <CardTitle>Interior Design Requests</CardTitle>
           <CardDescription>
             A list of all client requests for Interior Design services.
           </CardDescription>
@@ -181,7 +182,7 @@ export default function BookingsAdminPage() {
           </TabsContent>
         <CardFooter>
           <div className="text-xs text-muted-foreground">
-            Showing <strong>1-{bookings.length}</strong> of <strong>{bookings.length}</strong> bookings
+            Showing <strong>1-{bookings.length}</strong> of <strong>{bookings.length}</strong> requests
           </div>
         </CardFooter>
        </Card>
@@ -191,7 +192,7 @@ export default function BookingsAdminPage() {
       <Dialog open={!!selectedBooking} onOpenChange={() => setSelectedBooking(null)}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle className="font-headline text-2xl">Booking Details</DialogTitle>
+            <DialogTitle className="font-headline text-2xl">Request Details</DialogTitle>
             <DialogDescription>
               From: {selectedBooking.fullName} ({selectedBooking.email})
             </DialogDescription>

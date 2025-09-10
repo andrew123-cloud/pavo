@@ -1,3 +1,4 @@
+
 import Link from 'next/link';
 import { Facebook, Instagram } from 'lucide-react';
 import PavoLogo from '@/components/pavo-logo';
@@ -67,8 +68,8 @@ export default function Footer() {
                 </Link>
               </li>
               <li>
-                <Link href="/homes" className="text-muted-foreground transition-colors hover:text-primary">
-                  Homes
+                <Link href="/bookings" className="text-muted-foreground transition-colors hover:text-primary">
+                  Bookings
                 </Link>
               </li>
             </ul>

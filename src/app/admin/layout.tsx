@@ -8,7 +8,6 @@ import {
   Home,
   Palette,
   Sparkles,
-  Hotel,
   Settings,
   PanelLeft,
   User,
@@ -16,7 +15,8 @@ import {
   ShoppingBag,
   Bell,
   Check,
-  BookMarked
+  BookMarked,
+  CalendarCheck
 } from 'lucide-react';
 
 import { usePathname, useRouter } from 'next/navigation';
@@ -82,7 +82,7 @@ function AdminLayout({ children }: { children: React.ReactNode }) {
                   }`}
                 >
                   <BookMarked className="h-4 w-4" />
-                  Bookings
+                  Interior Requests
                 </Link>
                 <Link
                   href="/admin/orders"
@@ -118,15 +118,15 @@ function AdminLayout({ children }: { children: React.ReactNode }) {
                   Decors
                 </Link>
                 <Link
-                  href="/admin/homes"
+                  href="/admin/bookings-management"
                   className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-all hover:text-primary ${
-                    pathname.startsWith('/admin/homes')
+                    pathname.startsWith('/admin/bookings-management')
                       ? 'bg-muted text-primary'
                       : 'text-muted-foreground'
                   }`}
                 >
-                  <Hotel className="h-4 w-4" />
-                  Homes
+                  <CalendarCheck className="h-4 w-4" />
+                  Bookings
                 </Link>
                  <Link
                   href="/admin/settings"
@@ -171,7 +171,7 @@ function AdminLayout({ children }: { children: React.ReactNode }) {
                     className="mx-[-0.65rem] flex items-center gap-4 rounded-xl px-3 py-2 text-muted-foreground hover:text-foreground"
                   >
                     <BookMarked className="h-5 w-5" />
-                    Bookings
+                    Interior Requests
                   </Link>
                    <Link
                     href="/admin/orders"
@@ -195,11 +195,11 @@ function AdminLayout({ children }: { children: React.ReactNode }) {
                     Decors
                   </Link>
                   <Link
-                    href="/admin/homes"
+                    href="/admin/bookings-management"
                     className="mx-[-0.65rem] flex items-center gap-4 rounded-xl px-3 py-2 text-muted-foreground hover:text-foreground"
                   >
-                    <Hotel className="h-5 w-5" />
-                    Homes
+                    <CalendarCheck className="h-5 w-5" />
+                    Bookings
                   </Link>
                   <Link
                     href="/admin/settings"
@@ -233,7 +233,7 @@ function AdminLayout({ children }: { children: React.ReactNode }) {
                 </PopoverTrigger>
                 <PopoverContent className="w-80 p-0">
                     <div className="p-4 border-b">
-                        <h4 className="font-medium text-sm">Booking Requests</h4>
+                        <h4 className="font-medium text-sm">Interior Design Requests</h4>
                     </div>
                     <div className="p-2 max-h-80 overflow-y-auto">
                         {bookings.length > 0 ? (
@@ -254,13 +254,13 @@ function AdminLayout({ children }: { children: React.ReactNode }) {
                                 </Link>
                             ))
                         ): (
-                            <p className="text-center text-sm text-muted-foreground py-8">No new bookings.</p>
+                            <p className="text-center text-sm text-muted-foreground py-8">No new booking requests.</p>
                         )}
                     </div>
                      {bookings.length > 0 && (
                         <div className="p-2 border-t text-center">
                             <Button variant="link" size="sm" asChild>
-                                <Link href="/admin/bookings">View all bookings</Link>
+                                <Link href="/admin/bookings">View all requests</Link>
                             </Button>
                         </div>
                      )}

@@ -4,7 +4,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { ArrowRight, Feather, Hotel, Palette, Sparkles, MoveRight } from 'lucide-react';
+import { ArrowRight, Feather, Hotel, Palette, Sparkles, MoveRight, CalendarCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
@@ -59,11 +59,11 @@ export default function PavoSuiteHome() {
       cta: 'Shop Decors',
     },
     {
-      name: 'Pavo Homes',
-      description: brandDescriptions.homes,
-      icon: <Hotel className="h-8 w-8" />,
-      href: '/homes',
-      cta: 'Find a Home',
+      name: 'Pavo Bookings',
+      description: brandDescriptions.homes, // Description needs update
+      icon: <CalendarCheck className="h-8 w-8" />,
+      href: '/bookings',
+      cta: 'Make a Booking',
     },
   ];
 

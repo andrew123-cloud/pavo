@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -13,7 +14,7 @@ const navLinks = [
   { href: '/', label: 'Home' },
   { href: '/interiors', label: 'Interiors' },
   { href: '/decors', label: 'Decors' },
-  { href: '/homes', label: 'Homes' },
+  { href: '/bookings', label: 'Bookings' },
   { href: '/recommendations', label: 'AI Helper' },
 ];
 
@@ -25,7 +26,7 @@ export default function Header() {
   const getActiveSite = (path: string) => {
     if (path.startsWith('/interiors')) return '/interiors';
     if (path.startsWith('/decors')) return '/decors';
-    if (path.startsWith('/homes')) return '/homes';
+    if (path.startsWith('/bookings')) return '/bookings';
     if (path.startsWith('/recommendations')) return '/recommendations';
     if (path.startsWith('/cart')) return '/cart';
     if (path === '/') return '/';
