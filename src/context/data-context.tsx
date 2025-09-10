@@ -116,24 +116,33 @@ export function DataProvider({ children }: { children: ReactNode }) {
         setLoading(true);
 
         try {
-            // Fetch initial data with improved logging as requested
-            const { data: productsData, error: productsError } = await supabase.from('products').select('*');
-            console.log("Products DATA:", productsData);
-            console.log("Products ERROR:", productsError);
+            // Fetch initial data
+            const [
+                { data: productsData, error: productsError },
+                { data: portfolioData, error: portfolioError },
+                { data: rentalData, error: rentalError },
+                { data: ordersData, error: ordersError },
+                { data: bookingsData, error: bookingsError },
+                { data: settingsData, error: settingsError },
+            ] = await Promise.all([
+                supabase.from('products').select('*'),
+                supabase.from('portfolioItems').select('*'),
+                supabase.from('rentalProperties').select('*'),
+                supabase.from('orders').select('*'),
+                supabase.from('bookings').select('*'),
+                supabase.from('siteSettings').select('*').eq('id', 'default').single(),
+            ]);
 
-            const { data: portfolioData, error: portfolioError } = await supabase.from('portfolioItems').select('*');
-            const { data: rentalData, error: rentalError } = await supabase.from('rentalProperties').select('*');
-            const { data: ordersData, error: ordersError } = await supabase.from('orders').select('*');
-            const { data: bookingsData, error: bookingsError } = await supabase.from('bookings').select('*');
-            const { data: settingsData, error: settingsError } = await supabase.from('siteSettings').select('*').eq('id', 'default').single();
+            // Consolidate error checking
+            const errors = { productsError, portfolioError, rentalError, ordersError, bookingsError, settingsError };
+            for (const [key, error] of Object.entries(errors)) {
+                // For settings, a "PGRST116" (exact one row not found) error is okay on first load
+                if (error && (key !== 'settingsError' || error.code !== 'PGRST116')) {
+                    throw error;
+                }
+            }
 
-            if(portfolioError) throw portfolioError;
-            if(productsError) throw productsError;
-            if(rentalError) throw rentalError;
-            if(ordersError) throw ordersError;
-            if(bookingsError) throw bookingsError;
-            if(settingsError && settingsError.code !== 'PGRST116') throw settingsError; // Ignore "exact one row" error for settings if not found
-
+            // Update local Dexie DB
             await dexieDB.transaction('rw', dexieDB.tables, async () => {
                 await dexieDB.portfolioItems.bulkPut(portfolioData || []);
                 await dexieDB.decorProducts.bulkPut(productsData || []);
@@ -143,7 +152,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 if (settingsData) {
                     await dexieDB.siteSettings.put(settingsData);
                 } else {
+                    // If no settings exist in Supabase, create the initial default one
                     await dexieDB.siteSettings.put(initialSiteSettings);
+                    await supabase.from('siteSettings').insert(initialSiteSettings);
                 }
             });
             
@@ -162,7 +173,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 if(payload.eventType === 'DELETE') dexieDB.portfolioItems.delete(payload.old.id);
                 else dexieDB.portfolioItems.put(payload.new as PortfolioItem);
             })
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, (payload) => { // Corrected table name
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, (payload) => {
                 if(payload.eventType === 'DELETE') dexieDB.decorProducts.delete(payload.old.id);
                 else dexieDB.decorProducts.put(payload.new as Product);
             })
