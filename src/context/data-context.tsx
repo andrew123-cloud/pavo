@@ -115,12 +115,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const decorProducts = useLiveQuery(() => dexieDB.decorProducts.toArray(), []);
   const rentalProperties = useLiveQuery(() => dexieDB.rentalProperties.toArray(), []);
   const bookingSites = useLiveQuery(() => dexieDB.bookingSites.toArray(), []);
+  const siteSettings = useLiveQuery(() => dexieDB.siteSettings.toArray(), []);
   const cart = useLiveQuery(() => dexieDB.cart.toArray(), []);
 
   // State for localStorage-backed data
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
-  const [siteSettings, setSiteSettings] = useState<SiteSettings>(initialSiteSettings);
 
   // Effect for initializing localStorage data
   useEffect(() => {
@@ -154,7 +154,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
         setLoading(true);
 
         try {
-            // Fetch initial data
             const [
                 { data: productsData, error: productsError },
                 { data: portfolioData, error: portfolioError },
@@ -181,15 +180,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 await dexieDB.decorProducts.bulkPut(productsData || []);
                 await dexieDB.rentalProperties.bulkPut(rentalData || []);
                 await dexieDB.bookingSites.bulkPut(bookingSitesData || []);
+                if (settingsData && settingsData.length > 0) {
+                    await dexieDB.siteSettings.bulkPut(settingsData);
+                } else {
+                     await dexieDB.siteSettings.put(initialSiteSettings);
+                }
             });
-
-            if (settingsData && settingsData.length > 0) {
-              setSiteSettings(settingsData[0]);
-            } else {
-              // If no settings in DB, initialize it with default
-              await supabase.from('siteSettings').upsert(initialSiteSettings);
-              setSiteSettings(initialSiteSettings);
-            }
             
              console.log("Initial data sync from Supabase successful.");
 
@@ -215,7 +211,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 else dexieDB.rentalProperties.put(payload.new as Property);
             })
              .on('postgres_changes', { event: '*', schema: 'public', table: 'siteSettings' }, (payload) => {
-                setSiteSettings(payload.new as SiteSettings)
+                dexieDB.siteSettings.put(payload.new as SiteSettings);
             })
             .on('postgres_changes', { event: '*', schema: 'public', table: 'bookingSites' }, (payload) => {
               if (payload.eventType === 'DELETE') dexieDB.bookingSites.delete(payload.old.id);
@@ -354,9 +350,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
     bookingSites: bookingSites || [],
     orders: (orders || []).sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
     bookings: bookings.sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
-    siteSettings: siteSettings,
+    siteSettings: siteSettings?.[0] || initialSiteSettings,
     testimonials: testimonials,
-    loading: loading || portfolioItems === undefined || decorProducts === undefined || rentalProperties === undefined,
+    loading: loading || portfolioItems === undefined || decorProducts === undefined || rentalProperties === undefined || bookingSites === undefined || siteSettings === undefined,
     addOrUpdatePortfolioItem,
     deletePortfolioItem,
     addOrUpdateDecorProduct,
