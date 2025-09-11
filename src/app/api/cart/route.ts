@@ -28,17 +28,19 @@ async function getCartWithItems(cartId: string) {
 
     if (!data) return { id: cartId, user_id: null, cart_items: [] };
 
-    // Transform the data to match the CartItem structure
-    const transformedItems = data.cart_items.map((item: any) => ({
-      id: item.product_id,
-      name: item.products.name,
-      price: item.products.price,
-      imageUrl: item.products.image_url,
-      aiHint: item.products.aiHint,
-      stock: item.products.stock,
-      category: item.products.category,
-      quantity: item.quantity,
-      cart_item_id: item.id, // Keep the original cart_item id for updates/deletes
+    // Transform the data to match the CartItem structure, filtering out items whose products have been deleted.
+    const transformedItems = data.cart_items
+      .filter((item: any) => item.products !== null) // This is the fix.
+      .map((item: any) => ({
+          id: item.product_id,
+          name: item.products.name,
+          price: item.products.price,
+          imageUrl: item.products.image_url,
+          aiHint: item.products.aiHint,
+          stock: item.products.stock,
+          category: item.products.category,
+          quantity: item.quantity,
+          cart_item_id: item.id, // Keep the original cart_item id for updates/deletes
     }));
     
     return { ...data, cart_items: transformedItems };
