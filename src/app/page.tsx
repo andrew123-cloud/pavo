@@ -40,7 +40,7 @@ export default function PavoSuiteHome() {
     }
   }, [founder]);
   
-  const suiteHeroImages = heroImages.suite.length > 0 ? heroImages.suite : ['https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=250&auto=format&fit=crop'];
+  const suiteHeroImages = (heroImages?.suite?.length || 0) > 0 ? heroImages.suite : ['https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=250&auto=format&fit=crop'];
 
 
   const pavoBrands = [
