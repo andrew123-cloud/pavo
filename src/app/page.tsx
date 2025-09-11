@@ -46,21 +46,21 @@ export default function PavoSuiteHome() {
   const pavoBrands = [
     {
       name: 'Pavo Interiors',
-      description: brandDescriptions.interiors,
+      description: brandDescriptions?.interiors || '',
       icon: <Palette className="h-8 w-8" />,
       href: '/interiors',
       cta: 'Explore Interiors',
     },
     {
       name: 'Pavo Decors',
-      description: brandDescriptions.decors,
+      description: brandDescriptions?.decors || '',
       icon: <Sparkles className="h-8 w-8" />,
       href: '/decors',
       cta: 'Shop Decors',
     },
     {
       name: 'Pavo Bookings',
-      description: brandDescriptions.homes, // Description needs update
+      description: brandDescriptions?.homes || '',
       icon: <CalendarCheck className="h-8 w-8" />,
       href: '/bookings',
       cta: 'Make a Booking',
@@ -163,7 +163,7 @@ export default function PavoSuiteHome() {
                 <h2 className="font-serif text-4xl font-bold tracking-tight text-foreground md:text-5xl">
                   A Vision of Elegance
                 </h2>
-                 <div className="mt-6 text-lg text-muted-foreground space-y-4" dangerouslySetInnerHTML={{ __html: founder.mainDescription.replace(/\n/g, '<br />') }} />
+                 <div className="mt-6 text-lg text-muted-foreground space-y-4" dangerouslySetInnerHTML={{ __html: (founder?.mainDescription || '').replace(/\n/g, '<br />') }} />
                 <Button asChild variant="link" className="text-lg mt-6 p-0 text-primary hover:text-primary/80">
                   <Link href="/about">
                     Learn More About Our Story <ArrowRight className="ml-2" />
@@ -176,7 +176,7 @@ export default function PavoSuiteHome() {
                     className="absolute inset-0 transition-transform duration-500 ease-in-out backface-hidden group-hover:rotate-y-180 rounded-2xl"
                   >
                      <Image
-                      src={founder.imageUrls[currentFounderImageIndex] || '/palvin-portrait.jpg'}
+                      src={founder?.imageUrls?.[currentFounderImageIndex] || '/palvin-portrait.jpg'}
                       alt="Portrait of Palvin Atugonza, founder of Pavo"
                       fill
                       className="object-cover"
@@ -190,7 +190,7 @@ export default function PavoSuiteHome() {
                      <div>
                        <Feather className="h-12 w-12 text-primary mx-auto" />
                        <h3 className="mt-4 font-serif text-2xl font-bold">The Pavo Philosophy</h3>
-                       <p className="mt-2 text-muted-foreground">{founder.philosophy}</p>
+                       <p className="mt-2 text-muted-foreground">{founder?.philosophy || ''}</p>
                      </div>
                   </div>
                 </div>
