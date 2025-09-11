@@ -66,9 +66,9 @@ export async function POST(req: NextRequest) {
             }
         }
 
-        // Specific handling for siteSettings table with string 'id'
+        // Specific handling for siteSettings table with numeric id '1'
         if (collectionName === 'siteSettings') {
-            fields['id'] = 'default';
+            fields['id'] = 1;
         }
 
         // Upload files to Supabase Storage

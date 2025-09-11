@@ -1,4 +1,3 @@
-
 // src/context/data-context.tsx
 'use client';
 
@@ -48,9 +47,6 @@ const DataContext = createContext<PavoDataContextType | undefined>(undefined);
 export function DataProvider({ children }: { children: React.ReactNode }) {
   const { session } = useAuth();
   const { toast } = useToast();
-
-  // No longer need to manage a separate supabase client instance here
-  // We will use the imported singleton instance directly
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -219,7 +215,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   }, [toast]);
   
   const updateSiteSettings = useCallback(async (settings: SiteSettings, files: {[key: string]: File | null}) => {
-     const savedSettings = await saveDataWithFiles('siteSettings', settings, files);
+     const savedSettings = await saveDataWithFiles('siteSettings', { ...settings, id: 1 }, files);
      setSiteSettings(savedSettings);
   }, [saveDataWithFiles]);
 
@@ -333,7 +329,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           supabase.from('portfolioItems').select('*').order('id'),
           supabase.from('bookings').select('*').order('createdAt', { ascending: false }),
           supabase.from('bookingSites').select('*').order('name'),
-          supabase.from('siteSettings').select('*').eq('id', 'default').single(),
+          supabase.from('siteSettings').select('*').eq('id', 1).single(),
           supabase.from('orders').select('*').order('created_at', { ascending: false }),
         ]);
         
