@@ -1,8 +1,11 @@
+
 // src/app/api/saveData/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import busboy from 'busboy';
 import { Readable } from 'stream';
+import { v4 as uuidv4 } from 'uuid';
+import path from 'path';
 
 // Helper to parse string values to their likely types
 const parseValue = (value: any): any => {
@@ -63,10 +66,13 @@ export async function POST(req: NextRequest) {
 
         bb.on('file', async (fieldname: string, file: Readable, info: busboy.FileInfo) => {
             const { filename, mimeType } = info;
-            const sanitizedFilename = `${Date.now()}-${filename.replace(/[^a-zA-Z0-9.-_]/g, '_')}`;
+            // Generate a unique, URL-safe filename
+            const fileExt = path.extname(filename);
+            const urlSafeFilename = `${uuidv4()}${fileExt}`;
+
             try {
                 const fileContent = await streamToBuffer(file);
-                filesToUpload[fieldname] = { fileContent, mimetype: mimeType, fileName: sanitizedFilename };
+                filesToUpload[fieldname] = { fileContent, mimetype: mimeType, fileName: urlSafeFilename };
             } catch (error) {
                 reject(error);
             }
@@ -109,7 +115,11 @@ export async function POST(req: NextRequest) {
             
             // This is the corrected logic block
             if (fieldname === 'imageFile') {
-                fields['imageUrl'] = publicUrl;
+                 if (collectionName === 'products') {
+                    fields['image_url'] = publicUrl;
+                } else {
+                    fields['imageUrl'] = publicUrl;
+                }
             } else if (fieldname === 'beforeImageFile') {
                 fields['beforeImageUrl'] = publicUrl;
             } else {
@@ -128,11 +138,11 @@ export async function POST(req: NextRequest) {
             }
         }
         
-        // The `products` table has `image_url`, not `imageUrl`. Let's handle that.
-        if (collectionName === 'products' && fields.imageUrl) {
-            fields.image_url = fields.imageUrl;
-            delete fields.imageUrl; // remove the incorrect field name
-        }
+        // This block is no longer needed due to the change above
+        // if (collectionName === 'products' && fields.imageUrl) {
+        //     fields.image_url = fields.imageUrl;
+        //     delete fields.imageUrl; // remove the incorrect field name
+        // }
 
 
         const { data: dbData, error: dbError } = await supabase
