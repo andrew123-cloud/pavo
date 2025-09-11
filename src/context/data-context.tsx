@@ -350,7 +350,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           supabase.from('portfolioItems').select('*').order('id'),
           supabase.from('bookings').select('*').order('createdAt', { ascending: false }),
           supabase.from('bookingSites').select('*').order('name'),
-          supabase.from('siteSettings').select('*').eq('id', 1).single(),
+          supabase.from('siteSettings').select('*').eq('id', 'default').single(),
           supabase.from('orders').select('*').order('created_at', { ascending: false }),
         ]);
         

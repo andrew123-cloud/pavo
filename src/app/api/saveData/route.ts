@@ -70,6 +70,11 @@ export async function POST(req: NextRequest) {
             }
         }
 
+        // Specific handling for siteSettings table with string 'id'
+        if (collectionName === 'siteSettings') {
+            fields['id'] = 'default';
+        }
+
         // Upload files to Supabase Storage
         for (const fieldname in fileUploads) {
             const { file, path } = fileUploads[fieldname];
