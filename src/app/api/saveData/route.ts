@@ -7,17 +7,21 @@ import { Readable } from 'stream';
 import { v4 as uuidv4 } from 'uuid';
 import path from 'path';
 
-// Helper to parse string values to their likely types
+// Helper to parse string values that might be stringified JSON
 const parseValue = (value: any): any => {
     if (typeof value !== 'string') return value;
-    if (value === 'true') return true;
-    if (value === 'false') return false;
-    if (!isNaN(Number(value)) && !/^\s*$/.test(value) && !/^0\d/.test(value)) return Number(value);
-    
-    // The error was here. JSON.parse was being called on non-json strings.
-    // The form data is already correctly structured.
+    // For fields that were stringified (like siteSettings), try parsing
+    try {
+        // Only parse if it looks like an object or array
+        if (value.startsWith('{') || value.startsWith('[')) {
+            return JSON.parse(value);
+        }
+    } catch (e) {
+        // If it fails, it's just a regular string
+    }
     return value;
 };
+
 
 async function streamToBuffer(stream: Readable): Promise<Buffer> {
     const chunks: Buffer[] = [];
@@ -57,19 +61,12 @@ export async function POST(req: NextRequest) {
             if (fieldname === "collectionName") {
                 collectionName = val;
             } else {
-                 try {
-                    // This will handle fields that were stringified JSON (like siteSettings)
-                    fields[fieldname] = JSON.parse(val);
-                 } catch (e) {
-                    // This will handle simple string fields
-                    fields[fieldname] = parseValue(val);
-                 }
+                 fields[fieldname] = parseValue(val);
             }
         });
 
         bb.on('file', async (fieldname: string, file: Readable, info: busboy.FileInfo) => {
             const { filename, mimeType } = info;
-            // Generate a unique, URL-safe filename
             const fileExt = path.extname(filename);
             const urlSafeFilename = `${uuidv4()}${fileExt}`;
 
@@ -77,12 +74,17 @@ export async function POST(req: NextRequest) {
                 const fileContent = await streamToBuffer(file);
                 filesToUpload[fieldname] = { fileContent, mimetype: mimeType, fileName: urlSafeFilename };
             } catch (error) {
+                console.error('Error buffering file:', error);
+                file.resume();
                 reject(error);
             }
         });
         
         bb.on('finish', resolve);
-        bb.on('error', reject);
+        bb.on('error', (err) => {
+            console.error('Busboy error:', err);
+            reject(err);
+        });
     });
 
     try {
@@ -110,13 +112,15 @@ export async function POST(req: NextRequest) {
                     upsert: true,
                 });
 
-            if (uploadError) throw uploadError;
+            if (uploadError) {
+                console.error("Supabase Storage Upload Error:", uploadError);
+                throw uploadError;
+            }
             
             const { data: { publicUrl } } = supabase.storage
                 .from('pavo-assets')
                 .getPublicUrl(destination);
             
-            // This is the corrected logic block
             if (fieldname === 'imageFile') {
                  if (collectionName === 'products') {
                     fields['image_url'] = publicUrl;
@@ -126,13 +130,12 @@ export async function POST(req: NextRequest) {
             } else if (fieldname === 'beforeImageFile') {
                 fields['beforeImageUrl'] = publicUrl;
             } else {
-                // This handles nested paths for siteSettings
                 const parts = fieldname.split('.');
                 let current = fields;
                 for(let i=0; i < parts.length -1; i++){
                     const part = parts[i];
                     const nextPartIsNumber = /^\d+$/.test(parts[i+1]);
-                    if (current[part] === undefined) {
+                     if (current[part] === undefined || typeof current[part] !== 'object') {
                         current[part] = nextPartIsNumber ? [] : {};
                     }
                     current = current[part];
@@ -140,14 +143,22 @@ export async function POST(req: NextRequest) {
                 current[parts[parts.length -1]] = publicUrl;
             }
         }
+        
+        const finalData = { ...fields };
+        if (finalData.id) {
+            finalData.id = Number(finalData.id);
+        }
 
         const { data: dbData, error: dbError } = await supabase
             .from(collectionName)
-            .upsert(fields, { onConflict: 'id' })
+            .upsert(finalData, { onConflict: 'id' })
             .select()
             .single();
 
-        if (dbError) throw dbError;
+        if (dbError) {
+            console.error("Supabase DB Error:", dbError);
+            throw dbError;
+        }
 
         return NextResponse.json(dbData, { status: 200 });
 
