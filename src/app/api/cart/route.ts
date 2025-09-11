@@ -16,7 +16,7 @@ async function getCartWithItems(cartId: string) {
                 id,
                 product_id,
                 quantity,
-                products ( name, price, image_url, aiHint, stock, category )
+                products ( name, price, image_url, stock, category )
             )
         `)
         .eq('id', cartId)
@@ -36,7 +36,6 @@ async function getCartWithItems(cartId: string) {
           name: item.products.name,
           price: item.products.price,
           imageUrl: item.products.image_url,
-          aiHint: item.products.aiHint,
           stock: item.products.stock,
           category: item.products.category,
           quantity: item.quantity,
