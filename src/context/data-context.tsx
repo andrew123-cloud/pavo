@@ -1,10 +1,11 @@
+
 // src/context/data-context.tsx
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import type { PortfolioItem, Product, Order, Booking, BookingSite, SiteSettings, CartItem } from '@/lib/types';
 import { useAuth } from './auth-context';
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { supabase } from '@/lib/supabase'; // Use the singleton instance
 import { siteSettings as defaultSiteSettings } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
 import axios from 'axios';
@@ -44,29 +45,12 @@ interface PavoDataContextType {
 
 const DataContext = createContext<PavoDataContextType | undefined>(undefined);
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-
 export function DataProvider({ children }: { children: React.ReactNode }) {
   const { session } = useAuth();
   const { toast } = useToast();
 
-  const [supabase, setSupabase] = useState(() => createClient(supabaseUrl, supabaseAnonKey));
-
-  useEffect(() => {
-    if (session) {
-      const newSupabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
-        global: {
-          headers: {
-            Authorization: `Bearer ${session.access_token}`,
-          },
-        },
-      });
-      setSupabase(newSupabaseClient);
-    } else {
-      setSupabase(createClient(supabaseUrl, supabaseAnonKey));
-    }
-  }, [session]);
+  // No longer need to manage a separate supabase client instance here
+  // We will use the imported singleton instance directly
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -188,7 +172,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         throw error;
     }
     setPortfolioItems(prev => prev.filter(item => item.id !== id));
-  }, [toast, supabase]);
+  }, [toast]);
 
   const addOrUpdateDecorProduct = useCallback(async (product: Partial<Product>, imageFile?: File | null, onProgress?: (p: number) => void) => {
       const files = imageFile ? { imageFile } : undefined;
@@ -210,7 +194,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         throw error;
     }
     setDecorProducts(prev => prev.filter(p => p.id !== id));
-  }, [toast, supabase]);
+  }, [toast]);
 
   const addOrUpdateBookingSite = useCallback(async (site: Partial<BookingSite>, imageFile?: File | null, onProgress?: (p: number) => void) => {
     const files = imageFile ? { imageFile } : undefined;
@@ -232,7 +216,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         throw error;
     }
     setBookingSites(prev => prev.filter(s => s.id !== id));
-  }, [toast, supabase]);
+  }, [toast]);
   
   const updateSiteSettings = useCallback(async (settings: SiteSettings, files: {[key: string]: File | null}) => {
      const savedSettings = await saveDataWithFiles('siteSettings', settings, files);
@@ -249,12 +233,12 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       if (data) {
         setBookings(prev => [data[0], ...prev]);
       }
-  }, [toast, supabase]);
+  }, [toast]);
 
   const markBookingAsRead = useCallback(async (id: number) => {
       await supabase.from('bookings').update({ isRead: true }).match({ id });
       setBookings(prev => prev.map(b => b.id === id ? {...b, isRead: true} : b));
-  }, [supabase]);
+  }, []);
   
   const markAllBookingsAsRead = useCallback(async () => {
     const unreadIds = bookings.filter(b => !b.isRead).map(b => b.id);
@@ -262,7 +246,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       await supabase.from('bookings').update({ isRead: true }).in('id', unreadIds);
       setBookings(prev => prev.map(b => ({...b, isRead: true})));
     }
-  }, [supabase, bookings]);
+  }, [bookings]);
 
   const addOrder = useCallback((order: Order) => {
     setOrders(prev => [order, ...prev]);
@@ -274,7 +258,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
        toast({ variant: "destructive", title: "Stock Update Failed", description: error.message });
        console.error("Stock update error:", error);
     }
-  }, [supabase, toast]);
+  }, [toast]);
 
   // --- CART FUNCTIONS ---
   const addToCart = useCallback(async (product: Product, quantity = 1) => {
@@ -334,7 +318,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     let isCancelled = false;
 
     const syncFromSupabase = async () => {
-      if (!supabase) return;
       setLoading(true);
       setError(null);
       try {
@@ -387,53 +370,13 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     return () => {
         isCancelled = true;
     }
-  }, [supabase, toast]);
+  }, [toast]);
 
 
   useEffect(() => {
-    // Note: Real-time subscriptions are commented out in favor of manual state updates
-    // for better reliability in this specific setup. If you have stable real-time,
-    // you can re-enable these.
-    /*
-    const handlePortfolioChange = (payload: any) => {
-      if (payload.eventType === 'INSERT') setPortfolioItems(prev => [...prev, payload.new]);
-      if (payload.eventType === 'UPDATE') setPortfolioItems(prev => prev.map(item => item.id === payload.new.id ? payload.new : item));
-      if (payload.eventType === 'DELETE') setPortfolioItems(prev => prev.filter(item => item.id !== payload.old.id));
-    };
-    const handleProductChange = (payload: any) => {
-      if (payload.eventType === 'INSERT') setDecorProducts(prev => [...prev, payload.new].sort((a, b) => a.name.localeCompare(b.name)));
-      if (payload.eventType === 'UPDATE') setDecorProducts(prev => prev.map(item => item.id === payload.new.id ? payload.new : item).sort((a, b) => a.name.localeCompare(b.name)));
-      if (payload.eventType === 'DELETE') setDecorProducts(prev => prev.filter(item => item.id !== payload.old.id));
-    };
-    const handleBookingChange = (payload: any) => {
-      if (payload.eventType === 'INSERT') setBookings(prev => [payload.new, ...prev]);
-      if (payload.eventType === 'UPDATE') setBookings(prev => prev.map(b => b.id === payload.new.id ? payload.new : b));
-    };
-    const handleBookingSiteChange = (payload: any) => {
-      if (payload.eventType === 'INSERT') setBookingSites(prev => [...prev, payload.new].sort((a, b) => a.name.localeCompare(b.name)));
-      if (payload.eventType === 'UPDATE') setBookingSites(prev => prev.map(item => item.id === payload.new.id ? payload.new : item).sort((a, b) => a.name.localeCompare(b.name)));
-      if (payload.eventType === 'DELETE') setBookingSites(prev => prev.filter(item => item.id !== payload.old.id));
-    };
-    const handleSettingsChange = (payload: any) => {
-      if(payload.eventType === 'UPDATE' && payload.new.id === 1) setSiteSettings(payload.new);
-    };
-
-    const portfolioChannel = supabase.channel('portfolioItems').on('postgres_changes', { event: '*', schema: 'public', table: 'portfolioItems' }, handlePortfolioChange).subscribe();
-    const productsChannel = supabase.channel('products').on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, handleProductChange).subscribe();
-    const bookingsChannel = supabase.channel('bookings').on('postgres_changes', { event: '*', schema: 'public', table: 'bookings' }, handleBookingChange).subscribe();
-    const bookingSitesChannel = supabase.channel('bookingSites').on('postgres_changes', { event: '*', schema: 'public', table: 'bookingSites' }, handleBookingSiteChange).subscribe();
-    const settingsChannel = supabase.channel('siteSettings').on('postgres_changes', { event: '*', schema: 'public', table: 'siteSettings' }, handleSettingsChange).subscribe();
-    
-
-    return () => {
-      supabase.removeChannel(portfolioChannel);
-      supabase.removeChannel(productsChannel);
-      supabase.removeChannel(bookingsChannel);
-      supabase.removeChannel(bookingSitesChannel);
-      supabase.removeChannel(settingsChannel);
-    };
-    */
-  }, [supabase]);
+    // Real-time subscriptions can be complex and are disabled in favor of manual updates
+    // for this version of the context to ensure stability.
+  }, []);
 
 
   const contextValue: PavoDataContextType = {

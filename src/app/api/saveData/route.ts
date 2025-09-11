@@ -1,11 +1,7 @@
 // src/app/api/saveData/route.ts
-import { createClient } from '@supabase/supabase-js';
+import { supabase } from '@/lib/supabase'; // Use the singleton instance
 import { NextRequest, NextResponse } from 'next/server';
 import { Readable } from 'stream';
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 async function streamToBuffer(stream: Readable): Promise<Buffer> {
     const chunks: Buffer[] = [];
@@ -119,7 +115,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ message: 'Data saved successfully!', ...(dbData ? dbData[0] : {}) }, { status: 200 });
 
     } catch (error: any) {
-        console.error(`[API SaveData] Error in table:`, error);
+        console.error(`[API SaveData] Error:`, error);
         return NextResponse.json({ error: error.message || 'An internal server error occurred.' }, { status: 500 });
     }
 }

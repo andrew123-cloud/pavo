@@ -17,12 +17,7 @@ import { useAuth } from '@/context/auth-context';
 import { Feather, Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { supabase } from '@/lib/supabase'; // Use the singleton instance
 
 export default function LoginPage() {
   const router = useRouter();

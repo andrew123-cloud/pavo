@@ -1,10 +1,6 @@
 // src/app/api/cart/route.ts
-import { createClient } from '@supabase/supabase-js';
+import { supabase } from '@/lib/supabase'; // Use the singleton instance
 import { NextRequest, NextResponse } from 'next/server';
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 async function getCartWithItems(cartId: string) {
     const { data, error } = await supabase
@@ -30,7 +26,7 @@ async function getCartWithItems(cartId: string) {
 
     // Transform the data to match the CartItem structure, filtering out items whose products have been deleted.
     const transformedItems = data.cart_items
-      .filter((item: any) => item.products !== null) // This is the fix.
+      .filter((item: any) => item.products !== null)
       .map((item: any) => ({
           id: item.product_id,
           name: item.products.name,
