@@ -95,29 +95,21 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const fetchCart = useCallback(async () => {
-    if (!cartId) return;
+    const localCartId = getCartId();
+    if (!localCartId) return;
     try {
-      const response = await axios.get(`/api/cart?cartId=${cartId}`);
+      const response = await axios.get(`/api/cart?cartId=${localCartId}`);
       if (response.data) {
         setCart(response.data.cart_items || []);
       }
     } catch (error) {
       console.error("Failed to fetch cart:", error);
     }
-  }, [cartId]);
-
-  useEffect(() => {
-    const id = getCartId();
-    if(id) {
-      setCartId(id);
-    }
   }, [getCartId]);
 
   useEffect(() => {
-    if(cartId) {
-        fetchCart();
-    }
-  }, [cartId, fetchCart]);
+    fetchCart();
+  }, [fetchCart]);
 
 
   const saveDataWithFiles = useCallback(async (
@@ -132,7 +124,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     for (const key in data) {
         if (data[key] !== null && data[key] !== undefined) {
           const value = data[key];
-          if (typeof value === 'object' && !Array.isArray(value)) {
+          // Specific check for siteSettings to keep its id as 'default'
+          if (collectionName === 'siteSettings' && key === 'id') {
+            formData.append(key, value);
+          } else if (typeof value === 'object' && !Array.isArray(value)) {
             formData.append(key, JSON.stringify(value));
           } else {
             formData.append(key, String(value));
@@ -310,6 +305,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     let isCancelled = false;
 
     const syncFromSupabase = async () => {
+      if (!supabase) return;
       setLoading(true);
       setError(null);
       try {
@@ -330,13 +326,13 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         ]);
         
         if (isCancelled) return;
-
-        if (productsRes.error) throw productsRes.error;
-        if (portfolioRes.error) throw portfolioRes.error;
-        if (bookingsRes.error) throw bookingsRes.error;
-        if (bookingSitesRes.error) throw bookingSitesRes.error;
-        if (settingsRes.error && settingsRes.status !== 406) throw settingsRes.error; // 406 = no rows, which is ok on first run
-        if (ordersRes.error) throw ordersRes.error;
+        
+        if (productsRes.error) throw new Error(`Products fetch failed: ${productsRes.error.message}`);
+        if (portfolioRes.error) throw new Error(`Portfolio fetch failed: ${portfolioRes.error.message}`);
+        if (bookingsRes.error) throw new Error(`Bookings fetch failed: ${bookingsRes.error.message}`);
+        if (bookingSitesRes.error) throw new Error(`Booking Sites fetch failed: ${bookingSitesRes.error.message}`);
+        if (settingsRes.error && settingsRes.status !== 406) throw new Error(`Settings fetch failed: ${settingsRes.error.message}`); // 406 = no rows, which is ok on first run
+        if (ordersRes.error) throw new Error(`Orders fetch failed: ${ordersRes.error.message}`);
         
         setDecorProducts(productsRes.data || []);
         setPortfolioItems(portfolioRes.data || []);
@@ -372,8 +368,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       if (payload.eventType === 'DELETE') setPortfolioItems(prev => prev.filter(item => item.id !== payload.old.id));
     };
     const handleProductChange = (payload: any) => {
-      if (payload.eventType === 'INSERT') setDecorProducts(prev => [...prev, payload.new]);
-      if (payload.eventType === 'UPDATE') setDecorProducts(prev => prev.map(item => item.id === payload.new.id ? payload.new : item));
+      if (payload.eventType === 'INSERT') setDecorProducts(prev => [...prev, payload.new].sort((a, b) => a.name.localeCompare(b.name)));
+      if (payload.eventType === 'UPDATE') setDecorProducts(prev => prev.map(item => item.id === payload.new.id ? payload.new : item).sort((a, b) => a.name.localeCompare(b.name)));
       if (payload.eventType === 'DELETE') setDecorProducts(prev => prev.filter(item => item.id !== payload.old.id));
     };
     const handleBookingChange = (payload: any) => {
@@ -381,8 +377,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       if (payload.eventType === 'UPDATE') setBookings(prev => prev.map(b => b.id === payload.new.id ? payload.new : b));
     };
     const handleBookingSiteChange = (payload: any) => {
-      if (payload.eventType === 'INSERT') setBookingSites(prev => [...prev, payload.new]);
-      if (payload.eventType === 'UPDATE') setBookingSites(prev => prev.map(item => item.id === payload.new.id ? payload.new : item));
+      if (payload.eventType === 'INSERT') setBookingSites(prev => [...prev, payload.new].sort((a, b) => a.name.localeCompare(b.name)));
+      if (payload.eventType === 'UPDATE') setBookingSites(prev => prev.map(item => item.id === payload.new.id ? payload.new : item).sort((a, b) => a.name.localeCompare(b.name)));
       if (payload.eventType === 'DELETE') setBookingSites(prev => prev.filter(item => item.id !== payload.old.id));
     };
     const handleSettingsChange = (payload: any) => {
