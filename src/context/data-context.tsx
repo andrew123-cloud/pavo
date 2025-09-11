@@ -97,12 +97,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     files?: { [key: string]: File | null },
     onProgress?: (percentage: number) => void
   ) => {
-    const SAVE_DATA_URL = process.env.NEXT_PUBLIC_SAVE_DATA_URL;
-    if (!SAVE_DATA_URL) {
-      const errorMsg = 'The cloud function URL for saving data is not configured.';
-      toast({ variant: 'destructive', title: 'Configuration Error', description: errorMsg });
-      throw new Error(errorMsg);
-    }
+    const SAVE_DATA_URL = '/api/saveData';
 
     const formData = new FormData();
     formData.append('collectionName', collectionName);
@@ -149,7 +144,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         });
         
         if (response.status !== 200 || response.data.error) {
-           throw new Error(response.data.error || 'Failed to save data via cloud function.');
+           throw new Error(response.data.error || 'Failed to save data via API route.');
         }
 
         return response.data;
