@@ -32,13 +32,13 @@ export default function PavoSuiteHome() {
   }, []);
   
   useEffect(() => {
-    if (founder.imageUrls.length > 1) {
+    if (founder?.imageUrls?.length > 1) {
       const interval = setInterval(() => {
         setCurrentFounderImageIndex(prevIndex => (prevIndex + 1) % founder.imageUrls.length);
       }, 5000); // Change image every 5 seconds
       return () => clearInterval(interval);
     }
-  }, [founder.imageUrls.length]);
+  }, [founder]);
   
   const suiteHeroImages = heroImages.suite.length > 0 ? heroImages.suite : ['https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=250&auto=format&fit=crop'];
 
