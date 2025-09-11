@@ -14,12 +14,9 @@ const parseValue = (value: any): any => {
     if (value === 'false') return false;
     if (!isNaN(Number(value)) && !/^\s*$/.test(value) && !/^0\d/.test(value)) return Number(value);
     
-    try {
-        const parsed = JSON.parse(value);
-        return parsed;
-    } catch (e) {
-        return value;
-    }
+    // The error was here. JSON.parse was being called on non-json strings.
+    // The form data is already correctly structured.
+    return value;
 };
 
 async function streamToBuffer(stream: Readable): Promise<Buffer> {
@@ -60,7 +57,13 @@ export async function POST(req: NextRequest) {
             if (fieldname === "collectionName") {
                 collectionName = val;
             } else {
-                 fields[fieldname] = parseValue(val);
+                 try {
+                    // This will handle fields that were stringified JSON (like siteSettings)
+                    fields[fieldname] = JSON.parse(val);
+                 } catch (e) {
+                    // This will handle simple string fields
+                    fields[fieldname] = parseValue(val);
+                 }
             }
         });
 
@@ -137,13 +140,6 @@ export async function POST(req: NextRequest) {
                 current[parts[parts.length -1]] = publicUrl;
             }
         }
-        
-        // This block is no longer needed due to the change above
-        // if (collectionName === 'products' && fields.imageUrl) {
-        //     fields.image_url = fields.imageUrl;
-        //     delete fields.imageUrl; // remove the incorrect field name
-        // }
-
 
         const { data: dbData, error: dbError } = await supabase
             .from(collectionName)
