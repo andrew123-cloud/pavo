@@ -93,7 +93,7 @@ export interface BookingSite {
 
 
 export interface SiteSettings {
-  id: string; // 'default'
+  id: number; // 'default'
   brandDescriptions: {
     interiors: string;
     decors: string;

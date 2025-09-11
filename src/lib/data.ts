@@ -30,7 +30,7 @@ export const testimonials: Testimonial[] = [
 
 
 export const siteSettings: SiteSettings = {
-  id: 'default',
+  id: 1,
   brandDescriptions: {
     interiors: 'Bespoke design services that transform spaces into personalized works of art.',
     decors: 'A curated collection of handcrafted accessories to add warmth and character to your home.',

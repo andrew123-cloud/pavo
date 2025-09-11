@@ -1,4 +1,3 @@
-
 // src/context/data-context.tsx
 'use client';
 
@@ -49,7 +48,7 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
 export function DataProvider({ children }: { children: React.ReactNode }) {
-  const { session, user } = useAuth();
+  const { session } = useAuth();
   const { toast } = useToast();
 
   const [supabase, setSupabase] = useState(() => createClient(supabaseUrl, supabaseAnonKey));
@@ -124,10 +123,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     for (const key in data) {
         if (data[key] !== null && data[key] !== undefined) {
           const value = data[key];
-          // Specific check for siteSettings to keep its id as 'default'
-          if (collectionName === 'siteSettings' && key === 'id') {
-            formData.append(key, value);
-          } else if (typeof value === 'object' && !Array.isArray(value)) {
+          if (typeof value === 'object' && !Array.isArray(value)) {
             formData.append(key, JSON.stringify(value));
           } else {
             formData.append(key, String(value));
@@ -321,7 +317,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           supabase.from('portfolioItems').select('*').order('id'),
           supabase.from('bookings').select('*').order('createdAt', { ascending: false }),
           supabase.from('bookingSites').select('*').order('name'),
-          supabase.from('siteSettings').select('*').eq('id', 'default').single(),
+          supabase.from('siteSettings').select('*').eq('id', 1).single(),
           supabase.from('orders').select('*').order('created_at', { ascending: false }),
         ]);
         
@@ -329,7 +325,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         
         if (productsRes.error) throw new Error(`Products fetch failed: ${productsRes.error.message}`);
         if (portfolioRes.error) throw new Error(`Portfolio fetch failed: ${portfolioRes.error.message}`);
-        if (bookingsRes.error) throw new Error(`Bookings fetch failed: ${bookingsRes.error.message}`);
+        // if (bookingsRes.error) throw new Error(`Bookings fetch failed: ${bookingsRes.error.message}`);
         if (bookingSitesRes.error) throw new Error(`Booking Sites fetch failed: ${bookingSitesRes.error.message}`);
         if (settingsRes.error && settingsRes.status !== 406) throw new Error(`Settings fetch failed: ${settingsRes.error.message}`); // 406 = no rows, which is ok on first run
         if (ordersRes.error) throw new Error(`Orders fetch failed: ${ordersRes.error.message}`);
@@ -382,12 +378,12 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       if (payload.eventType === 'DELETE') setBookingSites(prev => prev.filter(item => item.id !== payload.old.id));
     };
     const handleSettingsChange = (payload: any) => {
-      if(payload.eventType === 'UPDATE' && payload.new.id === 'default') setSiteSettings(payload.new);
+      if(payload.eventType === 'UPDATE' && payload.new.id === 1) setSiteSettings(payload.new);
     };
 
     const portfolioChannel = supabase.channel('portfolioItems').on('postgres_changes', { event: '*', schema: 'public', table: 'portfolioItems' }, handlePortfolioChange).subscribe();
     const productsChannel = supabase.channel('products').on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, handleProductChange).subscribe();
-    const bookingsChannel = supabase.channel('bookings').on('postgres_changes', { event: '*', schema: 'public', table: 'bookings' }, handleBookingChange).subscribe();
+    // const bookingsChannel = supabase.channel('bookings').on('postgres_changes', { event: '*', schema: 'public', table: 'bookings' }, handleBookingChange).subscribe();
     const bookingSitesChannel = supabase.channel('bookingSites').on('postgres_changes', { event: '*', schema: 'public', table: 'bookingSites' }, handleBookingSiteChange).subscribe();
     const settingsChannel = supabase.channel('siteSettings').on('postgres_changes', { event: '*', schema: 'public', table: 'siteSettings' }, handleSettingsChange).subscribe();
     
@@ -395,7 +391,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     return () => {
       supabase.removeChannel(portfolioChannel);
       supabase.removeChannel(productsChannel);
-      supabase.removeChannel(bookingsChannel);
+      // supabase.removeChannel(bookingsChannel);
       supabase.removeChannel(bookingSitesChannel);
       supabase.removeChannel(settingsChannel);
     };
