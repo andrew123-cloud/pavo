@@ -4,7 +4,7 @@
   },
   "functions": [
     {
-      "source": "palvin",
+      "source": "functions",
       "codebase": "default",
       "ignore": [
         "node_modules",

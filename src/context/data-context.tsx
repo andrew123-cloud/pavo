@@ -10,6 +10,7 @@ import { siteSettings as defaultSiteSettings } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
 import axios from 'axios';
 import imageCompression from 'browser-image-compression';
+import { v4 as uuidv4 } from 'uuid';
 
 interface PavoDataContextType {
   portfolioItems: PortfolioItem[];
@@ -23,6 +24,7 @@ interface PavoDataContextType {
   cart: CartItem[];
   cartCount: number;
   cartTotal: number;
+  cartId: string | null;
   addOrUpdatePortfolioItem: (item: Partial<PortfolioItem>, beforeImageFile?: File | null, afterImageFile?: File | null, onProgress?: (p: number) => void) => Promise<void>;
   deletePortfolioItem: (id: number) => Promise<void>;
   addOrUpdateDecorProduct: (product: Partial<Product>, imageFile?: File | null, onProgress?: (p: number) => void) => Promise<void>;
@@ -30,14 +32,14 @@ interface PavoDataContextType {
   addOrUpdateBookingSite: (site: Partial<BookingSite>, imageFile?: File | null, onProgress?: (p: number) => void) => Promise<void>;
   deleteBookingSite: (id: number) => Promise<void>;
   addBooking: (booking: Omit<Booking, 'id' | 'createdAt' | 'isRead'>) => Promise<void>;
-  markBookingAsRead: (id: number) => void;
-  markAllBookingsAsRead: () => void;
+  markBookingAsRead: (id: number) => Promise<void>;
+  markAllBookingsAsRead: () => Promise<void>;
   updateSiteSettings: (settings: SiteSettings, files: {[key: string]: File | null}) => Promise<void>;
   addOrder: (order: Order) => void;
-  addToCart: (product: Product, quantity?: number) => void;
-  removeFromCart: (productId: number) => void;
-  updateCartQuantity: (productId: number, quantity: number) => void;
-  clearCart: () => void;
+  addToCart: (product: Product, quantity?: number) => Promise<void>;
+  removeFromCart: (productId: number) => Promise<void>;
+  updateCartQuantity: (productId: number, quantity: number) => Promise<void>;
+  clearCart: () => Promise<void>;
   decreaseStock: (productId: number, quantity: number) => Promise<void>;
 }
 
@@ -47,7 +49,7 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
 export function DataProvider({ children }: { children: React.ReactNode }) {
-  const { session } = useAuth();
+  const { session, user } = useAuth();
   const { toast } = useToast();
 
   const [supabase, setSupabase] = useState(() => createClient(supabaseUrl, supabaseAnonKey));
@@ -77,9 +79,46 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [siteSettings, setSiteSettings] = useState<SiteSettings>(defaultSiteSettings);
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [cartId, setCartId] = useState<string | null>(null);
   
   const cartCount = cart.reduce((count, item) => count + item.quantity, 0);
   const cartTotal = cart.reduce((total, item) => total + item.price * item.quantity, 0);
+  
+  const getCartId = useCallback(() => {
+    let id = localStorage.getItem('pavo-cart-id');
+    if (!id) {
+        id = uuidv4();
+        localStorage.setItem('pavo-cart-id', id);
+    }
+    setCartId(id);
+    return id;
+  }, []);
+
+  const fetchCart = useCallback(async () => {
+    if (!cartId) return;
+    try {
+      const response = await axios.get(`/api/cart?cartId=${cartId}`);
+      if (response.data) {
+        setCart(response.data.cart_items || []);
+      }
+    } catch (error) {
+      console.error("Failed to fetch cart:", error);
+    }
+  }, [cartId]);
+
+  useEffect(() => {
+    const id = getCartId();
+    if(id) {
+      setCartId(id);
+    }
+  }, [getCartId]);
+
+  useEffect(() => {
+    if(cartId) {
+        fetchCart();
+    }
+  }, [cartId, fetchCart]);
+
 
   const saveDataWithFiles = useCallback(async (
     collectionName: string,
@@ -135,7 +174,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         throw new Error(errorMessage);
     }
   }, [toast]);
-
+  
   const addOrUpdatePortfolioItem = useCallback(async (item: Partial<PortfolioItem>, beforeImageFile?: File | null, afterImageFile?: File | null, onProgress?: (p: number) => void) => {
       const files: { [key: string]: File | null } = {};
       if(beforeImageFile) files['beforeImageFile'] = beforeImageFile;
@@ -182,27 +221,23 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   }, [saveDataWithFiles]);
 
   const addBooking = useCallback(async (booking: Omit<Booking, 'id' | 'createdAt' | 'isRead'>) => {
-      // const newBooking = { ...booking, isRead: false, createdAt: new Date().toISOString() };
-      // const { error } = await supabase.from('bookings').insert(newBooking);
-      // if (error) {
-      //     toast({ variant: 'destructive', title: 'Booking failed', description: error.message });
-      //     throw error;
-      // }
-      console.log('addBooking called, but is currently disabled.');
-      return Promise.resolve();
+      const newBooking = { ...booking, isRead: false };
+      const { error } = await supabase.from('bookings').insert(newBooking);
+      if (error) {
+          toast({ variant: 'destructive', title: 'Booking failed', description: error.message });
+          throw error;
+      }
   }, [toast, supabase]);
 
   const markBookingAsRead = useCallback(async (id: number) => {
-      // await supabase.from('bookings').update({ isRead: true }).match({ id });
-      console.log('markBookingAsRead called, but is currently disabled.');
+      await supabase.from('bookings').update({ isRead: true }).match({ id });
   }, [supabase]);
   
   const markAllBookingsAsRead = useCallback(async () => {
-    // const unreadIds = bookings.filter(b => !b.isRead).map(b => b.id);
-    // if(unreadIds.length > 0) {
-    //   await supabase.from('bookings').update({ isRead: true }).in('id', unreadIds);
-    // }
-    console.log('markAllBookingsAsRead called, but is currently disabled.');
+    const unreadIds = bookings.filter(b => !b.isRead).map(b => b.id);
+    if(unreadIds.length > 0) {
+      await supabase.from('bookings').update({ isRead: true }).in('id', unreadIds);
+    }
   }, [supabase, bookings]);
 
   const addOrder = useCallback((order: Order) => {
@@ -217,63 +252,63 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     }
   }, [supabase, toast]);
 
-  useEffect(() => {
-    const savedCart = localStorage.getItem('pavo-cart');
-    if (savedCart) {
-      setCart(JSON.parse(savedCart));
+  // --- CART FUNCTIONS ---
+  const addToCart = useCallback(async (product: Product, quantity = 1) => {
+    if(!cartId) return;
+    try {
+        const response = await axios.post('/api/cart', {
+            cartId,
+            productId: product.id,
+            quantity
+        });
+        setCart(response.data.cart_items);
+    } catch(err) {
+        console.error("Error adding to cart:", err);
+        toast({ variant: "destructive", title: "Could not add item", description: "Failed to update your cart. Please try again." });
     }
-  }, []);
+  }, [cartId, toast]);
 
-  useEffect(() => {
-    localStorage.setItem('pavo-cart', JSON.stringify(cart));
-  }, [cart]);
+  const removeFromCart = useCallback(async (productId: number) => {
+    if(!cartId) return;
+    try {
+      const response = await axios.delete(`/api/cart?cartId=${cartId}&productId=${productId}`);
+      setCart(response.data.cart_items);
+    } catch(err) {
+      console.error("Error removing from cart:", err);
+      toast({ variant: "destructive", title: "Could not remove item", description: "Failed to update your cart. Please try again." });
+    }
+  }, [cartId, toast]);
 
-  const addToCart = useCallback((product: Product, quantity = 1) => {
-    setCart(prevCart => {
-      const existingItem = prevCart.find(item => item.id === product.id);
-      if (existingItem) {
-        return prevCart.map(item =>
-          item.id === product.id
-            ? { ...item, quantity: Math.min(item.quantity + quantity, item.stock) }
-            : item
-        );
-      }
-      const cartItem: CartItem = {
-        id: product.id,
-        name: product.name,
-        price: product.price,
-        category: product.category,
-        imageUrl: product.image_url,
-        aiHint: product.aiHint,
-        stock: product.stock,
-        quantity: quantity,
-      };
-      return [...prevCart, cartItem];
-    });
-  }, []);
-
-  const removeFromCart = useCallback((productId: number) => {
-    setCart(prevCart => prevCart.filter(item => item.id !== productId));
-  }, []);
-
-  const updateCartQuantity = useCallback((productId: number, quantity: number) => {
+  const updateCartQuantity = useCallback(async (productId: number, quantity: number) => {
     if (quantity <= 0) {
-      removeFromCart(productId);
-      return;
+        await removeFromCart(productId);
+        return;
     }
-    setCart(prevCart =>
-      prevCart.map(item =>
-        item.id === productId ? { ...item, quantity: Math.min(quantity, item.stock) } : item
-      )
-    );
-  }, [removeFromCart]);
+    if(!cartId) return;
+    try {
+        const response = await axios.put('/api/cart', { cartId, productId, quantity });
+        setCart(response.data.cart_items);
+    } catch(err) {
+        console.error("Error updating cart quantity:", err);
+        toast({ variant: "destructive", title: "Update failed", description: "Failed to update your cart quantity. Please try again." });
+    }
+  }, [cartId, removeFromCart, toast]);
 
-  const clearCart = useCallback(() => {
-    setCart([]);
-    localStorage.removeItem('pavo-cart');
-  }, []);
+  const clearCart = useCallback(async () => {
+    if(!cartId) return;
+     try {
+        await axios.delete(`/api/cart?cartId=${cartId}&clear=true`);
+        setCart([]);
+    } catch(err) {
+        console.error("Error clearing cart:", err);
+        toast({ variant: "destructive", title: "Clear cart failed", description: "Could not clear your cart. Please try again." });
+    }
+  }, [cartId, toast]);
+  
 
   useEffect(() => {
+    let isCancelled = false;
+
     const syncFromSupabase = async () => {
       setLoading(true);
       setError(null);
@@ -281,29 +316,31 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         const [
           productsRes,
           portfolioRes,
-          // bookingsRes,
+          bookingsRes,
           bookingSitesRes,
           settingsRes,
           ordersRes
         ] = await Promise.all([
           supabase.from('products').select('*').order('name'),
           supabase.from('portfolioItems').select('*').order('id'),
-          // supabase.from('bookings').select('*').order('createdAt', { ascending: false }),
+          supabase.from('bookings').select('*').order('createdAt', { ascending: false }),
           supabase.from('bookingSites').select('*').order('name'),
           supabase.from('siteSettings').select('*').eq('id', 'default').single(),
           supabase.from('orders').select('*').order('created_at', { ascending: false }),
         ]);
         
-        if (productsRes.error) throw new Error(`Products fetch failed: ${productsRes.error.message}`);
-        if (portfolioRes.error) throw new Error(`Portfolio fetch failed: ${portfolioRes.error.message}`);
-        // if (bookingsRes.error) throw new Error(`Bookings fetch failed: ${bookingsRes.error.message}`);
-        if (bookingSitesRes.error) throw new Error(`Booking Sites fetch failed: ${bookingSitesRes.error.message}`);
-        if (settingsRes.error && settingsRes.status !== 406) throw new Error(`Settings fetch failed: ${settingsRes.error.message}`);
-        if (ordersRes.error) throw new Error(`Orders fetch failed: ${ordersRes.error.message}`);
+        if (isCancelled) return;
+
+        if (productsRes.error) throw productsRes.error;
+        if (portfolioRes.error) throw portfolioRes.error;
+        if (bookingsRes.error) throw bookingsRes.error;
+        if (bookingSitesRes.error) throw bookingSitesRes.error;
+        if (settingsRes.error && settingsRes.status !== 406) throw settingsRes.error; // 406 = no rows, which is ok on first run
+        if (ordersRes.error) throw ordersRes.error;
         
         setDecorProducts(productsRes.data || []);
         setPortfolioItems(portfolioRes.data || []);
-        // setBookings(bookingsRes.data || []);
+        setBookings(bookingsRes.data || []);
         setBookingSites(bookingSitesRes.data || []);
         setOrders(ordersRes.data || []);
         if(settingsRes.data) setSiteSettings(settingsRes.data);
@@ -314,11 +351,19 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         setError(errorMessage);
         toast({ variant: 'destructive', title: 'Data Sync Failed', description: errorMessage });
       } finally {
-        setLoading(false);
+        if (!isCancelled) {
+            setLoading(false);
+        }
       }
     };
+    
     syncFromSupabase();
+
+    return () => {
+        isCancelled = true;
+    }
   }, [supabase, toast]);
+
 
   useEffect(() => {
     const handlePortfolioChange = (payload: any) => {
@@ -346,7 +391,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
     const portfolioChannel = supabase.channel('portfolioItems').on('postgres_changes', { event: '*', schema: 'public', table: 'portfolioItems' }, handlePortfolioChange).subscribe();
     const productsChannel = supabase.channel('products').on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, handleProductChange).subscribe();
-    // const bookingsChannel = supabase.channel('bookings').on('postgres_changes', { event: '*', schema: 'public', table: 'bookings' }, handleBookingChange).subscribe();
+    const bookingsChannel = supabase.channel('bookings').on('postgres_changes', { event: '*', schema: 'public', table: 'bookings' }, handleBookingChange).subscribe();
     const bookingSitesChannel = supabase.channel('bookingSites').on('postgres_changes', { event: '*', schema: 'public', table: 'bookingSites' }, handleBookingSiteChange).subscribe();
     const settingsChannel = supabase.channel('siteSettings').on('postgres_changes', { event: '*', schema: 'public', table: 'siteSettings' }, handleSettingsChange).subscribe();
     
@@ -354,7 +399,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     return () => {
       supabase.removeChannel(portfolioChannel);
       supabase.removeChannel(productsChannel);
-      // supabase.removeChannel(bookingsChannel);
+      supabase.removeChannel(bookingsChannel);
       supabase.removeChannel(bookingSitesChannel);
       supabase.removeChannel(settingsChannel);
     };
@@ -382,6 +427,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     updateSiteSettings,
     addOrder,
     cart,
+    cartId,
     cartCount,
     cartTotal,
     addToCart,
