@@ -161,6 +161,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       const files: { [key: string]: File | null } = {};
       if(beforeImageFile) files['beforeImageFile'] = beforeImageFile;
       if(afterImageFile) files['imageFile'] = afterImageFile;
+
       const savedItem = await saveDataWithFiles('portfolioItems', item, files, onProgress);
       setPortfolioItems(prev => {
         const itemExists = prev.some(p => p.id === savedItem.id);
@@ -182,7 +183,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   }, [toast]);
 
   const addOrUpdateDecorProduct = useCallback(async (product: Partial<Product>, imageFile?: File | null, onProgress?: (p: number) => void) => {
-      const files = imageFile ? { imageFile } : undefined;
+      const files = imageFile ? { imageFile } : {};
       const savedProduct = await saveDataWithFiles('products', product, files, onProgress);
       setDecorProducts(prev => {
         const productExists = prev.some(p => p.id === savedProduct.id);
@@ -204,7 +205,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   }, [toast]);
 
   const addOrUpdateBookingSite = useCallback(async (site: Partial<BookingSite>, imageFile?: File | null, onProgress?: (p: number) => void) => {
-    const files = imageFile ? { imageFile } : undefined;
+    const files = imageFile ? { imageFile } : {};
     const savedSite = await saveDataWithFiles('bookingSites', site, files, onProgress);
     setBookingSites(prev => {
         const siteExists = prev.some(s => s.id === savedSite.id);
@@ -431,5 +432,3 @@ export function usePavoData() {
   }
   return context;
 }
-
-    
