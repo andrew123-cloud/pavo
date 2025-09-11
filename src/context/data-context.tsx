@@ -101,8 +101,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       if (response.data) {
         setCart(response.data.cart_items || []);
       }
-    } catch (error) {
-      console.error("Failed to fetch cart:", error);
+    } catch (error: any) {
+      console.error("Failed to fetch cart:", error.response?.data?.error || error.message);
     }
   }, [getCartId]);
 
@@ -170,7 +170,15 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       const files: { [key: string]: File | null } = {};
       if(beforeImageFile) files['beforeImageFile'] = beforeImageFile;
       if(afterImageFile) files['imageFile'] = afterImageFile;
-      await saveDataWithFiles('portfolioItems', item, files, onProgress);
+      const savedItem = await saveDataWithFiles('portfolioItems', item, files, onProgress);
+      setPortfolioItems(prev => {
+        const itemExists = prev.some(p => p.id === savedItem.id);
+        if (itemExists) {
+          return prev.map(p => p.id === savedItem.id ? savedItem : p);
+        } else {
+          return [...prev, savedItem];
+        }
+      });
   }, [saveDataWithFiles]);
 
   const deletePortfolioItem = useCallback(async (id: number) => {
@@ -179,11 +187,20 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         toast({ variant: 'destructive', title: 'Delete failed', description: error.message });
         throw error;
     }
+    setPortfolioItems(prev => prev.filter(item => item.id !== id));
   }, [toast, supabase]);
 
   const addOrUpdateDecorProduct = useCallback(async (product: Partial<Product>, imageFile?: File | null, onProgress?: (p: number) => void) => {
       const files = imageFile ? { imageFile } : undefined;
-      await saveDataWithFiles('products', product, files, onProgress);
+      const savedProduct = await saveDataWithFiles('products', product, files, onProgress);
+      setDecorProducts(prev => {
+        const productExists = prev.some(p => p.id === savedProduct.id);
+        if (productExists) {
+            return prev.map(p => p.id === savedProduct.id ? savedProduct : p).sort((a,b) => a.name.localeCompare(b.name));
+        } else {
+            return [...prev, savedProduct].sort((a,b) => a.name.localeCompare(b.name));
+        }
+      });
   }, [saveDataWithFiles]);
 
   const deleteDecorProduct = useCallback(async (id: number) => {
@@ -192,11 +209,20 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         toast({ variant: 'destructive', title: 'Delete failed', description: error.message });
         throw error;
     }
+    setDecorProducts(prev => prev.filter(p => p.id !== id));
   }, [toast, supabase]);
 
   const addOrUpdateBookingSite = useCallback(async (site: Partial<BookingSite>, imageFile?: File | null, onProgress?: (p: number) => void) => {
     const files = imageFile ? { imageFile } : undefined;
-    await saveDataWithFiles('bookingSites', site, files, onProgress);
+    const savedSite = await saveDataWithFiles('bookingSites', site, files, onProgress);
+    setBookingSites(prev => {
+        const siteExists = prev.some(s => s.id === savedSite.id);
+        if (siteExists) {
+            return prev.map(s => s.id === savedSite.id ? savedSite : s).sort((a,b) => a.name.localeCompare(b.name));
+        } else {
+            return [...prev, savedSite].sort((a,b) => a.name.localeCompare(b.name));
+        }
+      });
   }, [saveDataWithFiles]);
 
   const deleteBookingSite = useCallback(async (id: number) => {
@@ -205,29 +231,36 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         toast({ variant: 'destructive', title: 'Delete failed', description: error.message });
         throw error;
     }
+    setBookingSites(prev => prev.filter(s => s.id !== id));
   }, [toast, supabase]);
   
   const updateSiteSettings = useCallback(async (settings: SiteSettings, files: {[key: string]: File | null}) => {
-     await saveDataWithFiles('siteSettings', settings, files);
+     const savedSettings = await saveDataWithFiles('siteSettings', settings, files);
+     setSiteSettings(savedSettings);
   }, [saveDataWithFiles]);
 
   const addBooking = useCallback(async (booking: Omit<Booking, 'id' | 'createdAt' | 'isRead'>) => {
       const newBooking = { ...booking, isRead: false };
-      const { error } = await supabase.from('bookings').insert(newBooking);
+      const { data, error } = await supabase.from('bookings').insert(newBooking).select();
       if (error) {
           toast({ variant: 'destructive', title: 'Booking failed', description: error.message });
           throw error;
+      }
+      if (data) {
+        setBookings(prev => [data[0], ...prev]);
       }
   }, [toast, supabase]);
 
   const markBookingAsRead = useCallback(async (id: number) => {
       await supabase.from('bookings').update({ isRead: true }).match({ id });
+      setBookings(prev => prev.map(b => b.id === id ? {...b, isRead: true} : b));
   }, [supabase]);
   
   const markAllBookingsAsRead = useCallback(async () => {
     const unreadIds = bookings.filter(b => !b.isRead).map(b => b.id);
     if(unreadIds.length > 0) {
       await supabase.from('bookings').update({ isRead: true }).in('id', unreadIds);
+      setBookings(prev => prev.map(b => ({...b, isRead: true})));
     }
   }, [supabase, bookings]);
 
@@ -325,7 +358,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         
         if (productsRes.error) throw new Error(`Products fetch failed: ${productsRes.error.message}`);
         if (portfolioRes.error) throw new Error(`Portfolio fetch failed: ${portfolioRes.error.message}`);
-        // if (bookingsRes.error) throw new Error(`Bookings fetch failed: ${bookingsRes.error.message}`);
+        if (bookingsRes.error) throw new Error(`Bookings fetch failed: ${bookingsRes.error.message}`);
         if (bookingSitesRes.error) throw new Error(`Booking Sites fetch failed: ${bookingSitesRes.error.message}`);
         if (settingsRes.error && settingsRes.status !== 406) throw new Error(`Settings fetch failed: ${settingsRes.error.message}`); // 406 = no rows, which is ok on first run
         if (ordersRes.error) throw new Error(`Orders fetch failed: ${ordersRes.error.message}`);
@@ -358,6 +391,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
 
   useEffect(() => {
+    // Note: Real-time subscriptions are commented out in favor of manual state updates
+    // for better reliability in this specific setup. If you have stable real-time,
+    // you can re-enable these.
+    /*
     const handlePortfolioChange = (payload: any) => {
       if (payload.eventType === 'INSERT') setPortfolioItems(prev => [...prev, payload.new]);
       if (payload.eventType === 'UPDATE') setPortfolioItems(prev => prev.map(item => item.id === payload.new.id ? payload.new : item));
@@ -383,7 +420,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
     const portfolioChannel = supabase.channel('portfolioItems').on('postgres_changes', { event: '*', schema: 'public', table: 'portfolioItems' }, handlePortfolioChange).subscribe();
     const productsChannel = supabase.channel('products').on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, handleProductChange).subscribe();
-    // const bookingsChannel = supabase.channel('bookings').on('postgres_changes', { event: '*', schema: 'public', table: 'bookings' }, handleBookingChange).subscribe();
+    const bookingsChannel = supabase.channel('bookings').on('postgres_changes', { event: '*', schema: 'public', table: 'bookings' }, handleBookingChange).subscribe();
     const bookingSitesChannel = supabase.channel('bookingSites').on('postgres_changes', { event: '*', schema: 'public', table: 'bookingSites' }, handleBookingSiteChange).subscribe();
     const settingsChannel = supabase.channel('siteSettings').on('postgres_changes', { event: '*', schema: 'public', table: 'siteSettings' }, handleSettingsChange).subscribe();
     
@@ -391,10 +428,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     return () => {
       supabase.removeChannel(portfolioChannel);
       supabase.removeChannel(productsChannel);
-      // supabase.removeChannel(bookingsChannel);
+      supabase.removeChannel(bookingsChannel);
       supabase.removeChannel(bookingSitesChannel);
       supabase.removeChannel(settingsChannel);
     };
+    */
   }, [supabase]);
 
 
