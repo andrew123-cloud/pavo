@@ -4,7 +4,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import type { PortfolioItem, Product, Order, Booking, BookingSite, SiteSettings, CartItem } from '@/lib/types';
 import { useAuth } from './auth-context';
-import { supabase } from '@/lib/supabase'; // Use the singleton instance
+import { supabase } from '@/lib/supabase';
 import { siteSettings as defaultSiteSettings } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
 import axios from 'axios';
@@ -97,13 +97,26 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     files?: { [key: string]: File | null },
     onProgress?: (percentage: number) => void
   ) => {
+    const SAVE_DATA_URL = process.env.NEXT_PUBLIC_SAVE_DATA_URL;
+    if (!SAVE_DATA_URL) {
+      const errorMsg = 'The cloud function URL for saving data is not configured.';
+      toast({ variant: 'destructive', title: 'Configuration Error', description: errorMsg });
+      throw new Error(errorMsg);
+    }
+
     const formData = new FormData();
     formData.append('collectionName', collectionName);
 
+    // If data has an ID, send it for upsert operations
+    if (data.id) {
+      formData.append('id', String(data.id));
+    }
+
     for (const key in data) {
-        if (data[key] !== null && data[key] !== undefined) {
+        if (key !== 'id' && data[key] !== null && data[key] !== undefined) {
           const value = data[key];
-          if (typeof value === 'object' && !Array.isArray(value)) {
+           // Serialize objects/arrays to JSON strings before appending
+          if (typeof value === 'object') {
             formData.append(key, JSON.stringify(value));
           } else {
             formData.append(key, String(value));
@@ -125,7 +138,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     }
 
     try {
-        const response = await axios.post('/api/saveData', formData, {
+        const response = await axios.post(SAVE_DATA_URL, formData, {
             headers: { 'Content-Type': 'multipart/form-data' },
             onUploadProgress: (progressEvent) => {
                 if (onProgress && progressEvent.total) {
@@ -135,11 +148,13 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             },
         });
         
-        if (response.data.error) throw new Error(response.data.error);
+        if (response.status !== 200 || response.data.error) {
+           throw new Error(response.data.error || 'Failed to save data via cloud function.');
+        }
 
         return response.data;
     } catch (error: any) {
-        const errorMessage = error.response?.data?.error || error.message || 'An unknown error occurred during save.';
+        const errorMessage = error.response?.data?.error || error.message || `An unknown error occurred saving to ${collectionName}.`;
         console.error(`Error saving to ${collectionName}:`, errorMessage);
         toast({ variant: 'destructive', title: 'Save Failed', description: errorMessage });
         throw new Error(errorMessage);
@@ -338,7 +353,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         if (productsRes.error) throw new Error(`Products fetch failed: ${productsRes.error.message}`);
         if (portfolioRes.error) throw new Error(`Portfolio fetch failed: ${portfolioRes.error.message}`);
         if (bookingsRes.error) throw new Error(`Bookings fetch failed: ${bookingsRes.error.message}`);
-        if (bookingSitesRes.error) throw new Error(`Booking Sites fetch failed: ${bookingSitesRes.error.message}`);
+        if (bookingSites.error) throw new Error(`Booking Sites fetch failed: ${bookingSitesRes.error.message}`);
         if (settingsRes.error && settingsRes.status !== 406) throw new Error(`Settings fetch failed: ${settingsRes.error.message}`); // 406 = no rows, which is ok on first run
         if (ordersRes.error) throw new Error(`Orders fetch failed: ${ordersRes.error.message}`);
         

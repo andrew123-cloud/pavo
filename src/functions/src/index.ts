@@ -23,19 +23,8 @@ const parseValue = (value: any): any => {
     // Try parsing as JSON, but return original string on failure
     try {
         const parsed = JSON.parse(value);
-        // If it's an object, we recursively parse its properties.
-        if (typeof parsed === 'object' && parsed !== null) {
-            // Handle arrays
-            if(Array.isArray(parsed)){
-                return parsed.map(item => parseValue(item));
-            }
-            // Handle objects
-            for (const key in parsed) {
-                if (Object.prototype.hasOwnProperty.call(parsed, key)) {
-                    parsed[key] = parseValue(parsed[key]);
-                }
-            }
-        }
+        // This is a simple check. A more robust implementation might be needed
+        // if you expect deep object structures.
         return parsed;
     } catch (e) {
         return value; // It's just a string, return as is.
@@ -50,8 +39,14 @@ export const saveData = functions
         // Initialization needs to happen inside the request to access secrets
         const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
         const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-        // Create a single client instance per request
-        const supabase = createClient(supabaseUrl, supabaseServiceKey);
+        // Create a single client instance per request that bypasses RLS
+        const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+            auth: {
+                autoRefreshToken: false,
+                persistSession: false,
+                detectSessionInUrl: false
+            }
+        });
 
         if (req.method !== 'POST') {
             res.status(405).send('Method Not Allowed');
@@ -66,11 +61,17 @@ export const saveData = functions
         const filesToUpload: { [fieldname: string]: { filePath: string; mimetype: string, fileName: string } } = {};
         
         let collectionName = '';
+        let docId = '';
 
         bb.on('field', (fieldname, val) => {
-            fields[fieldname] = val;
             if (fieldname === 'collectionName') {
                 collectionName = val;
+            } else if (fieldname === 'id') {
+                docId = val;
+                fields[fieldname] = parseValue(val);
+            }
+            else {
+                fields[fieldname] = parseValue(val);
             }
         });
 
@@ -101,12 +102,6 @@ export const saveData = functions
             try {
                 await Promise.all(fileWrites);
                 
-                for(const key in fields) {
-                    if (Object.prototype.hasOwnProperty.call(fields, key)) {
-                        fields[key] = parseValue(fields[key]);
-                    }
-                }
-
                 for (const fieldname in filesToUpload) {
                     const { filePath, mimetype, fileName } = filesToUpload[fieldname];
                     const fileContent = fs.readFileSync(filePath);
@@ -143,16 +138,15 @@ export const saveData = functions
                     fs.unlinkSync(filePath);
                 }
                 
-                const { collectionName: _, ...dataToSave } = fields;
-
                 const { data: dbData, error: dbError } = await supabase
                     .from(collectionName)
-                    .upsert(dataToSave, { onConflict: 'id' })
-                    .select();
+                    .upsert(fields, { onConflict: 'id' })
+                    .select()
+                    .single();
 
                 if (dbError) throw dbError;
 
-                res.status(200).json({ message: 'Data saved successfully!', ...(dbData ? dbData[0] : {}) });
+                res.status(200).json(dbData);
 
             } catch (error: any) {
                 console.error(`Supabase backend error in table ${collectionName}:`, error);
