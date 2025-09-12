@@ -240,6 +240,7 @@ export default function BookingSitesAdmin() {
                                     width={64}
                                     height={64}
                                     className="col-span-3 rounded-md object-cover"
+                                    style={{ aspectRatio: '1 / 1' }}
                                 />
                             </div>
                         }

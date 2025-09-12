@@ -227,6 +227,7 @@ export default function InteriorsAdmin() {
                                     width={64}
                                     height={64}
                                     className="col-span-3 rounded-md object-cover"
+                                    style={{ aspectRatio: '1 / 1' }}
                                 />
                             </div>
                         }
@@ -251,6 +252,7 @@ export default function InteriorsAdmin() {
                                     width={64}
                                     height={64}
                                     className="col-span-3 rounded-md object-cover"
+                                    style={{ aspectRatio: '1 / 1' }}
                                 />
                             </div>
                         }
