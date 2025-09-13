@@ -1,4 +1,3 @@
-
 // src/context/data-context.tsx
 'use client';
 
@@ -91,51 +90,25 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     fetchCart();
   }, [fetchCart]);
 
-
-  const saveDataWithFiles = useCallback(async (
+  const uploadFile = useCallback(async (
     collectionName: string,
-    data: any,
-    files?: { [key: string]: File | null },
+    file: File,
     onProgress?: (percentage: number) => void
   ) => {
-    const SAVE_DATA_URL = '/api/saveData';
-
+    const UPLOAD_URL = '/api/upload';
     const formData = new FormData();
+    
+    const compressedFile = await imageCompression(file, {
+        maxSizeMB: 1,
+        maxWidthOrHeight: 1920,
+        useWebWorker: true,
+    });
+
+    formData.append('file', compressedFile, compressedFile.name);
     formData.append('collectionName', collectionName);
 
-    // If data has an ID, send it for upsert operations
-    if (data.id) {
-      formData.append('id', String(data.id));
-    }
-
-    for (const key in data) {
-        if (key !== 'id' && data[key] !== null && data[key] !== undefined) {
-          const value = data[key];
-           // Serialize objects/arrays to JSON strings before appending
-          if (typeof value === 'object') {
-            formData.append(key, JSON.stringify(value));
-          } else {
-            formData.append(key, String(value));
-          }
-        }
-    }
-    
-    if (files) {
-      for(const key in files) {
-        if(files[key]){
-           const compressedFile = await imageCompression(files[key]!, {
-            maxSizeMB: 1,
-            maxWidthOrHeight: 1920,
-            useWebWorker: true,
-           });
-           formData.append(key, compressedFile, compressedFile.name);
-        }
-      }
-    }
-
     try {
-        const response = await axios.post(SAVE_DATA_URL, formData, {
-            headers: { 'Content-Type': 'multipart/form-data' },
+        const response = await axios.post(UPLOAD_URL, formData, {
             onUploadProgress: (progressEvent) => {
                 if (onProgress && progressEvent.total) {
                     const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
@@ -143,35 +116,51 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
                 }
             },
         });
-        
-        if (response.status !== 200 || response.data.error) {
-           throw new Error(response.data.error || 'Failed to save data via API route.');
-        }
 
-        return response.data;
+        if (response.data.error) {
+            throw new Error(response.data.error);
+        }
+        
+        return response.data.publicUrl;
+
     } catch (error: any) {
-        const errorMessage = error.response?.data?.error || error.message || `An unknown error occurred saving to ${collectionName}.`;
-        console.error(`Error saving to ${collectionName}:`, errorMessage);
-        toast({ variant: 'destructive', title: 'Save Failed', description: errorMessage });
+        const errorMessage = error.response?.data?.error || error.message || 'File upload failed.';
+        toast({ variant: 'destructive', title: 'Upload Failed', description: errorMessage });
         throw new Error(errorMessage);
     }
   }, [toast]);
   
   const addOrUpdatePortfolioItem = useCallback(async (item: Partial<PortfolioItem>, beforeImageFile?: File | null, afterImageFile?: File | null, onProgress?: (p: number) => void) => {
-      const files: { [key: string]: File | null } = {};
-      if(beforeImageFile) files['beforeImageFile'] = beforeImageFile;
-      if(afterImageFile) files['imageFile'] = afterImageFile;
-
-      const savedItem = await saveDataWithFiles('portfolioItems', item, files, onProgress);
-      setPortfolioItems(prev => {
-        const itemExists = prev.some(p => p.id === savedItem.id);
-        if (itemExists) {
-          return prev.map(p => p.id === savedItem.id ? savedItem : p);
-        } else {
-          return [...prev, savedItem];
+      const itemData = { ...item };
+      
+      try {
+        if (beforeImageFile) {
+          itemData.beforeImageUrl = await uploadFile('portfolioItems', beforeImageFile, onProgress);
         }
-      });
-  }, [saveDataWithFiles]);
+        if (afterImageFile) {
+          itemData.imageUrl = await uploadFile('portfolioItems', afterImageFile, onProgress);
+        }
+
+        const { data: savedItem, error } = await supabase
+            .from('portfolioItems')
+            .upsert(itemData, { onConflict: 'id' })
+            .select()
+            .single();
+        
+        if (error) throw error;
+
+        setPortfolioItems(prev => {
+            const itemExists = prev.some(p => p.id === savedItem.id);
+            if (itemExists) {
+                return prev.map(p => p.id === savedItem.id ? savedItem : p);
+            } else {
+                return [...prev, savedItem];
+            }
+        });
+      } catch (error: any) {
+          toast({ variant: 'destructive', title: 'Save Failed', description: error.message });
+      }
+  }, [uploadFile, toast]);
 
   const deletePortfolioItem = useCallback(async (id: number) => {
     const { error } = await supabase.from('portfolioItems').delete().match({ id });
@@ -183,17 +172,33 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   }, [toast]);
 
   const addOrUpdateDecorProduct = useCallback(async (product: Partial<Product>, imageFile?: File | null, onProgress?: (p: number) => void) => {
-      const files = imageFile ? { imageFile } : {};
-      const savedProduct = await saveDataWithFiles('products', product, files, onProgress);
-      setDecorProducts(prev => {
-        const productExists = prev.some(p => p.id === savedProduct.id);
-        if (productExists) {
-            return prev.map(p => p.id === savedProduct.id ? savedProduct : p).sort((a,b) => a.name.localeCompare(b.name));
-        } else {
-            return [...prev, savedProduct].sort((a,b) => a.name.localeCompare(b.name));
+      const productData = { ...product };
+
+      try {
+        if (imageFile) {
+            productData.image_url = await uploadFile('products', imageFile, onProgress);
         }
-      });
-  }, [saveDataWithFiles]);
+
+        const { data: savedProduct, error } = await supabase
+            .from('products')
+            .upsert(productData, { onConflict: 'id' })
+            .select()
+            .single();
+        
+        if (error) throw error;
+
+        setDecorProducts(prev => {
+            const productExists = prev.some(p => p.id === savedProduct.id);
+            if (productExists) {
+                return prev.map(p => p.id === savedProduct.id ? savedProduct : p).sort((a,b) => a.name.localeCompare(b.name));
+            } else {
+                return [...prev, savedProduct].sort((a,b) => a.name.localeCompare(b.name));
+            }
+        });
+      } catch (error: any) {
+          toast({ variant: 'destructive', title: 'Save Failed', description: error.message });
+      }
+  }, [uploadFile, toast]);
 
   const deleteDecorProduct = useCallback(async (id: number) => {
     const { error } = await supabase.from('products').delete().match({ id });
@@ -205,17 +210,32 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   }, [toast]);
 
   const addOrUpdateBookingSite = useCallback(async (site: Partial<BookingSite>, imageFile?: File | null, onProgress?: (p: number) => void) => {
-    const files = imageFile ? { imageFile } : {};
-    const savedSite = await saveDataWithFiles('bookingSites', site, files, onProgress);
-    setBookingSites(prev => {
-        const siteExists = prev.some(s => s.id === savedSite.id);
-        if (siteExists) {
-            return prev.map(s => s.id === savedSite.id ? savedSite : s).sort((a,b) => a.name.localeCompare(b.name));
-        } else {
-            return [...prev, savedSite].sort((a,b) => a.name.localeCompare(b.name));
+    const siteData = { ...site };
+    try {
+        if (imageFile) {
+            siteData.imageUrl = await uploadFile('bookingSites', imageFile, onProgress);
         }
-      });
-  }, [saveDataWithFiles]);
+        
+        const { data: savedSite, error } = await supabase
+            .from('bookingSites')
+            .upsert(siteData, { onConflict: 'id' })
+            .select()
+            .single();
+        
+        if (error) throw error;
+        
+        setBookingSites(prev => {
+            const siteExists = prev.some(s => s.id === savedSite.id);
+            if (siteExists) {
+                return prev.map(s => s.id === savedSite.id ? savedSite : s).sort((a,b) => a.name.localeCompare(b.name));
+            } else {
+                return [...prev, savedSite].sort((a,b) => a.name.localeCompare(b.name));
+            }
+        });
+    } catch (error: any) {
+        toast({ variant: 'destructive', title: 'Save Failed', description: error.message });
+    }
+  }, [uploadFile, toast]);
 
   const deleteBookingSite = useCallback(async (id: number) => {
     const { error } = await supabase.from('bookingSites').delete().match({ id });
@@ -227,9 +247,40 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   }, [toast]);
   
   const updateSiteSettings = useCallback(async (settings: SiteSettings, files: {[key: string]: File | null}) => {
-     const savedSettings = await saveDataWithFiles('siteSettings', { ...settings, id: 1 }, files);
-     setSiteSettings(savedSettings);
-  }, [saveDataWithFiles]);
+    const settingsData = { ...settings, id: 1 }; // Ensure ID is 1 for upsert
+
+    try {
+        // Handle file uploads for hero images and founder images
+        for (const key in files) {
+            const file = files[key];
+            if (file) {
+                const parts = key.split('.'); // e.g. ['heroImages', 'interiors', '0']
+                const collection = parts[0]; // e.g. 'heroImages'
+                const url = await uploadFile(collection, file);
+                
+                let current = settingsData as any;
+                for (let i = 0; i < parts.length - 1; i++) {
+                    current = current[parts[i]];
+                }
+                current[parts[parts.length - 1]] = url;
+            }
+        }
+        
+        const { data: savedSettings, error } = await supabase
+            .from('siteSettings')
+            .upsert(settingsData, { onConflict: 'id' })
+            .select()
+            .single();
+
+        if (error) throw error;
+        
+        setSiteSettings(savedSettings);
+
+    } catch (error: any) {
+        toast({ variant: 'destructive', title: 'Settings Save Failed', description: error.message });
+    }
+  }, [uploadFile, toast]);
+
 
   const addBooking = useCallback(async (booking: Omit<Booking, 'id' | 'createdAt' | 'isRead'>) => {
       const newBooking = { ...booking, isRead: false };
@@ -357,7 +408,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         setDecorProducts(productsRes.data || []);
         setPortfolioItems(portfolioRes.data || []);
         setBookings(bookingsRes.data || []);
-        setBookingSites(bookingSitesRes.data || []);
+        setBookingSites(bookingSites.data || []);
         setOrders(ordersRes.data || []);
         if(settingsRes.data) setSiteSettings(settingsRes.data);
 
