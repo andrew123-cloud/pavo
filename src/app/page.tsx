@@ -87,8 +87,8 @@ export default function PavoSuiteHome() {
         <section className="relative h-screen w-full">
             {suiteHeroImages.map((src, index) => (
                 <Image
-                    key={src}
-                    src={src}
+                    key={src || index}
+                    src={src || 'https://placehold.co/1920x1080.png?text=Pavo+Suite'}
                     alt="Elegant Pavo branding background"
                     fill
                     className={`object-cover transition-opacity duration-1000 ease-in-out ${index === currentImageIndex ? 'opacity-20' : 'opacity-0'}`}

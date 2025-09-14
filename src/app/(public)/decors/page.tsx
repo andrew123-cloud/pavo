@@ -1,5 +1,4 @@
 
-
 // src/app/(public)/decors/page.tsx
 'use client';
 import Image from 'next/image';
@@ -45,7 +44,7 @@ export default function PavoDecorsHome() {
         {heroImages.map((src, index) => (
           <Image
             key={src}
-            src={src}
+            src={src || 'https://placehold.co/1920x1080.png?text=Pavo+Decors'}
             alt="A stylishly arranged collection of home decor items"
             fill
             className={`object-cover transition-opacity duration-1000 ease-in-out ${index === currentImageIndex ? 'opacity-30' : 'opacity-0'}`}

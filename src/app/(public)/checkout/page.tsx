@@ -174,7 +174,7 @@ export default function CheckoutPage() {
                           {cart.map(item => (
                               <div key={item.id} className="flex items-center gap-4">
                                   <div className="relative h-16 w-16 rounded-md overflow-hidden">
-                                      <Image src={item.imageUrl || `https://placehold.co/64x64/png?text=No+Image`} alt={item.name} fill className="object-cover" />
+                                      <Image src={item.imageUrl || `https://placehold.co/64x64.png?text=No+Image`} alt={item.name} fill className="object-cover" />
                                       <span className="absolute -top-2 -right-2 flex h-6 w-6 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground">
                                           {item.quantity}
                                       </span>

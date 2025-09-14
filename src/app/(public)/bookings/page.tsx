@@ -1,3 +1,4 @@
+
 // src/app/(public)/bookings/page.tsx
 'use client';
 import Image from 'next/image';
@@ -30,7 +31,7 @@ const BookingSiteCard = ({ site }: { site: BookingSite }) => (
                                   <CarouselItem key={index}>
                                       <div className="relative h-64 w-full">
                                           <Image
-                                              src={url}
+                                              src={url || 'https://placehold.co/400x250.png?text=Image+Not+Available'}
                                               alt={`${site.name} image ${index + 1}`}
                                               fill
                                               className="object-cover transition-transform duration-500 ease-in-out group-hover:scale-105"
@@ -134,7 +135,7 @@ export default function PavoBookingsPage() {
         {heroImages.map((src, index) => (
           <Image
             key={src}
-            src={src}
+            src={src || 'https://placehold.co/1920x1080.png?text=Pavo+Homes'}
             alt="A beautiful and aesthetic venue in Tanzania"
             fill
             className={`object-cover transition-opacity duration-1000 ease-in-out ${index === currentImageIndex ? 'opacity-30' : 'opacity-0'}`}
