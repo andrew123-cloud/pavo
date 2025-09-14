@@ -14,9 +14,9 @@ export interface PortfolioItem {
   id: number;
   title: string;
   location: string;
-  imageUrl: string;
+  imageUrls: string[];
   aiHint: string;
-  beforeImageUrl?: string;
+  beforeImageUrls?: string[];
   description: string;
 }
 
@@ -84,7 +84,7 @@ export interface BookingSite {
   name: string;
   type: 'home' | 'restaurant' | 'caterer';
   description: string;
-  imageUrl: string;
+  imageUrls: string[];
   location?: string;
   priceInfo?: string;
   aiHint?: string;

@@ -24,11 +24,11 @@ interface PavoDataContextType {
   cartCount: number;
   cartTotal: number;
   cartId: string | null;
-  addOrUpdatePortfolioItem: (item: Partial<PortfolioItem>, beforeImageFile?: File | null, afterImageFile?: File | null, onProgress?: (p: number) => void) => Promise<void>;
+  addOrUpdatePortfolioItem: (item: Partial<PortfolioItem>, beforeImageFiles: File[], afterImageFiles: File[], onProgress?: (p: number) => void) => Promise<void>;
   deletePortfolioItem: (id: number) => Promise<void>;
   addOrUpdateDecorProduct: (product: Partial<Product>, imageFile?: File | null, onProgress?: (p: number) => void) => Promise<void>;
   deleteDecorProduct: (id: number) => Promise<void>;
-  addOrUpdateBookingSite: (site: Partial<BookingSite>, imageFile?: File | null, onProgress?: (p: number) => void) => Promise<void>;
+  addOrUpdateBookingSite: (site: Partial<BookingSite>, imageFiles: File[], onProgress?: (p: number) => void) => Promise<void>;
   deleteBookingSite: (id: number) => Promise<void>;
   addBooking: (booking: Omit<Booking, 'id' | 'createdAt' | 'isRead'>) => Promise<void>;
   markBookingAsRead: (id: number) => Promise<void>;
@@ -130,15 +130,17 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     }
   }, [toast]);
   
-  const addOrUpdatePortfolioItem = useCallback(async (item: Partial<PortfolioItem>, beforeImageFile?: File | null, afterImageFile?: File | null, onProgress?: (p: number) => void) => {
+  const addOrUpdatePortfolioItem = useCallback(async (item: Partial<PortfolioItem>, beforeImageFiles: File[], afterImageFiles: File[], onProgress?: (p: number) => void) => {
       const itemData = { ...item };
       
       try {
-        if (beforeImageFile) {
-          itemData.beforeImageUrl = await uploadFile('portfolioItems', beforeImageFile, onProgress);
+        if (beforeImageFiles?.length > 0) {
+          const beforeUrls = await Promise.all(beforeImageFiles.map(file => uploadFile('portfolioItems', file, onProgress)));
+          itemData.beforeImageUrls = [...(itemData.beforeImageUrls || []), ...beforeUrls];
         }
-        if (afterImageFile) {
-          itemData.imageUrl = await uploadFile('portfolioItems', afterImageFile, onProgress);
+        if (afterImageFiles?.length > 0) {
+          const afterUrls = await Promise.all(afterImageFiles.map(file => uploadFile('portfolioItems', file, onProgress)));
+          itemData.imageUrls = [...(itemData.imageUrls || []), ...afterUrls];
         }
 
         const { data: savedItem, error } = await supabase
@@ -159,6 +161,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         });
       } catch (error: any) {
           toast({ variant: 'destructive', title: 'Save Failed', description: error.message });
+          throw error;
       }
   }, [uploadFile, toast]);
 
@@ -197,6 +200,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         });
       } catch (error: any) {
           toast({ variant: 'destructive', title: 'Save Failed', description: error.message });
+          throw error;
       }
   }, [uploadFile, toast]);
 
@@ -209,11 +213,12 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     setDecorProducts(prev => prev.filter(p => p.id !== id));
   }, [toast]);
 
-  const addOrUpdateBookingSite = useCallback(async (site: Partial<BookingSite>, imageFile?: File | null, onProgress?: (p: number) => void) => {
+  const addOrUpdateBookingSite = useCallback(async (site: Partial<BookingSite>, imageFiles: File[], onProgress?: (p: number) => void) => {
     const siteData = { ...site };
     try {
-        if (imageFile) {
-            siteData.imageUrl = await uploadFile('bookingSites', imageFile, onProgress);
+        if (imageFiles?.length > 0) {
+            const urls = await Promise.all(imageFiles.map(file => uploadFile('bookingSites', file, onProgress)));
+            siteData.imageUrls = [...(siteData.imageUrls || []), ...urls];
         }
         
         const { data: savedSite, error } = await supabase
@@ -234,6 +239,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         });
     } catch (error: any) {
         toast({ variant: 'destructive', title: 'Save Failed', description: error.message });
+        throw error;
     }
   }, [uploadFile, toast]);
 
@@ -278,6 +284,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
     } catch (error: any) {
         toast({ variant: 'destructive', title: 'Settings Save Failed', description: error.message });
+        throw error;
     }
   }, [uploadFile, toast]);
 

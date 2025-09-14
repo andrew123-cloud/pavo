@@ -1,4 +1,3 @@
-
 // src/app/page.tsx
 'use client';
 import { useEffect, useState } from 'react';
@@ -10,37 +9,44 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { cn } from '@/lib/utils';
 import PavoLogo from '@/components/pavo-logo';
 import { usePavoData } from '@/context/data-context';
+import Header from '@/components/shared/header';
+import Footer from '@/components/shared/footer';
 
 
 export default function PavoSuiteHome() {
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
-  const { siteSettings } = usePavoData();
+  const { siteSettings, loading } = usePavoData();
   const { brandDescriptions, founder, heroImages } = siteSettings;
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [currentFounderImageIndex, setCurrentFounderImageIndex] = useState(0);
+
+  const suiteHeroImages = (heroImages?.suite?.length || 0) > 0 ? heroImages.suite : ['https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=1920&h=1080&auto=format&fit=crop'];
 
   useEffect(() => {
     const handleMouseMove = (event: MouseEvent) => {
       setMousePosition({ x: event.clientX, y: event.clientY });
     };
-
     window.addEventListener('mousemove', handleMouseMove);
-
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-    };
+    return () => window.removeEventListener('mousemove', handleMouseMove);
   }, []);
-  
+
+  useEffect(() => {
+    if (suiteHeroImages.length > 1) {
+      const interval = setInterval(() => {
+        setCurrentImageIndex(prevIndex => (prevIndex + 1) % suiteHeroImages.length);
+      }, 5000);
+      return () => clearInterval(interval);
+    }
+  }, [suiteHeroImages.length]);
+
   useEffect(() => {
     if (founder?.imageUrls?.length > 1) {
       const interval = setInterval(() => {
         setCurrentFounderImageIndex(prevIndex => (prevIndex + 1) % founder.imageUrls.length);
-      }, 5000); // Change image every 5 seconds
+      }, 5000);
       return () => clearInterval(interval);
     }
-  }, [founder]);
-  
-  const suiteHeroImages = (heroImages?.suite?.length || 0) > 0 ? heroImages.suite : ['https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=250&auto=format&fit=crop'];
+  }, [founder?.imageUrls?.length]);
 
 
   const pavoBrands = [
@@ -69,6 +75,7 @@ export default function PavoSuiteHome() {
 
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground overflow-hidden">
+       <Header />
       <div
         className="pointer-events-none fixed inset-0 z-30 transition duration-300"
         style={{
@@ -76,29 +83,19 @@ export default function PavoSuiteHome() {
         }}
       />
       <main className="flex-grow">
-        <section className="relative h-screen w-full perspective-1000">
-          <div className="absolute inset-0 preserve-3d">
-            {suiteHeroImages.length > 0 ? (
-                suiteHeroImages.map((src, index) => (
-                    <div key={src} className="shape" style={{
-                        width: '250px',
-                        height: '250px',
-                        top: `${15 + (index * 20)}%`,
-                        left: `${15 + (index * 20)}%`,
-                        animationDelay: `-${index*3}s`,
-                        backgroundImage: `url(${src})`,
-                        backgroundSize: 'cover'
-                    }}/>
-                ))
-            ) : (
-                <>
-                    <div className="shape shape-1"></div>
-                    <div className="shape shape-2"></div>
-                    <div className="shape shape-3"></div>
-                    <div className="shape shape-4"></div>
-                </>
-            )}
-          </div>
+        <section className="relative h-screen w-full">
+            {suiteHeroImages.map((src, index) => (
+                <Image
+                    key={src}
+                    src={src}
+                    alt="Elegant Pavo branding background"
+                    fill
+                    className={`object-cover transition-opacity duration-1000 ease-in-out ${index === currentImageIndex ? 'opacity-20' : 'opacity-0'}`}
+                    priority={index === 0}
+                    data-ai-hint="elegant interior design"
+                />
+            ))}
+            <div className="absolute inset-0 bg-gradient-to-t from-background via-background/80 to-transparent" />
 
           <div className="relative z-10 flex h-full flex-col items-center justify-center px-4 text-center">
             <PavoLogo className="text-4xl" />
@@ -199,6 +196,7 @@ export default function PavoSuiteHome() {
           </div>
         </section>
       </main>
+      <Footer />
     </div>
   );
 }

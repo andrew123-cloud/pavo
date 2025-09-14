@@ -5,7 +5,7 @@ import React, { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { MoreHorizontal, PlusCircle, Loader2 } from "lucide-react";
+import { MoreHorizontal, PlusCircle, Loader2, Trash2 } from "lucide-react";
 import Image from "next/image";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogClose } from '@/components/ui/dialog';
@@ -17,6 +17,12 @@ import { usePavoData } from '@/context/data-context';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { Progress } from '@/components/ui/progress';
+import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
+
+type ImageFileWithPreview = {
+    file: File;
+    preview: string;
+};
 
 export default function InteriorsAdmin() {
   const { portfolioItems, loading, addOrUpdatePortfolioItem, deletePortfolioItem } = usePavoData();
@@ -24,14 +30,14 @@ export default function InteriorsAdmin() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingItem, setEditingItem] = useState<Partial<PortfolioItem> | null>(null);
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [beforeImageFile, setBeforeImageFile] = useState<File | null>(null);
+  const [imageFiles, setImageFiles] = useState<ImageFileWithPreview[]>([]);
+  const [beforeImageFiles, setBeforeImageFiles] = useState<ImageFileWithPreview[]>([]);
   const [uploadProgress, setUploadProgress] = useState(0);
 
   const openForm = (item?: PortfolioItem) => {
-    setEditingItem(item || null);
-    setImageFile(null);
-    setBeforeImageFile(null);
+    setEditingItem(item || { imageUrls: [], beforeImageUrls: [] });
+    setImageFiles([]);
+    setBeforeImageFiles([]);
     setUploadProgress(0);
     setIsFormOpen(true);
   };
@@ -40,14 +46,41 @@ export default function InteriorsAdmin() {
     setIsFormOpen(false);
     setTimeout(() => {
         setEditingItem(null);
-        setImageFile(null);
-        setBeforeImageFile(null);
+        setImageFiles([]);
+        setBeforeImageFiles([]);
         setUploadProgress(0);
     }, 300);
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, type: 'before' | 'after') => {
+    const files = Array.from(e.target.files || []);
+    const filesWithPreview = files.map(file => ({ file, preview: URL.createObjectURL(file) }));
+    if (type === 'before') {
+      setBeforeImageFiles(prev => [...prev, ...filesWithPreview]);
+    } else {
+      setImageFiles(prev => [...prev, ...filesWithPreview]);
+    }
+  };
+
+  const removeImage = (index: number, type: 'before' | 'after' | 'existing-before' | 'existing-after') => {
+      if (type === 'before') {
+          setBeforeImageFiles(prev => prev.filter((_, i) => i !== index));
+      } else if (type === 'after') {
+          setImageFiles(prev => prev.filter((_, i) => i !== index));
+      } else if (type === 'existing-before' && editingItem) {
+          const updatedUrls = [...(editingItem.beforeImageUrls || [])];
+          updatedUrls.splice(index, 1);
+          setEditingItem(prev => ({...prev, beforeImageUrls: updatedUrls}));
+      } else if (type === 'existing-after' && editingItem) {
+          const updatedUrls = [...(editingItem.imageUrls || [])];
+          updatedUrls.splice(index, 1);
+          setEditingItem(prev => ({...prev, imageUrls: updatedUrls}));
+      }
   };
   
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (!editingItem) return;
     setIsSubmitting(true);
     setUploadProgress(0);
     
@@ -61,7 +94,10 @@ export default function InteriorsAdmin() {
         description: form.description.value,
       };
 
-      await addOrUpdatePortfolioItem(portfolioData, beforeImageFile, imageFile, setUploadProgress);
+      const beforeFiles = beforeImageFiles.map(f => f.file);
+      const afterFiles = imageFiles.map(f => f.file);
+      
+      await addOrUpdatePortfolioItem(portfolioData, beforeFiles, afterFiles, setUploadProgress);
 
       toast({ title: 'Success!', description: 'Portfolio item saved successfully.' });
       closeForm();
@@ -86,6 +122,43 @@ export default function InteriorsAdmin() {
     }
   };
 
+  const renderImagePreviews = (
+      existingUrls: string[] = [], 
+      newFiles: ImageFileWithPreview[] = [], 
+      type: 'existing-before' | 'existing-after' | 'before' | 'after'
+    ) => {
+    const allImages = [...existingUrls, ...newFiles.map(f => f.preview)];
+    if (allImages.length === 0) return null;
+
+    return (
+        <Carousel className="w-full max-w-xs">
+            <CarouselContent>
+                {existingUrls.map((url, index) => (
+                    <CarouselItem key={`existing-${index}`}>
+                        <div className="relative aspect-square">
+                            <Image src={url} alt="preview" fill className="rounded-md object-cover"/>
+                            <Button variant="destructive" size="icon" className="absolute top-1 right-1 h-6 w-6" onClick={() => removeImage(index, type.startsWith('existing') ? type : (type as 'before' | 'after'))}><Trash2 className="h-4 w-4"/></Button>
+                        </div>
+                    </CarouselItem>
+                ))}
+                {newFiles.map((file, index) => (
+                     <CarouselItem key={`new-${index}`}>
+                        <div className="relative aspect-square">
+                           <Image src={file.preview} alt="preview" fill className="rounded-md object-cover"/>
+                           <Button variant="destructive" size="icon" className="absolute top-1 right-1 h-6 w-6" onClick={() => removeImage(index, type.startsWith('existing-') ? type : (type as 'before' | 'after'))}><Trash2 className="h-4 w-4"/></Button>
+                        </div>
+                    </CarouselItem>
+                ))}
+            </CarouselContent>
+            {allImages.length > 1 && <>
+              <CarouselPrevious />
+              <CarouselNext />
+            </>}
+        </Carousel>
+    );
+  };
+
+
   return (
     <div>
         <div className="flex items-center">
@@ -100,7 +173,7 @@ export default function InteriorsAdmin() {
         <Card className="mt-4">
             <CardHeader>
                 <CardTitle>Portfolio Items</CardTitle>
-                <CardDescription>Manage your interior design portfolio. Data is synced with Firestore.</CardDescription>
+                <CardDescription>Manage your interior design portfolio. Data is synced with Supabase.</CardDescription>
             </CardHeader>
             <CardContent>
                 {loading ? (
@@ -127,7 +200,7 @@ export default function InteriorsAdmin() {
                                         alt={item.title}
                                         className="aspect-square rounded-md object-cover"
                                         height="64"
-                                        src={item.imageUrl || 'https://placehold.co/64x64/png'}
+                                        src={item.imageUrls?.[0] || 'https://placehold.co/64x64/png'}
                                         width="64"
                                         data-ai-hint={item.aiHint}
                                     />
@@ -153,7 +226,7 @@ export default function InteriorsAdmin() {
                                                 <AlertDialogHeader>
                                                 <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                                                 <AlertDialogDescription>
-                                                    This action cannot be undone. This will permanently delete the portfolio item from Firestore.
+                                                    This action cannot be undone. This will permanently delete the portfolio item.
                                                 </AlertDialogDescription>
                                                 </AlertDialogHeader>
                                                 <AlertDialogFooter>
@@ -206,57 +279,41 @@ export default function InteriorsAdmin() {
                             </Label>
                             <Textarea id="description" name="description" defaultValue={editingItem?.description} className="col-span-3" rows={4} required/>
                         </div>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="beforeImageFile" className="text-right">
-                                'Before' Image
+
+                        <div className="grid grid-cols-4 items-start gap-4">
+                            <Label htmlFor="beforeImageFile" className="text-right pt-2">
+                                'Before' Images
                             </Label>
-                            <Input 
-                                id="beforeImageFile" 
-                                name="beforeImageFile" 
-                                type="file"
-                                onChange={(e) => setBeforeImageFile(e.target.files?.[0] || null)}
-                                className="col-span-3"
-                            />
-                        </div>
-                         { (editingItem?.beforeImageUrl || beforeImageFile) &&
-                            <div className="grid grid-cols-4 items-center gap-4">
-                                <Label className="text-right">Preview</Label>
-                                <Image
-                                    src={beforeImageFile ? URL.createObjectURL(beforeImageFile) : editingItem!.beforeImageUrl!}
-                                    alt="before preview"
-                                    width={64}
-                                    height={64}
-                                    className="col-span-3 rounded-md object-cover"
-                                    style={{ aspectRatio: '1 / 1' }}
-                                />
+                            <div className="col-span-3 space-y-2">
+                              <Input 
+                                  id="beforeImageFile" 
+                                  name="beforeImageFile" 
+                                  type="file"
+                                  multiple
+                                  onChange={(e) => handleFileChange(e, 'before')}
+                                  className="col-span-3"
+                              />
+                              {renderImagePreviews(editingItem?.beforeImageUrls, beforeImageFiles, 'existing-before')}
                             </div>
-                        }
-                        <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="imageFile" className="text-right">
-                                'After' Image
+                        </div>
+
+                        <div className="grid grid-cols-4 items-start gap-4">
+                            <Label htmlFor="imageFile" className="text-right pt-2">
+                                'After' Images
                             </Label>
-                            <Input 
-                                id="imageFile" 
-                                name="imageFile" 
-                                type="file"
-                                onChange={(e) => setImageFile(e.target.files?.[0] || null)}
-                                className="col-span-3" 
-                            />
-                        </div>
-                         { (editingItem?.imageUrl || imageFile) &&
-                            <div className="grid grid-cols-4 items-center gap-4">
-                                <Label className="text-right">Preview</Label>
-                                <Image
-                                    src={imageFile ? URL.createObjectURL(imageFile) : editingItem!.imageUrl!}
-                                    alt="preview"
-                                    width={64}
-                                    height={64}
-                                    className="col-span-3 rounded-md object-cover"
-                                    style={{ aspectRatio: '1 / 1' }}
+                             <div className="col-span-3 space-y-2">
+                                <Input 
+                                    id="imageFile" 
+                                    name="imageFile" 
+                                    type="file"
+                                    multiple
+                                    onChange={(e) => handleFileChange(e, 'after')}
+                                    className="col-span-3" 
                                 />
+                               {renderImagePreviews(editingItem?.imageUrls, imageFiles, 'existing-after')}
                             </div>
-                        }
-                        {isSubmitting && (beforeImageFile || imageFile) && (
+                        </div>
+                        {isSubmitting && (beforeImageFiles.length > 0 || imageFiles.length > 0) && (
                             <div className="col-span-4">
                                 <Progress value={uploadProgress} className="w-full" />
                             </div>

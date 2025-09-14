@@ -1,4 +1,3 @@
-
 // src/app/(public)/bookings/page.tsx
 'use client';
 import Image from 'next/image';
@@ -6,8 +5,6 @@ import {
   Home,
   UtensilsCrossed,
   ConciergeBell,
-  MapPin,
-  Sparkles,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -19,20 +16,47 @@ import type { BookingSite } from '@/lib/types';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { BookingForm } from '@/components/shared/booking-form';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 
 const BookingSiteCard = ({ site }: { site: BookingSite }) => (
     <Card className="overflow-hidden transition-all duration-300 ease-in-out hover:shadow-2xl hover:-translate-y-2 bg-secondary/50 border-0 flex flex-col">
         <CardContent className="p-0 flex-grow">
             <div className="group">
                 <div className="relative h-64 w-full overflow-hidden">
-                    <Image
-                        src={site.imageUrl || 'https://placehold.co/400x250.png?text=Image+Not+Available'}
-                        alt={site.name}
-                        layout="fill"
-                        objectFit="cover"
-                        className="transition-transform duration-500 ease-in-out group-hover:scale-105"
-                        data-ai-hint={site.aiHint}
-                    />
+                    {(site.imageUrls?.length || 0) > 0 ? (
+                      <Carousel className="w-full h-full">
+                          <CarouselContent>
+                              {site.imageUrls.map((url, index) => (
+                                  <CarouselItem key={index}>
+                                      <div className="relative h-64 w-full">
+                                          <Image
+                                              src={url}
+                                              alt={`${site.name} image ${index + 1}`}
+                                              layout="fill"
+                                              objectFit="cover"
+                                              className="transition-transform duration-500 ease-in-out group-hover:scale-105"
+                                              data-ai-hint={site.aiHint}
+                                          />
+                                      </div>
+                                  </CarouselItem>
+                              ))}
+                          </CarouselContent>
+                          {site.imageUrls.length > 1 && (
+                              <>
+                                  <CarouselPrevious className="absolute left-2 top-1/2 -translate-y-1/2 z-10" />
+                                  <CarouselNext className="absolute right-2 top-1/2 -translate-y-1/2 z-10" />
+                              </>
+                          )}
+                      </Carousel>
+                    ) : (
+                       <Image
+                          src={'https://placehold.co/400x250.png?text=Image+Not+Available'}
+                          alt={site.name}
+                          layout="fill"
+                          objectFit="cover"
+                          data-ai-hint={site.aiHint}
+                      />
+                    )}
                     {site.location && <Badge className="absolute left-3 top-3 bg-primary/80 text-primary-foreground backdrop-blur-sm">{site.location}</Badge>}
                 </div>
                 <div className="p-4 text-left">

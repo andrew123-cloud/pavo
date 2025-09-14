@@ -5,7 +5,7 @@ import React, { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { MoreHorizontal, PlusCircle, Loader2 } from "lucide-react";
+import { MoreHorizontal, PlusCircle, Loader2, Trash2 } from "lucide-react";
 import Image from "next/image";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogClose } from '@/components/ui/dialog';
@@ -18,6 +18,12 @@ import { usePavoData } from '@/context/data-context';
 import { useToast } from '@/hooks/use-toast';
 import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
+
+type ImageFileWithPreview = {
+    file: File;
+    preview: string;
+};
 
 export default function BookingSitesAdmin() {
   const { bookingSites, loading, addOrUpdateBookingSite, deleteBookingSite } = usePavoData();
@@ -25,12 +31,12 @@ export default function BookingSitesAdmin() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingSite, setEditingSite] = useState<Partial<BookingSite> | null>(null);
-  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imageFiles, setImageFiles] = useState<ImageFileWithPreview[]>([]);
   const [uploadProgress, setUploadProgress] = useState(0);
 
   const openForm = (site?: BookingSite) => {
-    setEditingSite(site || null);
-    setImageFile(null);
+    setEditingSite(site || { imageUrls: [] });
+    setImageFiles([]);
     setUploadProgress(0);
     setIsFormOpen(true);
   };
@@ -39,13 +45,31 @@ export default function BookingSitesAdmin() {
     setIsFormOpen(false);
     setTimeout(() => {
       setEditingSite(null);
-      setImageFile(null);
+      setImageFiles([]);
       setUploadProgress(0);
     }, 300);
   };
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    const filesWithPreview = files.map(file => ({ file, preview: URL.createObjectURL(file) }));
+    setImageFiles(prev => [...prev, ...filesWithPreview]);
+  };
+  
+  const removeImage = (index: number, type: 'new' | 'existing') => {
+      if (type === 'new') {
+          setImageFiles(prev => prev.filter((_, i) => i !== index));
+      } else if (type === 'existing' && editingSite) {
+          const updatedUrls = [...(editingSite.imageUrls || [])];
+          updatedUrls.splice(index, 1);
+          setEditingSite(prev => ({...prev, imageUrls: updatedUrls}));
+      }
+  };
+
+
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (!editingSite) return;
     setIsSubmitting(true);
     setUploadProgress(0);
 
@@ -61,8 +85,9 @@ export default function BookingSitesAdmin() {
           priceInfo: form.priceInfo.value,
           aiHint: form.aiHint.value,
       };
-
-      await addOrUpdateBookingSite(siteData, imageFile, setUploadProgress);
+      
+      const filesToUpload = imageFiles.map(f => f.file);
+      await addOrUpdateBookingSite(siteData, filesToUpload, setUploadProgress);
 
       toast({ title: 'Success!', description: 'Booking site saved successfully.' });
       closeForm();
@@ -87,6 +112,42 @@ export default function BookingSitesAdmin() {
        // Error toast is handled by context
     }
   };
+  
+  const renderImagePreviews = (
+      existingUrls: string[] = [], 
+      newFiles: ImageFileWithPreview[] = []
+    ) => {
+    const allImages = [...existingUrls, ...newFiles.map(f => f.preview)];
+    if (allImages.length === 0) return null;
+
+    return (
+        <Carousel className="w-full max-w-xs">
+            <CarouselContent>
+                {existingUrls.map((url, index) => (
+                    <CarouselItem key={`existing-${index}`}>
+                        <div className="relative aspect-square">
+                            <Image src={url} alt="preview" fill className="rounded-md object-cover"/>
+                            <Button variant="destructive" size="icon" className="absolute top-1 right-1 h-6 w-6" onClick={() => removeImage(index, 'existing')}><Trash2 className="h-4 w-4"/></Button>
+                        </div>
+                    </CarouselItem>
+                ))}
+                {newFiles.map((file, index) => (
+                     <CarouselItem key={`new-${index}`}>
+                        <div className="relative aspect-square">
+                           <Image src={file.preview} alt="preview" fill className="rounded-md object-cover"/>
+                           <Button variant="destructive" size="icon" className="absolute top-1 right-1 h-6 w-6" onClick={() => removeImage(index, 'new')}><Trash2 className="h-4 w-4"/></Button>
+                        </div>
+                    </CarouselItem>
+                ))}
+            </CarouselContent>
+            {allImages.length > 1 && <>
+              <CarouselPrevious />
+              <CarouselNext />
+            </>}
+        </Carousel>
+    );
+  };
+
 
   return (
     <div>
@@ -130,7 +191,7 @@ export default function BookingSitesAdmin() {
                                         alt={site.name}
                                         className="aspect-square rounded-md object-cover"
                                         height="64"
-                                        src={site.imageUrl || 'https://placehold.co/64x64/png'}
+                                        src={site.imageUrls?.[0] || 'https://placehold.co/64x64/png'}
                                         width="64"
                                         data-ai-hint={site.aiHint}
                                     />
@@ -227,24 +288,14 @@ export default function BookingSitesAdmin() {
                             <Label htmlFor="aiHint" className="text-right">AI Hint</Label>
                             <Input id="aiHint" name="aiHint" defaultValue={editingSite?.aiHint} placeholder="e.g. modern villa" className="col-span-3" />
                         </div>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="imageFile" className="text-right">Image</Label>
-                            <Input id="imageFile" name="imageFile" type="file" onChange={(e) => setImageFile(e.target.files?.[0] || null)} className="col-span-3" />
-                        </div>
-                        { (editingSite?.imageUrl || imageFile) &&
-                            <div className="grid grid-cols-4 items-center gap-4">
-                                <Label className="text-right">Preview</Label>
-                                <Image
-                                    src={imageFile ? URL.createObjectURL(imageFile) : editingSite!.imageUrl!}
-                                    alt="preview"
-                                    width={64}
-                                    height={64}
-                                    className="col-span-3 rounded-md object-cover"
-                                    style={{ aspectRatio: '1 / 1' }}
-                                />
+                        <div className="grid grid-cols-4 items-start gap-4">
+                            <Label htmlFor="imageFile" className="text-right pt-2">Images</Label>
+                            <div className="col-span-3 space-y-2">
+                               <Input id="imageFile" name="imageFile" type="file" multiple onChange={handleFileChange} className="col-span-3" />
+                               {renderImagePreviews(editingSite?.imageUrls, imageFiles)}
                             </div>
-                        }
-                         {isSubmitting && imageFile && (
+                        </div>
+                         {isSubmitting && imageFiles.length > 0 && (
                             <div className="col-span-4">
                                 <Progress value={uploadProgress} className="w-full" />
                             </div>

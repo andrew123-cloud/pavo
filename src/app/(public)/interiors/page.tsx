@@ -1,4 +1,3 @@
-
 // src/app/(public)/interiors/page.tsx
 'use client';
 import { useState, useEffect } from 'react';
@@ -30,6 +29,7 @@ import {
 } from '@/components/ui/dialog';
 import { BookingForm } from '@/components/shared/booking-form';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 
 export default function PavoInteriorsHome() {
   const { portfolioItems, siteSettings, loading } = usePavoData();
@@ -176,7 +176,7 @@ export default function PavoInteriorsHome() {
                 >
                     <div className="relative h-80 w-full overflow-hidden">
                     <Image
-                        src={item.imageUrl || 'https://placehold.co/400x320.png?text=Image+Not+Available'}
+                        src={item.imageUrls?.[0] || 'https://placehold.co/400x320.png?text=Image+Not+Available'}
                         alt={item.title}
                         fill
                         className="h-full w-full object-cover transition-transform duration-500 ease-in-out group-hover:scale-105"
@@ -210,19 +210,43 @@ export default function PavoInteriorsHome() {
                     <DialogDescription>{selectedProject.location}</DialogDescription>
                  </DialogHeader>
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
-                    {selectedProject.beforeImageUrl && (
+                    {(selectedProject.beforeImageUrls?.length || 0) > 0 && (
                       <div>
                           <h3 className="font-semibold text-lg mb-2">Before</h3>
-                          <div className="relative h-80 w-full rounded-lg overflow-hidden">
-                              <Image src={selectedProject.beforeImageUrl} alt={`Before view of ${selectedProject.title}`} layout="fill" objectFit="cover" data-ai-hint="cluttered room"/>
-                          </div>
+                          <Carousel className="w-full rounded-lg overflow-hidden">
+                              <CarouselContent>
+                                  {selectedProject.beforeImageUrls!.map((url, i) => (
+                                      <CarouselItem key={i}>
+                                          <div className="relative h-80 w-full">
+                                              <Image src={url} alt={`Before view ${i+1} of ${selectedProject.title}`} layout="fill" objectFit="cover" data-ai-hint="cluttered room"/>
+                                          </div>
+                                      </CarouselItem>
+                                  ))}
+                              </CarouselContent>
+                               {selectedProject.beforeImageUrls!.length > 1 && <>
+                                  <CarouselPrevious className="absolute left-2 top-1/2 -translate-y-1/2 z-10" />
+                                  <CarouselNext className="absolute right-2 top-1/2 -translate-y-1/2 z-10" />
+                              </>}
+                          </Carousel>
                       </div>
                     )}
-                     <div className={!selectedProject.beforeImageUrl ? 'md:col-span-2' : ''}>
+                     <div className={!(selectedProject.beforeImageUrls?.length) ? 'md:col-span-2' : ''}>
                         <h3 className="font-semibold text-lg mb-2">After</h3>
-                        <div className="relative h-80 w-full rounded-lg overflow-hidden">
-                            <Image src={selectedProject.imageUrl} alt={`After view of ${selectedProject.title}`} layout="fill" objectFit="cover" data-ai-hint={selectedProject.aiHint}/>
-                        </div>
+                          <Carousel className="w-full rounded-lg overflow-hidden">
+                              <CarouselContent>
+                                  {selectedProject.imageUrls.map((url, i) => (
+                                      <CarouselItem key={i}>
+                                          <div className="relative h-80 w-full">
+                                              <Image src={url} alt={`After view ${i+1} of ${selectedProject.title}`} layout="fill" objectFit="cover" data-ai-hint={selectedProject.aiHint}/>
+                                          </div>
+                                      </CarouselItem>
+                                  ))}
+                              </CarouselContent>
+                               {selectedProject.imageUrls.length > 1 && <>
+                                  <CarouselPrevious className="absolute left-2 top-1/2 -translate-y-1/2 z-10" />
+                                  <CarouselNext className="absolute right-2 top-1/2 -translate-y-1/2 z-10" />
+                              </>}
+                          </Carousel>
                     </div>
                  </div>
                 <div className="mt-4">
