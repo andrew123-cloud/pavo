@@ -22,6 +22,7 @@ export default function PavoSuiteHome() {
   const [currentFounderImageIndex, setCurrentFounderImageIndex] = useState(0);
 
   const suiteHeroImages = (heroImages?.suite?.length || 0) > 0 ? heroImages.suite : ['https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=1920&h=1080&auto=format&fit=crop'];
+  const founderImages = (founder?.imageUrls?.length || 0) > 0 ? founder.imageUrls : ['/palvin-portrait.jpg'];
 
   useEffect(() => {
     const handleMouseMove = (event: MouseEvent) => {
@@ -41,13 +42,13 @@ export default function PavoSuiteHome() {
   }, [suiteHeroImages.length]);
 
   useEffect(() => {
-    if (founder?.imageUrls?.length > 1) {
+    if (founderImages.length > 1) {
       const interval = setInterval(() => {
-        setCurrentFounderImageIndex(prevIndex => (prevIndex + 1) % founder.imageUrls.length);
+        setCurrentFounderImageIndex(prevIndex => (prevIndex + 1) % founderImages.length);
       }, 5000);
       return () => clearInterval(interval);
     }
-  }, [founder?.imageUrls?.length]);
+  }, [founderImages.length]);
 
 
   const pavoBrands = [
@@ -173,13 +174,16 @@ export default function PavoSuiteHome() {
                   <div
                     className="absolute inset-0 transition-transform duration-500 ease-in-out backface-hidden group-hover:rotate-y-180 rounded-2xl"
                   >
-                     <Image
-                      src={founder?.imageUrls?.[currentFounderImageIndex] || '/palvin-portrait.jpg'}
-                      alt="Portrait of Palvin Atugonza, founder of Pavo"
-                      fill
-                      className="object-cover"
-                      data-ai-hint="tanzanian entrepreneur portrait"
-                    />
+                    {founderImages.map((src, index) => (
+                      <Image
+                        key={src || index}
+                        src={src || '/palvin-portrait.jpg'}
+                        alt="Portrait of Palvin Atugonza, founder of Pavo"
+                        fill
+                        className={`object-cover transition-opacity duration-1000 ease-in-out ${index === currentFounderImageIndex ? 'opacity-100' : 'opacity-0'}`}
+                        data-ai-hint="tanzanian entrepreneur portrait"
+                      />
+                    ))}
                      <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
                   </div>
                   <div
