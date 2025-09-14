@@ -113,7 +113,7 @@ export default function PavoDecorsHome() {
                         </CardFooter>
                     </Card>
                 ))
-            ) : (
+            ) : decorProducts && decorProducts.length > 0 ? (
                 decorProducts.map((product) => (
                 <Card
                     key={product.id}
@@ -152,6 +152,10 @@ export default function PavoDecorsHome() {
                     </CardFooter>
                 </Card>
                 ))
+            ) : (
+              <div className="col-span-full text-center py-10">
+                <p className="text-muted-foreground">No products have been added yet.</p>
+              </div>
             )}
           </div>
         </div>

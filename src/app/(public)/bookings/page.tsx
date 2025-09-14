@@ -115,9 +115,9 @@ export default function PavoBookingsPage() {
         </div>
       )
     }
-    if (sites.length === 0) {
+    if (!sites || sites.length === 0) {
       return (
-        <div className="text-center py-20">
+        <div className="text-center py-20 col-span-full">
           <p className="text-muted-foreground">No listings available in this category yet.</p>
         </div>
       );

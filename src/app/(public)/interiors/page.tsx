@@ -169,7 +169,7 @@ export default function PavoInteriorsHome() {
                         </CardFooter>
                     </Card>
                 ))
-            ) : (
+            ) : portfolioItems && portfolioItems.length > 0 ? (
                 portfolioItems.map((item) => (
                 <Card
                     key={item.id}
@@ -198,6 +198,10 @@ export default function PavoInteriorsHome() {
                     </CardFooter>
                 </Card>
                 ))
+            ) : (
+              <div className="col-span-full text-center py-10">
+                <p className="text-muted-foreground">No portfolio items have been added yet.</p>
+              </div>
             )}
           </div>
         </div>
