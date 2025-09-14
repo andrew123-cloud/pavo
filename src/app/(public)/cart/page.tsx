@@ -63,7 +63,7 @@ export default function CartPage() {
                       <React.Fragment key={item.id}>
                         <div className="flex items-center gap-4">
                           <div className="relative h-24 w-24 rounded-md overflow-hidden">
-                            <Image src={item.imageUrl || `https://placehold.co/100x100/png?text=No+Image`} alt={item.name} layout="fill" objectFit="cover" />
+                            <Image src={item.imageUrl || `https://placehold.co/100x100/png?text=No+Image`} alt={item.name} fill className="object-cover" />
                           </div>
                           <div className="flex-1">
                             <h3 className="font-semibold text-lg">{item.name}</h3>

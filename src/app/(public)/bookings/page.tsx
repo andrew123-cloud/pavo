@@ -32,9 +32,8 @@ const BookingSiteCard = ({ site }: { site: BookingSite }) => (
                                           <Image
                                               src={url}
                                               alt={`${site.name} image ${index + 1}`}
-                                              layout="fill"
-                                              objectFit="cover"
-                                              className="transition-transform duration-500 ease-in-out group-hover:scale-105"
+                                              fill
+                                              className="object-cover transition-transform duration-500 ease-in-out group-hover:scale-105"
                                               data-ai-hint={site.aiHint}
                                           />
                                       </div>
@@ -52,8 +51,8 @@ const BookingSiteCard = ({ site }: { site: BookingSite }) => (
                        <Image
                           src={'https://placehold.co/400x250.png?text=Image+Not+Available'}
                           alt={site.name}
-                          layout="fill"
-                          objectFit="cover"
+                          fill
+                          className="object-cover"
                           data-ai-hint={site.aiHint}
                       />
                     )}
@@ -137,9 +136,8 @@ export default function PavoBookingsPage() {
             key={src}
             src={src}
             alt="A beautiful and aesthetic venue in Tanzania"
-            layout="fill"
-            objectFit="cover"
-            className={`transition-opacity duration-1000 ease-in-out ${index === currentImageIndex ? 'opacity-30' : 'opacity-0'}`}
+            fill
+            className={`object-cover transition-opacity duration-1000 ease-in-out ${index === currentImageIndex ? 'opacity-30' : 'opacity-0'}`}
             data-ai-hint="tanzania venue"
             priority={index === 0}
           />

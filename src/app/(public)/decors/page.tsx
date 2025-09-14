@@ -47,9 +47,8 @@ export default function PavoDecorsHome() {
             key={src}
             src={src}
             alt="A stylishly arranged collection of home decor items"
-            layout="fill"
-            objectFit="cover"
-            className={`transition-opacity duration-1000 ease-in-out ${index === currentImageIndex ? 'opacity-30' : 'opacity-0'}`}
+            fill
+            className={`object-cover transition-opacity duration-1000 ease-in-out ${index === currentImageIndex ? 'opacity-30' : 'opacity-0'}`}
             data-ai-hint="home decor collection"
             priority={index === 0}
           />
@@ -127,9 +126,8 @@ export default function PavoDecorsHome() {
                         <Image
                             src={product.image_url || 'https://placehold.co/400x400.png?text=Image+Not+Available'}
                             alt={product.name}
-                            layout="fill"
-                            objectFit="cover"
-                            className="transition-transform duration-500 ease-in-out group-hover:scale-105"
+                            fill
+                            className="object-cover transition-transform duration-500 ease-in-out group-hover:scale-105"
                             data-ai-hint={product.aiHint}
                         />
                         {product.stock > 0 ? (

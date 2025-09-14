@@ -176,7 +176,7 @@ export default function PavoInteriorsHome() {
                 >
                     <div className="relative h-80 w-full overflow-hidden">
                     <Image
-                        src={item.imageUrls?.[0] || 'https://placehold.co/400x320.png?text=Image+Not+Available'}
+                        src={item.imageUrls?.[0] || 'https://placehold.co/400x320/png?text=No+Image'}
                         alt={item.title}
                         fill
                         className="h-full w-full object-cover transition-transform duration-500 ease-in-out group-hover:scale-105"
@@ -218,7 +218,7 @@ export default function PavoInteriorsHome() {
                                   {selectedProject.beforeImageUrls!.map((url, i) => (
                                       <CarouselItem key={i}>
                                           <div className="relative h-80 w-full">
-                                              <Image src={url} alt={`Before view ${i+1} of ${selectedProject.title}`} layout="fill" objectFit="cover" data-ai-hint="cluttered room"/>
+                                              <Image src={url} alt={`Before view ${i+1} of ${selectedProject.title}`} fill className="object-cover" data-ai-hint="cluttered room"/>
                                           </div>
                                       </CarouselItem>
                                   ))}
@@ -237,7 +237,7 @@ export default function PavoInteriorsHome() {
                                   {selectedProject.imageUrls.map((url, i) => (
                                       <CarouselItem key={i}>
                                           <div className="relative h-80 w-full">
-                                              <Image src={url} alt={`After view ${i+1} of ${selectedProject.title}`} layout="fill" objectFit="cover" data-ai-hint={selectedProject.aiHint}/>
+                                              <Image src={url} alt={`After view ${i+1} of ${selectedProject.title}`} fill className="object-cover" data-ai-hint={selectedProject.aiHint}/>
                                           </div>
                                       </CarouselItem>
                                   ))}
