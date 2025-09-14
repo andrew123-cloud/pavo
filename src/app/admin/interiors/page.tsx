@@ -19,11 +19,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { Progress } from '@/components/ui/progress';
 
-type ImageFileWithPreview = {
-  file: File;
-  preview: string;
-};
-
 export default function InteriorsAdmin() {
   const { portfolioItems, loading, addOrUpdatePortfolioItem, deletePortfolioItem } = usePavoData();
   const { toast } = useToast();
@@ -143,7 +138,7 @@ export default function InteriorsAdmin() {
   };
 
   const getFileName = (url: string | null | undefined) => {
-    if (!url) return null;
+    if (!url || typeof url !== 'string') return null;
     try {
       const decodedUrl = decodeURIComponent(url);
       return decodedUrl.substring(decodedUrl.lastIndexOf('/') + 1).split('?')[0];
@@ -193,7 +188,7 @@ export default function InteriorsAdmin() {
                         alt={item.title}
                         className="aspect-square rounded-md object-cover"
                         height="64"
-                        src={item.imageUrls?.[0] && item.imageUrls[0].trim()
+                        src={item.imageUrls?.[0] && typeof item.imageUrls[0] === 'string' && item.imageUrls[0].trim()
                           ? item.imageUrls[0]
                           : 'https://placehold.co/64x64/png?text=No+Image'}
                         width="64"
@@ -287,7 +282,7 @@ export default function InteriorsAdmin() {
                             {getFileName(url) || `Image ${index + 1}`}
                           </Button>
                           <Image
-                            src={url && url.trim() ? url : 'https://placehold.co/40x40.png'}
+                            src={typeof url === 'string' && url.trim() ? url : 'https://placehold.co/40x40.png'}
                             alt="preview"
                             width={40}
                             height={40}
@@ -331,7 +326,7 @@ export default function InteriorsAdmin() {
                             {getFileName(url) || `Image ${index + 1}`}
                           </Button>
                           <Image
-                            src={url && url.trim() ? url : 'https://placehold.co/40x40.png'}
+                            src={typeof url === 'string' && url.trim() ? url : 'https://placehold.co/40x40.png'}
                             alt="preview"
                             width={40}
                             height={40}
@@ -385,5 +380,3 @@ export default function InteriorsAdmin() {
     </div>
   );
 }
-
-    

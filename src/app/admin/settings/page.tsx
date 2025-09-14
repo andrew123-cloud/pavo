@@ -1,3 +1,4 @@
+
 // src/app/admin/settings/page.tsx
 'use client';
 
@@ -101,7 +102,7 @@ export default function SettingsAdminPage() {
   };
   
   const getFileName = (url: string | null | undefined) => {
-    if (!url) return null;
+    if (!url || typeof url !== 'string') return null;
     try {
         // This is a simple heuristic, may not work for all URL formats
         const decodedUrl = decodeURIComponent(url);
@@ -141,7 +142,7 @@ export default function SettingsAdminPage() {
                                 {filesToUpload[`heroImages.${key}.${index}`]?.name || getFileName(url) || `Select image ${index + 1}...`}
                             </Button>
                         </div>
-                         <Image src={url || `https://placehold.co/40x40.png`} alt="preview" width={40} height={40} className="rounded-md object-cover"/>
+                         <Image src={typeof url === 'string' && url.trim() ? url : `https://placehold.co/40x40.png`} alt="preview" width={40} height={40} className="rounded-md object-cover"/>
                         <Button variant="ghost" size="icon" onClick={() => removeHeroImageField(key, index)}>
                             <Trash2 className="h-4 w-4"/>
                         </Button>
@@ -231,7 +232,7 @@ export default function SettingsAdminPage() {
                                {filesToUpload[`founder.imageUrls.${index}`]?.name || getFileName(url) || `Select image ${index + 1}...`}
                             </Button>
                         </div>
-                         <Image src={url || `https://placehold.co/40x40.png`} alt="preview" width={40} height={40} className="rounded-md object-cover"/>
+                         <Image src={typeof url === 'string' && url.trim() ? url : `https://placehold.co/40x40.png`} alt="preview" width={40} height={40} className="rounded-md object-cover"/>
                         <Button variant="ghost" size="icon" onClick={() => removeFounderImageField(index)}>
                             <Trash2 className="h-4 w-4"/>
                         </Button>

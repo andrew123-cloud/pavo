@@ -22,13 +22,13 @@ export default function PavoDecorsHome() {
   const heroImages = siteSettings.heroImages.decors;
 
   useEffect(() => {
-    if (heroImages.length > 1) {
+    if (heroImages && heroImages.length > 1) {
       const interval = setInterval(() => {
         setCurrentImageIndex(prevIndex => (prevIndex + 1) % heroImages.length);
       }, 5000); // Change image every 5 seconds
       return () => clearInterval(interval);
     }
-  }, [heroImages.length]);
+  }, [heroImages]);
 
   const handleAddToCart = (product: Product) => {
     addToCart(product);
@@ -41,9 +41,9 @@ export default function PavoDecorsHome() {
   return (
     <div className="flex flex-col dark bg-background text-foreground">
       <section className="relative h-[80vh] min-h-[500px] w-full">
-        {heroImages.map((src, index) => (
+        {heroImages && heroImages.length > 0 && heroImages.map((src, index) => (
           <Image
-            key={src}
+            key={src || index}
             src={typeof src === 'string' && src.trim() ? src : 'https://placehold.co/1920x1080.png?text=Pavo+Decors'}
             alt="A stylishly arranged collection of home decor items"
             fill

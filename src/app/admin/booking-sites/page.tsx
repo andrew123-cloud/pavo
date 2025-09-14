@@ -1,3 +1,4 @@
+
 // src/app/admin/booking-sites/page.tsx
 'use client';
 
@@ -117,7 +118,7 @@ export default function BookingSitesAdmin() {
       existingUrls: string[] = [], 
       newFiles: ImageFileWithPreview[] = []
     ) => {
-    const allImages = [...existingUrls, ...newFiles.map(f => f.preview)];
+    const allImages = [...existingUrls.map(url => typeof url === 'string' && url.trim() ? url : null).filter(Boolean) as string[], ...newFiles.map(f => f.preview)];
     if (allImages.length === 0) return null;
 
     return (
@@ -126,7 +127,7 @@ export default function BookingSitesAdmin() {
                 {existingUrls.map((url, index) => (
                     <CarouselItem key={`existing-${index}`}>
                         <div className="relative aspect-square">
-                            <Image src={url} alt="preview" fill className="rounded-md object-cover"/>
+                            <Image src={typeof url === 'string' && url.trim() ? url : 'https://placehold.co/200x200.png'} alt="preview" fill className="rounded-md object-cover"/>
                             <Button variant="destructive" size="icon" className="absolute top-1 right-1 h-6 w-6" onClick={() => removeImage(index, 'existing')}><Trash2 className="h-4 w-4"/></Button>
                         </div>
                     </CarouselItem>
@@ -191,7 +192,7 @@ export default function BookingSitesAdmin() {
                                         alt={site.name}
                                         className="aspect-square rounded-md object-cover"
                                         height="64"
-                                        src={site.imageUrls?.[0] || 'https://placehold.co/64x64/png'}
+                                        src={site.imageUrls && typeof site.imageUrls[0] === 'string' && site.imageUrls[0].trim() ? site.imageUrls[0] : 'https://placehold.co/64x64/png'}
                                         width="64"
                                         data-ai-hint={site.aiHint}
                                     />

@@ -156,7 +156,7 @@ export default function CheckoutPage() {
                                   {paymentMethods.map((method) => (
                                       <Label key={method.id} htmlFor={method.id} className="flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer">
                                           <RadioGroupItem value={method.name} id={method.id} className="sr-only"/>
-                                          <Image src={method.image} alt={method.name} width={80} height={40} data-ai-hint="payment logo" />
+                                          <Image src={typeof method.image === 'string' && method.image.trim() ? method.image : 'https://placehold.co/100x60.png'} alt={method.name} width={80} height={40} data-ai-hint="payment logo" />
                                           <span className="mt-2 font-medium">{method.name}</span>
                                       </Label>
                                   ))}

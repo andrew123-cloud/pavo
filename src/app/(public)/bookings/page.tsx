@@ -95,13 +95,13 @@ export default function PavoBookingsPage() {
   const heroImages = siteSettings.heroImages.homes;
 
   useEffect(() => {
-    if (heroImages.length > 1) {
+    if (heroImages && heroImages.length > 1) {
       const interval = setInterval(() => {
         setCurrentImageIndex(prevIndex => (prevIndex + 1) % heroImages.length);
       }, 5000); // Change image every 5 seconds
       return () => clearInterval(interval);
     }
-  }, [heroImages.length]);
+  }, [heroImages]);
 
   const homes = bookingSites.filter(s => s.type === 'home');
   const restaurants = bookingSites.filter(s => s.type === 'restaurant');
@@ -132,9 +132,9 @@ export default function PavoBookingsPage() {
   return (
     <div className="flex flex-col dark bg-background text-foreground">
       <section className="relative h-[70vh] min-h-[450px] w-full">
-        {heroImages.map((src, index) => (
+        {heroImages && heroImages.length > 0 && heroImages.map((src, index) => (
           <Image
-            key={src}
+            key={src || index}
             src={typeof src === 'string' && src.trim() ? src : 'https://placehold.co/1920x1080.png?text=Pavo+Homes'}
             alt="A beautiful and aesthetic venue in Tanzania"
             fill
