@@ -5,7 +5,7 @@ import React, { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { MoreHorizontal, PlusCircle, Loader2, Trash2 } from "lucide-react";
+import { MoreHorizontal, PlusCircle, Loader2, Trash2, ImagePlus } from "lucide-react";
 import Image from "next/image";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogClose } from '@/components/ui/dialog';
@@ -30,14 +30,14 @@ export default function InteriorsAdmin() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingItem, setEditingItem] = useState<Partial<PortfolioItem> | null>(null);
-  const [imageFiles, setImageFiles] = useState<ImageFileWithPreview[]>([]);
-  const [beforeImageFiles, setBeforeImageFiles] = useState<ImageFileWithPreview[]>([]);
+  const [beforeImageFiles, setBeforeImageFiles] = useState<(File | null)[]>([]);
+  const [afterImageFiles, setAfterImageFiles] = useState<(File | null)[]>([]);
   const [uploadProgress, setUploadProgress] = useState(0);
 
   const openForm = (item?: PortfolioItem) => {
     setEditingItem(item || { imageUrls: [], beforeImageUrls: [] });
-    setImageFiles([]);
     setBeforeImageFiles([]);
+    setAfterImageFiles([]);
     setUploadProgress(0);
     setIsFormOpen(true);
   };
@@ -46,35 +46,41 @@ export default function InteriorsAdmin() {
     setIsFormOpen(false);
     setTimeout(() => {
         setEditingItem(null);
-        setImageFiles([]);
         setBeforeImageFiles([]);
+        setAfterImageFiles([]);
         setUploadProgress(0);
     }, 300);
   };
+  
+  const addBeforeImageField = () => setBeforeImageFiles(prev => [...prev, null]);
+  const addAfterImageField = () => setAfterImageFiles(prev => [...prev, null]);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, type: 'before' | 'after') => {
-    const files = Array.from(e.target.files || []);
-    const filesWithPreview = files.map(file => ({ file, preview: URL.createObjectURL(file) }));
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, type: 'before' | 'after', index: number) => {
+    const file = e.target.files?.[0] || null;
     if (type === 'before') {
-      setBeforeImageFiles(prev => [...prev, ...filesWithPreview]);
+      const newFiles = [...beforeImageFiles];
+      newFiles[index] = file;
+      setBeforeImageFiles(newFiles);
     } else {
-      setImageFiles(prev => [...prev, ...filesWithPreview]);
+      const newFiles = [...afterImageFiles];
+      newFiles[index] = file;
+      setAfterImageFiles(newFiles);
     }
   };
 
-  const removeImage = (index: number, type: 'before' | 'after' | 'existing-before' | 'existing-after') => {
-      if (type === 'before') {
+  const removeImage = (type: 'existing-before' | 'existing-after' | 'new-before' | 'new-after', index: number) => {
+      if (type === 'new-before') {
           setBeforeImageFiles(prev => prev.filter((_, i) => i !== index));
-      } else if (type === 'after') {
-          setImageFiles(prev => prev.filter((_, i) => i !== index));
-      } else if (type === 'existing-before' && editingItem) {
-          const updatedUrls = [...(editingItem.beforeImageUrls || [])];
-          updatedUrls.splice(index, 1);
-          setEditingItem(prev => ({...prev, beforeImageUrls: updatedUrls}));
-      } else if (type === 'existing-after' && editingItem) {
-          const updatedUrls = [...(editingItem.imageUrls || [])];
-          updatedUrls.splice(index, 1);
-          setEditingItem(prev => ({...prev, imageUrls: updatedUrls}));
+      } else if (type === 'new-after') {
+          setAfterImageFiles(prev => prev.filter((_, i) => i !== index));
+      } else if (editingItem) {
+          const currentItem = {...editingItem};
+          if (type === 'existing-before') {
+            currentItem.beforeImageUrls = currentItem.beforeImageUrls?.filter((_, i) => i !== index);
+          } else if (type === 'existing-after') {
+            currentItem.imageUrls = currentItem.imageUrls?.filter((_, i) => i !== index);
+          }
+          setEditingItem(currentItem);
       }
   };
   
@@ -92,12 +98,13 @@ export default function InteriorsAdmin() {
         title: form.title.value,
         location: form.location.value,
         description: form.description.value,
+        aiHint: form.aiHint.value,
       };
 
-      const beforeFiles = beforeImageFiles.map(f => f.file);
-      const afterFiles = imageFiles.map(f => f.file);
+      const finalBeforeFiles = beforeImageFiles.filter((f): f is File => f !== null);
+      const finalAfterFiles = afterImageFiles.filter((f): f is File => f !== null);
       
-      await addOrUpdatePortfolioItem(portfolioData, beforeFiles, afterFiles, setUploadProgress);
+      await addOrUpdatePortfolioItem(portfolioData, finalBeforeFiles, finalAfterFiles, setUploadProgress);
 
       toast({ title: 'Success!', description: 'Portfolio item saved successfully.' });
       closeForm();
@@ -122,42 +129,15 @@ export default function InteriorsAdmin() {
     }
   };
 
-  const renderImagePreviews = (
-      existingUrls: string[] = [], 
-      newFiles: ImageFileWithPreview[] = [], 
-      type: 'existing-before' | 'existing-after' | 'before' | 'after'
-    ) => {
-    const allImages = [...existingUrls, ...newFiles.map(f => f.preview)];
-    if (allImages.length === 0) return null;
-
-    return (
-        <Carousel className="w-full max-w-xs">
-            <CarouselContent>
-                {existingUrls.map((url, index) => (
-                    <CarouselItem key={`existing-${index}`}>
-                        <div className="relative aspect-square">
-                            <Image src={url} alt="preview" fill className="rounded-md object-cover"/>
-                            <Button variant="destructive" size="icon" className="absolute top-1 right-1 h-6 w-6" onClick={() => removeImage(index, type.startsWith('existing') ? type : (type as 'before' | 'after'))}><Trash2 className="h-4 w-4"/></Button>
-                        </div>
-                    </CarouselItem>
-                ))}
-                {newFiles.map((file, index) => (
-                     <CarouselItem key={`new-${index}`}>
-                        <div className="relative aspect-square">
-                           <Image src={file.preview} alt="preview" fill className="rounded-md object-cover"/>
-                           <Button variant="destructive" size="icon" className="absolute top-1 right-1 h-6 w-6" onClick={() => removeImage(index, type.startsWith('existing-') ? type : (type as 'before' | 'after'))}><Trash2 className="h-4 w-4"/></Button>
-                        </div>
-                    </CarouselItem>
-                ))}
-            </CarouselContent>
-            {allImages.length > 1 && <>
-              <CarouselPrevious />
-              <CarouselNext />
-            </>}
-        </Carousel>
-    );
+  const getFileName = (url: string | null | undefined) => {
+    if (!url) return null;
+    try {
+        const decodedUrl = decodeURIComponent(url);
+        return decodedUrl.substring(decodedUrl.lastIndexOf('/') + 1).split('?')[0];
+    } catch (e) {
+      return "Invalid URL";
+    }
   };
-
 
   return (
     <div>
@@ -200,9 +180,10 @@ export default function InteriorsAdmin() {
                                         alt={item.title}
                                         className="aspect-square rounded-md object-cover"
                                         height="64"
-                                        src={item.imageUrls?.[0] || 'https://placehold.co/64x64/png'}
+                                        src={item.imageUrls?.[0] || 'https://placehold.co/64x64/png?text=No+Image'}
                                         width="64"
                                         data-ai-hint={item.aiHint}
+                                        style={{ aspectRatio: '1 / 1' }}
                                     />
                                 </TableCell>
                                 <TableCell className="font-medium">{item.title}</TableCell>
@@ -273,6 +254,10 @@ export default function InteriorsAdmin() {
                             </Label>
                             <Input id="location" name="location" defaultValue={editingItem?.location} className="col-span-3" required />
                         </div>
+                         <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="aiHint" className="text-right">AI Hint</Label>
+                            <Input id="aiHint" name="aiHint" defaultValue={editingItem?.aiHint} placeholder="e.g. modern living room" className="col-span-3" />
+                        </div>
                         <div className="grid grid-cols-4 items-start gap-4">
                             <Label htmlFor="description" className="text-right pt-2">
                                 Description
@@ -281,39 +266,93 @@ export default function InteriorsAdmin() {
                         </div>
 
                         <div className="grid grid-cols-4 items-start gap-4">
-                            <Label htmlFor="beforeImageFile" className="text-right pt-2">
+                            <Label className="text-right pt-2">
                                 'Before' Images
                             </Label>
                             <div className="col-span-3 space-y-2">
-                              <Input 
-                                  id="beforeImageFile" 
-                                  name="beforeImageFile" 
-                                  type="file"
-                                  multiple
-                                  onChange={(e) => handleFileChange(e, 'before')}
-                                  className="col-span-3"
-                              />
-                              {renderImagePreviews(editingItem?.beforeImageUrls, beforeImageFiles, 'existing-before')}
+                               {editingItem?.beforeImageUrls && editingItem.beforeImageUrls.length > 0 && (
+                                   <div className="space-y-2">
+                                       <Label className="text-xs text-muted-foreground">Current Images</Label>
+                                        {editingItem.beforeImageUrls.map((url, index) => (
+                                          <div key={`existing-before-${index}`} className="flex items-center gap-2">
+                                            <Button type="button" variant="outline" size="sm" className="w-full justify-start text-left font-normal truncate">
+                                                {getFileName(url) || `Image ${index + 1}`}
+                                            </Button>
+                                            <Image src={url || 'https://placehold.co/40x40.png'} alt="preview" width={40} height={40} className="rounded-md object-cover"/>
+                                            <Button variant="ghost" size="icon" onClick={() => removeImage('existing-before', index)}>
+                                                <Trash2 className="h-4 w-4"/>
+                                            </Button>
+                                          </div>
+                                        ))}
+                                   </div>
+                               )}
+                                <div className="space-y-2">
+                                  <Label className="text-xs text-muted-foreground">New Images</Label>
+                                  {beforeImageFiles.map((file, index) => (
+                                    <div key={`new-before-${index}`} className="flex items-center gap-2">
+                                      <Input 
+                                          type="file"
+                                          accept="image/*"
+                                          onChange={(e) => handleFileChange(e, 'before', index)}
+                                          className="col-span-3"
+                                      />
+                                      {file && <Image src={URL.createObjectURL(file)} alt="preview" width={40} height={40} className="rounded-md object-cover"/>}
+                                      <Button variant="ghost" size="icon" onClick={() => removeImage('new-before', index)}>
+                                          <Trash2 className="h-4 w-4"/>
+                                      </Button>
+                                    </div>
+                                  ))}
+                                  <Button variant="outline" size="sm" onClick={addBeforeImageField} className="mt-2">
+                                      <ImagePlus className="h-4 w-4 mr-2"/> Add 'Before' Image
+                                  </Button>
+                                </div>
                             </div>
                         </div>
 
                         <div className="grid grid-cols-4 items-start gap-4">
-                            <Label htmlFor="imageFile" className="text-right pt-2">
+                            <Label className="text-right pt-2">
                                 'After' Images
                             </Label>
                              <div className="col-span-3 space-y-2">
-                                <Input 
-                                    id="imageFile" 
-                                    name="imageFile" 
-                                    type="file"
-                                    multiple
-                                    onChange={(e) => handleFileChange(e, 'after')}
-                                    className="col-span-3" 
-                                />
-                               {renderImagePreviews(editingItem?.imageUrls, imageFiles, 'existing-after')}
+                                 {editingItem?.imageUrls && editingItem.imageUrls.length > 0 && (
+                                   <div className="space-y-2">
+                                       <Label className="text-xs text-muted-foreground">Current Images</Label>
+                                        {editingItem.imageUrls.map((url, index) => (
+                                          <div key={`existing-after-${index}`} className="flex items-center gap-2">
+                                            <Button type="button" variant="outline" size="sm" className="w-full justify-start text-left font-normal truncate">
+                                                {getFileName(url) || `Image ${index + 1}`}
+                                            </Button>
+                                            <Image src={url || 'https://placehold.co/40x40.png'} alt="preview" width={40} height={40} className="rounded-md object-cover"/>
+                                            <Button variant="ghost" size="icon" onClick={() => removeImage('existing-after', index)}>
+                                                <Trash2 className="h-4 w-4"/>
+                                            </Button>
+                                          </div>
+                                        ))}
+                                   </div>
+                                )}
+                               <div className="space-y-2">
+                                 <Label className="text-xs text-muted-foreground">New Images</Label>
+                                 {afterImageFiles.map((file, index) => (
+                                    <div key={`new-after-${index}`} className="flex items-center gap-2">
+                                      <Input 
+                                          type="file"
+                                          accept="image/*"
+                                          onChange={(e) => handleFileChange(e, 'after', index)}
+                                          className="col-span-3" 
+                                      />
+                                      {file && <Image src={URL.createObjectURL(file)} alt="preview" width={40} height={40} className="rounded-md object-cover"/>}
+                                      <Button variant="ghost" size="icon" onClick={() => removeImage('new-after', index)}>
+                                          <Trash2 className="h-4 w-4"/>
+                                      </Button>
+                                    </div>
+                                  ))}
+                                 <Button variant="outline" size="sm" onClick={addAfterImageField} className="mt-2">
+                                      <ImagePlus className="h-4 w-4 mr-2"/> Add 'After' Image
+                                 </Button>
+                               </div>
                             </div>
                         </div>
-                        {isSubmitting && (beforeImageFiles.length > 0 || imageFiles.length > 0) && (
+                        {isSubmitting && (beforeImageFiles.length > 0 || afterImageFiles.length > 0) && (
                             <div className="col-span-4">
                                 <Progress value={uploadProgress} className="w-full" />
                             </div>
