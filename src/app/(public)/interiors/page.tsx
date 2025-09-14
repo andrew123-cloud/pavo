@@ -214,12 +214,12 @@ export default function PavoInteriorsHome() {
                     <DialogDescription>{selectedProject.location}</DialogDescription>
                  </DialogHeader>
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
-                    {(selectedProject.beforeImageUrls?.length || 0) > 0 && (
+                    {Array.isArray(selectedProject.beforeImageUrls) && selectedProject.beforeImageUrls.length > 0 && (
                       <div>
                           <h3 className="font-semibold text-lg mb-2">Before</h3>
                           <Carousel className="w-full rounded-lg overflow-hidden">
                               <CarouselContent>
-                                  {selectedProject.beforeImageUrls!.map((url, i) => (
+                                  {selectedProject.beforeImageUrls.map((url, i) => (
                                       <CarouselItem key={i}>
                                           <div className="relative h-80 w-full">
                                               <img src={typeof url === 'string' && url.trim() ? url : 'https://placehold.co/400x320/png?text=No+Image'} alt={`Before view ${i+1} of ${selectedProject.title}`} className="absolute inset-0 w-full h-full object-cover" data-ai-hint="cluttered room"/>
@@ -227,14 +227,14 @@ export default function PavoInteriorsHome() {
                                       </CarouselItem>
                                   ))}
                               </CarouselContent>
-                               {selectedProject.beforeImageUrls!.length > 1 && <>
+                               {selectedProject.beforeImageUrls.length > 1 && <>
                                   <CarouselPrevious className="absolute left-2 top-1/2 -translate-y-1/2 z-10" />
                                   <CarouselNext className="absolute right-2 top-1/2 -translate-y-1/2 z-10" />
                               </>}
                           </Carousel>
                       </div>
                     )}
-                     <div className={!(selectedProject.beforeImageUrls?.length) ? 'md:col-span-2' : ''}>
+                     <div className={!(Array.isArray(selectedProject.beforeImageUrls) && selectedProject.beforeImageUrls.length > 0) ? 'md:col-span-2' : ''}>
                         <h3 className="font-semibold text-lg mb-2">After</h3>
                           <Carousel className="w-full rounded-lg overflow-hidden">
                               <CarouselContent>
