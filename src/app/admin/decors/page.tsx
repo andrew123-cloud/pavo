@@ -1,4 +1,3 @@
-
 // src/app/admin/decors/page.tsx
 'use client';
 
@@ -6,7 +5,7 @@ import React, { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { MoreHorizontal, PlusCircle, Loader2 } from "lucide-react";
+import { MoreHorizontal, PlusCircle, Loader2, Trash2, ImagePlus } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogClose } from '@/components/ui/dialog';
@@ -24,12 +23,12 @@ export default function DecorsAdmin() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Partial<Product> | null>(null);
-  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imageFiles, setImageFiles] = useState<(File | null)[]>([]);
   const [uploadProgress, setUploadProgress] = useState(0);
 
   const openForm = (product?: Product) => {
-    setEditingProduct(product || null);
-    setImageFile(null);
+    setEditingProduct(product || { image_urls: [] });
+    setImageFiles([]);
     setUploadProgress(0);
     setIsFormOpen(true);
   };
@@ -38,9 +37,28 @@ export default function DecorsAdmin() {
     setIsFormOpen(false);
     setTimeout(() => {
         setEditingProduct(null);
-        setImageFile(null);
+        setImageFiles([]);
         setUploadProgress(0);
     }, 300);
+  };
+  
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, index: number) => {
+    const file = e.target.files?.[0] || null;
+    const newFiles = [...imageFiles];
+    newFiles[index] = file;
+    setImageFiles(newFiles);
+  };
+
+  const addImageField = () => setImageFiles(prev => [...prev, null]);
+  
+  const removeImage = (type: 'existing' | 'new', index: number) => {
+    if (type === 'new') {
+      setImageFiles(prev => prev.filter((_, i) => i !== index));
+    } else if (editingProduct) {
+      const currentProduct = { ...editingProduct };
+      currentProduct.image_urls = currentProduct.image_urls?.filter((_, i) => i !== index);
+      setEditingProduct(currentProduct);
+    }
   };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -59,7 +77,8 @@ export default function DecorsAdmin() {
           stock: Number(form.stock.value),
       };
 
-      await addOrUpdateDecorProduct(productData, imageFile, setUploadProgress);
+      const finalImageFiles = imageFiles.filter((f): f is File => f !== null);
+      await addOrUpdateDecorProduct(productData, finalImageFiles, setUploadProgress);
 
       toast({ title: 'Success!', description: 'Product saved successfully.' });
       closeForm();
@@ -82,6 +101,16 @@ export default function DecorsAdmin() {
       });
     } catch (error) {
        // Error toast is handled by context
+    }
+  };
+  
+  const getFileName = (url: string | null | undefined) => {
+    if (!url) return null;
+    try {
+      const decodedUrl = decodeURIComponent(url);
+      return decodedUrl.substring(decodedUrl.lastIndexOf('/') + 1).split('?')[0];
+    } catch (e) {
+      return "Invalid URL";
     }
   };
 
@@ -128,7 +157,7 @@ export default function DecorsAdmin() {
                                         alt={product.name}
                                         className="aspect-square rounded-md object-cover"
                                         height="64"
-                                        src={typeof product.image_url === 'string' && product.image_url.trim() ? product.image_url : 'https://placehold.co/64x64/png'}
+                                        src={product.image_urls?.[0] && typeof product.image_urls[0] === 'string' && product.image_urls[0].trim() ? product.image_urls[0] : 'https://placehold.co/64x64/png'}
                                         width="64"
                                         data-ai-hint={product.aiHint}
                                     />
@@ -192,7 +221,7 @@ export default function DecorsAdmin() {
         </Card>
 
         <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-            <DialogContent className="sm:max-w-[425px]">
+            <DialogContent className="sm:max-w-2xl">
                 <form onSubmit={handleSubmit}>
                     <DialogHeader>
                         <DialogTitle>{editingProduct?.id ? 'Edit Product' : 'Add New Product'}</DialogTitle>
@@ -200,7 +229,7 @@ export default function DecorsAdmin() {
                             {editingProduct?.id ? 'Update the details of this product.' : 'Add a new product to your catalog.'}
                         </DialogDescription>
                     </DialogHeader>
-                    <div className="grid gap-4 py-4">
+                    <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-4">
                         <div className="grid grid-cols-4 items-center gap-4">
                             <Label htmlFor="name" className="text-right">Name</Label>
                             <Input id="name" name="name" defaultValue={editingProduct?.name} className="col-span-3" required />
@@ -217,24 +246,40 @@ export default function DecorsAdmin() {
                             <Label htmlFor="stock" className="text-right">Stock</Label>
                             <Input id="stock" name="stock" type="number" defaultValue={editingProduct?.stock} className="col-span-3" required />
                         </div>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="imageFile" className="text-right">Image</Label>
-                            <Input id="imageFile" name="imageFile" type="file" onChange={(e) => setImageFile(e.target.files?.[0] || null)} className="col-span-3" />
-                        </div>
-                        { (editingProduct?.image_url || imageFile) &&
-                            <div className="grid grid-cols-4 items-center gap-4">
-                                <Label className="text-right">Preview</Label>
-                                <img
-                                    src={(imageFile ? URL.createObjectURL(imageFile) : (typeof editingProduct!.image_url === 'string' && editingProduct!.image_url.trim() ? editingProduct!.image_url : '')) || 'https://placehold.co/64x64.png'}
-                                    alt="preview"
-                                    width={64}
-                                    height={64}
-                                    className="col-span-3 rounded-md object-cover"
-                                    style={{ aspectRatio: '1 / 1' }}
-                                />
+                         <div className="grid grid-cols-4 items-start gap-4">
+                            <Label className="text-right pt-2">Images</Label>
+                            <div className="col-span-3 space-y-2">
+                               {Array.isArray(editingProduct?.image_urls) && editingProduct.image_urls.length > 0 && (
+                                <div className="space-y-2">
+                                  <Label className="text-xs text-muted-foreground">Current Images</Label>
+                                  {editingProduct.image_urls.map((url, index) => (
+                                    <div key={`existing-img-${index}`} className="flex items-center gap-2">
+                                      <Button type="button" variant="outline" size="sm" className="w-full justify-start text-left font-normal truncate">
+                                        {getFileName(url) || `Image ${index + 1}`}
+                                      </Button>
+                                      <img src={url} alt="preview" width={40} height={40} className="rounded-md object-cover"/>
+                                      <Button variant="ghost" size="icon" onClick={() => removeImage('existing', index)}><Trash2 className="h-4 w-4" /></Button>
+                                    </div>
+                                  ))}
+                                </div>
+                               )}
+                                <div className="space-y-2">
+                                    <Label className="text-xs text-muted-foreground">New Images</Label>
+                                    {imageFiles.map((file, index) => (
+                                    <div key={`new-img-${index}`} className="flex items-center gap-2">
+                                        <Input type="file" accept="image/*" onChange={(e) => handleFileChange(e, index)} className="w-full"/>
+                                        {file && <img src={URL.createObjectURL(file)} alt="preview" width={40} height={40} className="rounded-md object-cover" />}
+                                        <Button variant="ghost" size="icon" onClick={() => removeImage('new', index)}><Trash2 className="h-4 w-4" /></Button>
+                                    </div>
+                                    ))}
+                                    <Button type="button" variant="outline" size="sm" onClick={addImageField} className="mt-2">
+                                      <ImagePlus className="h-4 w-4 mr-2" /> Add Image
+                                    </Button>
+                                </div>
                             </div>
-                        }
-                         {isSubmitting && imageFile && (
+                        </div>
+
+                         {isSubmitting && imageFiles.length > 0 && (
                             <div className="col-span-4">
                                 <Progress value={uploadProgress} className="w-full" />
                             </div>

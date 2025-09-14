@@ -26,7 +26,7 @@ interface PavoDataContextType {
   cartId: string | null;
   addOrUpdatePortfolioItem: (item: Partial<PortfolioItem>, beforeImageFiles: File[], afterImageFiles: File[], onProgress?: (p: number) => void) => Promise<void>;
   deletePortfolioItem: (id: number) => Promise<void>;
-  addOrUpdateDecorProduct: (product: Partial<Product>, imageFile?: File | null, onProgress?: (p: number) => void) => Promise<void>;
+  addOrUpdateDecorProduct: (product: Partial<Product>, imageFiles: File[], onProgress?: (p: number) => void) => Promise<void>;
   deleteDecorProduct: (id: number) => Promise<void>;
   addOrUpdateBookingSite: (site: Partial<BookingSite>, imageFiles: File[], onProgress?: (p: number) => void) => Promise<void>;
   deleteBookingSite: (id: number) => Promise<void>;
@@ -174,12 +174,13 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     setPortfolioItems(prev => prev.filter(item => item.id !== id));
   }, [toast]);
 
-  const addOrUpdateDecorProduct = useCallback(async (product: Partial<Product>, imageFile?: File | null, onProgress?: (p: number) => void) => {
+  const addOrUpdateDecorProduct = useCallback(async (product: Partial<Product>, imageFiles: File[], onProgress?: (p: number) => void) => {
       const productData = { ...product };
 
       try {
-        if (imageFile) {
-            productData.image_url = await uploadFile('products', imageFile, onProgress);
+        if (imageFiles?.length > 0) {
+            const urls = await Promise.all(imageFiles.map(file => uploadFile('products', file, onProgress)));
+            productData.image_urls = [...(productData.image_urls || []), ...urls];
         }
 
         const { data: savedProduct, error } = await supabase
@@ -415,7 +416,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         setDecorProducts(productsRes.data || []);
         setPortfolioItems(portfolioRes.data || []);
         setBookings(bookingsRes.data || []);
-        setBookingSites(bookingSites.data || []);
+        setBookingSites(bookingSitesRes.data || []);
         setOrders(ordersRes.data || []);
         if(settingsRes.data) setSiteSettings(settingsRes.data);
 

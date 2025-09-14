@@ -1,4 +1,3 @@
-
 // src/app/(public)/checkout/page.tsx
 'use client';
 import { usePavoData } from '@/context/data-context';
