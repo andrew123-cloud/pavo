@@ -55,7 +55,7 @@ export default function PavoInteriorsHome() {
         {heroImages.map((src, index) => (
             <Image
                 key={src}
-                src={src || 'https://placehold.co/1920x1080.png?text=Pavo+Interiors'}
+                src={typeof src === 'string' && src.trim() ? src : 'https://placehold.co/1920x1080.png?text=Pavo+Interiors'}
                 alt="Elegant living room designed by Pavo Interiors"
                 fill
                 className={`object-cover transition-opacity duration-1000 ease-in-out ${index === currentImageIndex ? 'opacity-30' : 'opacity-0'}`}
@@ -177,7 +177,7 @@ export default function PavoInteriorsHome() {
                 >
                     <div className="relative h-80 w-full overflow-hidden">
                     <Image
-                        src={item.imageUrls?.[0] || 'https://placehold.co/400x320.png?text=No+Image'}
+                        src={typeof item.imageUrls?.[0] === 'string' && item.imageUrls[0].trim() ? item.imageUrls[0] : 'https://placehold.co/400x320.png?text=No+Image'}
                         alt={item.title}
                         fill
                         className="h-full w-full object-cover transition-transform duration-500 ease-in-out group-hover:scale-105"
@@ -219,7 +219,7 @@ export default function PavoInteriorsHome() {
                                   {selectedProject.beforeImageUrls!.map((url, i) => (
                                       <CarouselItem key={i}>
                                           <div className="relative h-80 w-full">
-                                              <Image src={url || 'https://placehold.co/400x320/png?text=No+Image'} alt={`Before view ${i+1} of ${selectedProject.title}`} fill className="object-cover" data-ai-hint="cluttered room"/>
+                                              <Image src={typeof url === 'string' && url.trim() ? url : 'https://placehold.co/400x320/png?text=No+Image'} alt={`Before view ${i+1} of ${selectedProject.title}`} fill className="object-cover" data-ai-hint="cluttered room"/>
                                           </div>
                                       </CarouselItem>
                                   ))}
@@ -238,7 +238,7 @@ export default function PavoInteriorsHome() {
                                   {selectedProject.imageUrls.map((url, i) => (
                                       <CarouselItem key={i}>
                                           <div className="relative h-80 w-full">
-                                              <Image src={url || 'https://placehold.co/400x320/png?text=No+Image'} alt={`After view ${i+1} of ${selectedProject.title}`} fill className="object-cover" data-ai-hint={selectedProject.aiHint}/>
+                                              <Image src={typeof url === 'string' && url.trim() ? url : 'https://placehold.co/400x320/png?text=No+Image'} alt={`After view ${i+1} of ${selectedProject.title}`} fill className="object-cover" data-ai-hint={selectedProject.aiHint}/>
                                           </div>
                                       </CarouselItem>
                                   ))}
@@ -279,7 +279,7 @@ export default function PavoInteriorsHome() {
                   <div className="mt-6 flex items-center gap-4">
                     <Avatar className="h-12 w-12">
                       <AvatarImage
-                        src={testimonial.avatarUrl || 'https://placehold.co/48x48.png'}
+                        src={typeof testimonial.avatarUrl === 'string' && testimonial.avatarUrl.trim() ? testimonial.avatarUrl : 'https://placehold.co/48x48.png'}
                         alt={testimonial.name}
                       />
                       <AvatarFallback>

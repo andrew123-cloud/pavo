@@ -44,7 +44,7 @@ export default function PavoDecorsHome() {
         {heroImages.map((src, index) => (
           <Image
             key={src}
-            src={src || 'https://placehold.co/1920x1080.png?text=Pavo+Decors'}
+            src={typeof src === 'string' && src.trim() ? src : 'https://placehold.co/1920x1080.png?text=Pavo+Decors'}
             alt="A stylishly arranged collection of home decor items"
             fill
             className={`object-cover transition-opacity duration-1000 ease-in-out ${index === currentImageIndex ? 'opacity-30' : 'opacity-0'}`}
@@ -123,7 +123,7 @@ export default function PavoDecorsHome() {
                     <div className="group">
                         <div className="relative h-96 w-full overflow-hidden rounded-lg">
                         <Image
-                            src={product.image_url || 'https://placehold.co/400x400.png?text=Image+Not+Available'}
+                            src={typeof product.image_url === 'string' && product.image_url.trim() ? product.image_url : 'https://placehold.co/400x400.png?text=Image+Not+Available'}
                             alt={product.name}
                             fill
                             className="object-cover transition-transform duration-500 ease-in-out group-hover:scale-105"

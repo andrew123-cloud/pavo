@@ -89,7 +89,7 @@ export default function PavoSuiteHome() {
             {suiteHeroImages.map((src, index) => (
                 <Image
                     key={src || index}
-                    src={src || 'https://placehold.co/1920x1080.png?text=Pavo+Suite'}
+                    src={typeof src === 'string' && src.trim() ? src : 'https://placehold.co/1920x1080.png?text=Pavo+Suite'}
                     alt="Elegant Pavo branding background"
                     fill
                     className={`object-cover transition-opacity duration-1000 ease-in-out ${index === currentImageIndex ? 'opacity-20' : 'opacity-0'}`}
@@ -177,7 +177,7 @@ export default function PavoSuiteHome() {
                     {founderImages.map((src, index) => (
                       <Image
                         key={src || index}
-                        src={src || '/palvin-portrait.jpg'}
+                        src={typeof src === 'string' && src.trim() ? src : '/palvin-portrait.jpg'}
                         alt="Portrait of Palvin Atugonza, founder of Pavo"
                         fill
                         className={`object-cover transition-opacity duration-1000 ease-in-out ${index === currentFounderImageIndex ? 'opacity-100' : 'opacity-0'}`}
