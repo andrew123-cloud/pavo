@@ -8,7 +8,6 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription }
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { Minus, Plus, ShoppingCart, Trash2, Loader2 } from 'lucide-react';
-import Image from 'next/image';
 import Link from 'next/link';
 
 export default function CartPage() {
@@ -63,7 +62,7 @@ export default function CartPage() {
                       <React.Fragment key={item.id}>
                         <div className="flex items-center gap-4">
                           <div className="relative h-24 w-24 rounded-md overflow-hidden">
-                            <Image src={typeof item.imageUrl === 'string' && item.imageUrl.trim() ? item.imageUrl : `https://placehold.co/100x100.png?text=No+Image`} alt={item.name} fill className="object-cover" />
+                            <img src={typeof item.imageUrl === 'string' && item.imageUrl.trim() ? item.imageUrl : `https://placehold.co/100x100.png?text=No+Image`} alt={item.name} className="absolute inset-0 w-full h-full object-cover" />
                           </div>
                           <div className="flex-1">
                             <h3 className="font-semibold text-lg">{item.name}</h3>

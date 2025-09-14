@@ -30,11 +30,10 @@ const BookingSiteCard = ({ site }: { site: BookingSite }) => (
                               {site.imageUrls.map((url, index) => (
                                   <CarouselItem key={index}>
                                       <div className="relative h-64 w-full">
-                                          <Image
+                                          <img
                                               src={typeof url === 'string' && url.trim() ? url : 'https://placehold.co/400x250.png?text=Image+Not+Available'}
                                               alt={`${site.name} image ${index + 1}`}
-                                              fill
-                                              className="object-cover transition-transform duration-500 ease-in-out group-hover:scale-105"
+                                              className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 ease-in-out group-hover:scale-105"
                                               data-ai-hint={site.aiHint}
                                           />
                                       </div>
@@ -49,11 +48,10 @@ const BookingSiteCard = ({ site }: { site: BookingSite }) => (
                           )}
                       </Carousel>
                     ) : (
-                       <Image
+                       <img
                           src={'https://placehold.co/400x250.png?text=Image+Not+Available'}
                           alt={site.name}
-                          fill
-                          className="object-cover"
+                          className="absolute inset-0 w-full h-full object-cover"
                           data-ai-hint={site.aiHint}
                       />
                     )}
@@ -78,7 +76,6 @@ const BookingSiteCard = ({ site }: { site: BookingSite }) => (
                             Please fill out the form below to complete your booking.
                         </DialogDescription>
                     </DialogHeader>
-                    {/* The booking form would go here. For now, it's a placeholder */}
                     <div className='py-4'>
                       <BookingForm />
                     </div>

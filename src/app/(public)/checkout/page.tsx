@@ -8,7 +8,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { CreditCard, Loader2, Lock, Smartphone } from 'lucide-react';
-import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
@@ -156,7 +155,7 @@ export default function CheckoutPage() {
                                   {paymentMethods.map((method) => (
                                       <Label key={method.id} htmlFor={method.id} className="flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer">
                                           <RadioGroupItem value={method.name} id={method.id} className="sr-only"/>
-                                          <Image src={typeof method.image === 'string' && method.image.trim() ? method.image : 'https://placehold.co/100x60.png'} alt={method.name} width={80} height={40} data-ai-hint="payment logo" />
+                                          <img src={typeof method.image === 'string' && method.image.trim() ? method.image : 'https://placehold.co/100x60.png'} alt={method.name} width={80} height={40} data-ai-hint="payment logo" />
                                           <span className="mt-2 font-medium">{method.name}</span>
                                       </Label>
                                   ))}
@@ -174,7 +173,7 @@ export default function CheckoutPage() {
                           {cart.map(item => (
                               <div key={item.id} className="flex items-center gap-4">
                                   <div className="relative h-16 w-16 rounded-md overflow-hidden">
-                                      <Image src={typeof item.imageUrl === 'string' && item.imageUrl.trim() ? item.imageUrl : `https://placehold.co/64x64.png?text=No+Image`} alt={item.name} fill className="object-cover" />
+                                      <img src={typeof item.imageUrl === 'string' && item.imageUrl.trim() ? item.imageUrl : `https://placehold.co/64x64.png?text=No+Image`} alt={item.name} className="absolute inset-0 w-full h-full object-cover" />
                                       <span className="absolute -top-2 -right-2 flex h-6 w-6 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground">
                                           {item.quantity}
                                       </span>

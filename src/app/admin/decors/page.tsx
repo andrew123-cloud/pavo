@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { MoreHorizontal, PlusCircle, Loader2 } from "lucide-react";
-import Image from "next/image";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogClose } from '@/components/ui/dialog';
@@ -125,7 +124,7 @@ export default function DecorsAdmin() {
                         {decorProducts.map(product => (
                             <TableRow key={product.id}>
                                 <TableCell className="hidden sm:table-cell">
-                                    <Image
+                                    <img
                                         alt={product.name}
                                         className="aspect-square rounded-md object-cover"
                                         height="64"
@@ -225,7 +224,7 @@ export default function DecorsAdmin() {
                         { (editingProduct?.image_url || imageFile) &&
                             <div className="grid grid-cols-4 items-center gap-4">
                                 <Label className="text-right">Preview</Label>
-                                <Image
+                                <img
                                     src={(imageFile ? URL.createObjectURL(imageFile) : (typeof editingProduct!.image_url === 'string' && editingProduct!.image_url.trim() ? editingProduct!.image_url : '')) || 'https://placehold.co/64x64.png'}
                                     alt="preview"
                                     width={64}

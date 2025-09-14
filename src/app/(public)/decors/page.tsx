@@ -122,11 +122,10 @@ export default function PavoDecorsHome() {
                     <CardContent className="p-0 flex-grow">
                     <div className="group">
                         <div className="relative h-96 w-full overflow-hidden rounded-lg">
-                        <Image
+                        <img
                             src={typeof product.image_url === 'string' && product.image_url.trim() ? product.image_url : 'https://placehold.co/400x400.png?text=Image+Not+Available'}
                             alt={product.name}
-                            fill
-                            className="object-cover transition-transform duration-500 ease-in-out group-hover:scale-105"
+                            className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 ease-in-out group-hover:scale-105"
                             data-ai-hint={product.aiHint}
                         />
                         {product.stock > 0 ? (

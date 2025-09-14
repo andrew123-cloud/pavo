@@ -127,7 +127,7 @@ export default function BookingSitesAdmin() {
                 {existingUrls.map((url, index) => (
                     <CarouselItem key={`existing-${index}`}>
                         <div className="relative aspect-square">
-                            <Image src={typeof url === 'string' && url.trim() ? url : 'https://placehold.co/200x200.png'} alt="preview" fill className="rounded-md object-cover"/>
+                            <img src={url} alt="preview" className="absolute inset-0 w-full h-full rounded-md object-cover"/>
                             <Button variant="destructive" size="icon" className="absolute top-1 right-1 h-6 w-6" onClick={() => removeImage(index, 'existing')}><Trash2 className="h-4 w-4"/></Button>
                         </div>
                     </CarouselItem>
@@ -135,7 +135,7 @@ export default function BookingSitesAdmin() {
                 {newFiles.map((file, index) => (
                      <CarouselItem key={`new-${index}`}>
                         <div className="relative aspect-square">
-                           <Image src={file.preview} alt="preview" fill className="rounded-md object-cover"/>
+                           <img src={file.preview} alt="preview" className="absolute inset-0 w-full h-full rounded-md object-cover"/>
                            <Button variant="destructive" size="icon" className="absolute top-1 right-1 h-6 w-6" onClick={() => removeImage(index, 'new')}><Trash2 className="h-4 w-4"/></Button>
                         </div>
                     </CarouselItem>
@@ -188,7 +188,7 @@ export default function BookingSitesAdmin() {
                         {bookingSites.map(site => (
                             <TableRow key={site.id}>
                                 <TableCell className="hidden sm:table-cell">
-                                    <Image
+                                    <img
                                         alt={site.name}
                                         className="aspect-square rounded-md object-cover"
                                         height="64"

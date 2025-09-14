@@ -11,12 +11,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { usePavoData } from '@/context/data-context';
 import { useToast } from '@/hooks/use-toast';
 import { ImagePlus, Trash2, Loader2 } from 'lucide-react';
-import Image from 'next/image';
 import type { SiteSettings } from '@/lib/types';
-import { Progress } from '@/components/ui/progress';
 
 type HeroImageKey = keyof SiteSettings['heroImages'];
-type FounderImageKey = 'founder';
 
 export default function SettingsAdminPage() {
   const { siteSettings, updateSiteSettings } = usePavoData();
@@ -42,8 +39,6 @@ export default function SettingsAdminPage() {
       if (file) {
           const reader = new FileReader();
           reader.onloadend = () => {
-              // This is a complex way to update nested state.
-              // A better approach might involve a more structured state management (e.g. using Immer)
               const parts = key.split('.');
               setLocalSettings(prev => {
                 const newSettings = JSON.parse(JSON.stringify(prev)); // deep copy
@@ -86,9 +81,6 @@ export default function SettingsAdminPage() {
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      // In a real app, you would upload the files from `filesToUpload`
-      // and get back the URLs before calling updateSiteSettings.
-      // For this mock, we're just saving the text data.
       await updateSiteSettings(localSettings, filesToUpload);
       toast({
         title: "Settings Saved",
@@ -104,7 +96,6 @@ export default function SettingsAdminPage() {
   const getFileName = (url: string | null | undefined) => {
     if (!url || typeof url !== 'string') return null;
     try {
-        // This is a simple heuristic, may not work for all URL formats
         const decodedUrl = decodeURIComponent(url);
         return decodedUrl.substring(decodedUrl.lastIndexOf('/') + 1).split('?')[0];
     } catch (e) {
@@ -142,7 +133,7 @@ export default function SettingsAdminPage() {
                                 {filesToUpload[`heroImages.${key}.${index}`]?.name || getFileName(url) || `Select image ${index + 1}...`}
                             </Button>
                         </div>
-                         <Image src={typeof url === 'string' && url.trim() ? url : `https://placehold.co/40x40.png`} alt="preview" width={40} height={40} className="rounded-md object-cover"/>
+                         <img src={typeof url === 'string' && url.trim() ? url : `https://placehold.co/40x40.png`} alt="preview" width={40} height={40} className="rounded-md object-cover"/>
                         <Button variant="ghost" size="icon" onClick={() => removeHeroImageField(key, index)}>
                             <Trash2 className="h-4 w-4"/>
                         </Button>
@@ -232,7 +223,7 @@ export default function SettingsAdminPage() {
                                {filesToUpload[`founder.imageUrls.${index}`]?.name || getFileName(url) || `Select image ${index + 1}...`}
                             </Button>
                         </div>
-                         <Image src={typeof url === 'string' && url.trim() ? url : `https://placehold.co/40x40.png`} alt="preview" width={40} height={40} className="rounded-md object-cover"/>
+                         <img src={typeof url === 'string' && url.trim() ? url : `https://placehold.co/40x40.png`} alt="preview" width={40} height={40} className="rounded-md object-cover"/>
                         <Button variant="ghost" size="icon" onClick={() => removeFounderImageField(index)}>
                             <Trash2 className="h-4 w-4"/>
                         </Button>

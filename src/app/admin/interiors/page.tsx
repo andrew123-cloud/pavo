@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { MoreHorizontal, PlusCircle, Loader2, Trash2, ImagePlus } from "lucide-react";
-import Image from "next/image";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogClose } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
@@ -184,7 +183,7 @@ export default function InteriorsAdmin() {
                 {portfolioItems.map(item => (
                   <TableRow key={item.id}>
                     <TableCell className="hidden sm:table-cell">
-                      <Image
+                      <img
                         alt={item.title}
                         className="aspect-square rounded-md object-cover"
                         height="64"
@@ -281,8 +280,8 @@ export default function InteriorsAdmin() {
                           <Button type="button" variant="outline" size="sm" className="w-full justify-start text-left font-normal truncate">
                             {getFileName(url) || `Image ${index + 1}`}
                           </Button>
-                          <Image
-                            src={typeof url === 'string' && url.trim() ? url : 'https://placehold.co/40x40.png'}
+                          <img
+                            src={url && url.trim() ? url : 'https://placehold.co/40x40.png'}
                             alt="preview"
                             width={40}
                             height={40}
@@ -300,7 +299,7 @@ export default function InteriorsAdmin() {
                     {beforeImageFiles.map((file, index) => (
                       <div key={`new-before-${index}`} className="flex items-center gap-2">
                         <Input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'before', index)} className="col-span-3" />
-                        {file && <Image src={URL.createObjectURL(file)} alt="preview" width={40} height={40} className="rounded-md object-cover" />}
+                        {file && <img src={URL.createObjectURL(file)} alt="preview" width={40} height={40} className="rounded-md object-cover" />}
                         <Button variant="ghost" size="icon" onClick={() => removeImage('new-before', index)}>
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -325,8 +324,8 @@ export default function InteriorsAdmin() {
                           <Button type="button" variant="outline" size="sm" className="w-full justify-start text-left font-normal truncate">
                             {getFileName(url) || `Image ${index + 1}`}
                           </Button>
-                          <Image
-                            src={typeof url === 'string' && url.trim() ? url : 'https://placehold.co/40x40.png'}
+                          <img
+                            src={url && url.trim() ? url : 'https://placehold.co/40x40.png'}
                             alt="preview"
                             width={40}
                             height={40}
@@ -344,7 +343,7 @@ export default function InteriorsAdmin() {
                     {afterImageFiles.map((file, index) => (
                       <div key={`new-after-${index}`} className="flex items-center gap-2">
                         <Input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'after', index)} className="col-span-3" />
-                        {file && <Image src={URL.createObjectURL(file)} alt="preview" width={40} height={40} className="rounded-md object-cover" />}
+                        {file && <img src={URL.createObjectURL(file)} alt="preview" width={40} height={40} className="rounded-md object-cover" />}
                         <Button variant="ghost" size="icon" onClick={() => removeImage('new-after', index)}>
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -357,7 +356,7 @@ export default function InteriorsAdmin() {
                 </div>
               </div>
 
-              {isSubmitting && (beforeImageFiles.filter(f => f).length > 0 || afterImageFiles.filter(f => f).length > 0) && (
+              {isSubmitting && (beforeImageFiles.filter(Boolean).length > 0 || afterImageFiles.filter(Boolean).length > 0) && (
                 <div className="col-span-4">
                   <Progress value={uploadProgress} className="w-full" />
                 </div>

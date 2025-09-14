@@ -176,11 +176,10 @@ export default function PavoInteriorsHome() {
                     className="group relative flex flex-col overflow-hidden rounded-lg bg-background border-0 shadow-lg transition-all duration-300 hover:shadow-2xl hover:-translate-y-2"
                 >
                     <div className="relative h-80 w-full overflow-hidden">
-                    <Image
-                        src={typeof item.imageUrls?.[0] === 'string' && item.imageUrls[0].trim() ? item.imageUrls[0] : 'https://placehold.co/400x320.png?text=No+Image'}
+                    <img
+                        src={item.imageUrls?.[0] && typeof item.imageUrls?.[0] === 'string' && item.imageUrls[0].trim() ? item.imageUrls[0] : 'https://placehold.co/400x320.png?text=No+Image'}
                         alt={item.title}
-                        fill
-                        className="h-full w-full object-cover transition-transform duration-500 ease-in-out group-hover:scale-105"
+                        className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 ease-in-out group-hover:scale-105"
                         data-ai-hint={item.aiHint}
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
@@ -223,7 +222,7 @@ export default function PavoInteriorsHome() {
                                   {selectedProject.beforeImageUrls!.map((url, i) => (
                                       <CarouselItem key={i}>
                                           <div className="relative h-80 w-full">
-                                              <Image src={typeof url === 'string' && url.trim() ? url : 'https://placehold.co/400x320/png?text=No+Image'} alt={`Before view ${i+1} of ${selectedProject.title}`} fill className="object-cover" data-ai-hint="cluttered room"/>
+                                              <img src={typeof url === 'string' && url.trim() ? url : 'https://placehold.co/400x320/png?text=No+Image'} alt={`Before view ${i+1} of ${selectedProject.title}`} className="absolute inset-0 w-full h-full object-cover" data-ai-hint="cluttered room"/>
                                           </div>
                                       </CarouselItem>
                                   ))}
@@ -242,7 +241,7 @@ export default function PavoInteriorsHome() {
                                   {selectedProject.imageUrls.map((url, i) => (
                                       <CarouselItem key={i}>
                                           <div className="relative h-80 w-full">
-                                              <Image src={typeof url === 'string' && url.trim() ? url : 'https://placehold.co/400x320/png?text=No+Image'} alt={`After view ${i+1} of ${selectedProject.title}`} fill className="object-cover" data-ai-hint={selectedProject.aiHint}/>
+                                              <img src={typeof url === 'string' && url.trim() ? url : 'https://placehold.co/400x320/png?text=No+Image'} alt={`After view ${i+1} of ${selectedProject.title}`} className="absolute inset-0 w-full h-full object-cover" data-ai-hint={selectedProject.aiHint}/>
                                           </div>
                                       </CarouselItem>
                                   ))}
