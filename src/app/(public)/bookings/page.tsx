@@ -15,11 +15,28 @@ import { usePavoData } from '@/context/data-context';
 import { useState, useEffect } from 'react';
 import type { BookingSite } from '@/lib/types';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { BookingForm } from '@/components/shared/booking-form';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
+import { HomeBookingForm } from '@/components/shared/home-booking-form';
+import { RestaurantBookingForm } from '@/components/shared/restaurant-booking-form';
+import { CatererBookingForm } from '@/components/shared/caterer-booking-form';
 
-const BookingSiteCard = ({ site }: { site: BookingSite }) => (
+
+const BookingSiteCard = ({ site }: { site: BookingSite }) => {
+    const renderBookingForm = () => {
+        switch (site.type) {
+            case 'home':
+                return <HomeBookingForm siteName={site.name} />;
+            case 'restaurant':
+                return <RestaurantBookingForm siteName={site.name} />;
+            case 'caterer':
+                return <CatererBookingForm siteName={site.name} />;
+            default:
+                return <p>Booking form not available for this type.</p>;
+        }
+    }
+    
+    return (
     <Card className="overflow-hidden transition-all duration-300 ease-in-out hover:shadow-2xl hover:-translate-y-2 bg-secondary/50 border-0 flex flex-col">
         <CardContent className="p-0 flex-grow">
             <div className="group">
@@ -76,14 +93,14 @@ const BookingSiteCard = ({ site }: { site: BookingSite }) => (
                             Please fill out the form below to complete your booking.
                         </DialogDescription>
                     </DialogHeader>
-                    <div className='py-4'>
-                      <BookingForm />
+                    <div className='py-4 max-h-[80vh] overflow-y-auto pr-2'>
+                      {renderBookingForm()}
                     </div>
                 </DialogContent>
             </Dialog>
         </CardFooter>
     </Card>
-);
+)};
 
 export default function PavoBookingsPage() {
   const { bookingSites, siteSettings, loading } = usePavoData();
@@ -178,3 +195,5 @@ export default function PavoBookingsPage() {
     </div>
   );
 }
+
+    
