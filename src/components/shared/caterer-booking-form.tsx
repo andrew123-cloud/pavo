@@ -1,4 +1,3 @@
-
 // src/components/shared/caterer-booking-form.tsx
 'use client';
 
@@ -194,4 +193,3 @@ export function CatererBookingForm({ siteName }: { siteName: string }) {
         </Form>
     );
 }
-    
