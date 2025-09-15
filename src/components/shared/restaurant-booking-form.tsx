@@ -1,4 +1,3 @@
-
 // src/components/shared/restaurant-booking-form.tsx
 'use client';
 
@@ -81,7 +80,6 @@ export function RestaurantBookingForm({ siteName }: { siteName: string }) {
             setIsSubmitting(false);
         }
     };
-
 
     if (isSuccess) {
         return (
