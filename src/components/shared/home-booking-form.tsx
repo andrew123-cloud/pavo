@@ -1,4 +1,3 @@
-
 // src/components/shared/home-booking-form.tsx
 'use client';
 
@@ -179,5 +178,3 @@ export function HomeBookingForm({ siteName }: { siteName: string }) {
         </Form>
     );
 }
-
-    

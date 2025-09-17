@@ -93,7 +93,7 @@ export function RestaurantBookingForm({ siteName }: { siteName: string }) {
         );
     }
 
-    return (
+     return (
         <Form {...form}>
             <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
                 {serverError && (
@@ -110,9 +110,20 @@ export function RestaurantBookingForm({ siteName }: { siteName: string }) {
                     <FormField control={form.control} name="email" render={({ field }) => (
                         <FormItem><FormLabel>Email</FormLabel><FormControl><Input type="email" placeholder="john.doe@example.com" {...field} /></FormControl><FormMessage /></FormItem>
                     )}/>
-                    <FormField control={form.control} name="phone" render={({ field }) => (
-                        <FormItem><FormLabel>Phone</FormLabel><FormControl><Input placeholder="+255 712 345 678" {...field} /></FormControl><FormMessage /></FormMessage>
-                    )}/>
+                    <FormField
+  control={form.control}
+  name="phone"
+  render={({ field }) => (
+    <FormItem>
+      <FormLabel>Phone</FormLabel>
+      <FormControl>
+        <Input placeholder="+255 712 345 678" {...field} />
+      </FormControl>
+      <FormMessage />
+    </FormItem>
+  )}
+/>
+
                 </div>
                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                      <FormField
