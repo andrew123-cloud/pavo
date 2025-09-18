@@ -17,6 +17,7 @@ import { AlertCircle, CheckCircle2, Loader2, Calendar as CalendarIcon } from 'lu
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
+import { usePavoData } from '@/context/data-context';
 import { DateRange } from 'react-day-picker';
 
 const homeBookingSchema = z.object({
@@ -36,6 +37,7 @@ type FormValues = z.infer<typeof homeBookingSchema>;
 
 export function HomeBookingForm({ siteName }: { siteName: string }) {
     const { toast } = useToast();
+    const { addServiceBooking } = usePavoData();
     const [isSubmitting, setIsSubmitting] = React.useState(false);
     const [isSuccess, setIsSuccess] = React.useState(false);
     const [serverError, setServerError] = React.useState<string | null>(null);
@@ -61,20 +63,36 @@ export function HomeBookingForm({ siteName }: { siteName: string }) {
             return;
         }
 
-        const templateParams = {
-            ...data,
-            siteName,
-            bookingDates: `From: ${format(data.bookingDates.from, 'PPP')} To: ${format(data.bookingDates.to, 'PPP')}`
-        };
-
+        const formattedBookingDates = `From: ${format(data.bookingDates.from, 'PPP')} To: ${format(data.bookingDates.to, 'PPP')}`;
+        
         try {
+            const templateParams = {
+                ...data,
+                siteName,
+                bookingDates: formattedBookingDates,
+            };
             await emailjs.send(serviceId, templateId, templateParams, publicKey);
+            
+            await addServiceBooking({
+                site_name: siteName,
+                booking_type: 'Home',
+                customer_name: data.customerName,
+                email: data.email,
+                phone: data.phone,
+                details: {
+                    "Booking Dates": formattedBookingDates,
+                    "Guests": data.guests,
+                    "Purpose of Booking": data.purpose,
+                    "Special Requests": data.specialRequests,
+                }
+            });
+
             toast({ title: "Booking Request Sent!", description: `Your request for ${siteName} has been received.` });
             setIsSuccess(true);
             form.reset();
-        } catch (error) {
-            console.error("EmailJS failed to send:", error);
-            const errorMsg = "There was an issue submitting your request. Please try again later.";
+        } catch (error: any) {
+            console.error("Booking failed:", error);
+            const errorMsg = error?.message || "There was an issue submitting your request. Please try again later.";
             setServerError(errorMsg);
             toast({ variant: "destructive", title: "Submission Failed", description: errorMsg });
         } finally {

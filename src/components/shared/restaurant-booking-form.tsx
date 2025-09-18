@@ -18,6 +18,7 @@ import { AlertCircle, CheckCircle2, Loader2, Calendar as CalendarIcon } from 'lu
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
+import { usePavoData } from '@/context/data-context';
 
 const restaurantBookingSchema = z.object({
   customerName: z.string().min(3, "Please enter a valid full name."),
@@ -35,6 +36,7 @@ type FormValues = z.infer<typeof restaurantBookingSchema>;
 
 export function RestaurantBookingForm({ siteName }: { siteName: string }) {
     const { toast } = useToast();
+    const { addServiceBooking } = usePavoData();
     const [isSubmitting, setIsSubmitting] = React.useState(false);
     const [isSuccess, setIsSuccess] = React.useState(false);
     const [serverError, setServerError] = React.useState<string | null>(null);
@@ -48,9 +50,9 @@ export function RestaurantBookingForm({ siteName }: { siteName: string }) {
         setIsSubmitting(true);
         setServerError(null);
 
-        const serviceId = process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID;
+        const serviceId = process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID_2;
         const templateId = process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_ID_RESTAURANT;
-        const publicKey = process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY;
+        const publicKey = process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY_2;
 
         if (!serviceId || !templateId || !publicKey) {
             const errorMsg = "Email configuration for restaurant bookings is missing.";
@@ -60,20 +62,37 @@ export function RestaurantBookingForm({ siteName }: { siteName: string }) {
             return;
         }
 
-        const templateParams = {
-            ...data,
-            siteName,
-            reservationDate: format(data.reservationDate, 'PPP'),
-        };
-
         try {
+            const templateParams = {
+                ...data,
+                siteName,
+                reservationDate: format(data.reservationDate, 'PPP'),
+            };
+
             await emailjs.send(serviceId, templateId, templateParams, publicKey);
+            
+            await addServiceBooking({
+                site_name: siteName,
+                booking_type: 'Restaurant',
+                customer_name: data.customerName,
+                email: data.email,
+                phone: data.phone,
+                details: {
+                    "Reservation Date": format(data.reservationDate, 'PPP'),
+                    "Reservation Time": data.reservationTime,
+                    "Number of People": data.people,
+                    "Table Preference": data.tablePreference,
+                    "Occasion": data.occasion,
+                    "Special Requests": data.specialRequests,
+                }
+            });
+
             toast({ title: "Reservation Request Sent!", description: `Your request for ${siteName} has been received.` });
             setIsSuccess(true);
             form.reset();
-        } catch (error) {
-            console.error("EmailJS failed to send:", error);
-            const errorMsg = "There was an issue submitting your request. Please try again later.";
+        } catch (error: any) {
+            console.error("Booking failed:", error);
+            const errorMsg = error?.message || "There was an issue submitting your request. Please try again later.";
             setServerError(errorMsg);
             toast({ variant: "destructive", title: "Submission Failed", description: errorMsg });
         } finally {

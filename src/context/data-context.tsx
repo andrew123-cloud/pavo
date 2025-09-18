@@ -2,7 +2,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import type { PortfolioItem, Product, Order, Booking, BookingSite, SiteSettings, CartItem } from '@/lib/types';
+import type { PortfolioItem, Product, Order, Booking, BookingSite, SiteSettings, CartItem, ServiceBooking } from '@/lib/types';
 import { useAuth } from './auth-context';
 import { supabase } from '@/lib/supabase';
 import { siteSettings as defaultSiteSettings } from '@/lib/data';
@@ -17,6 +17,7 @@ interface PavoDataContextType {
   bookingSites: BookingSite[];
   orders: Order[];
   bookings: Booking[];
+  serviceBookings: ServiceBooking[];
   siteSettings: SiteSettings;
   loading: boolean;
   error: string | null;
@@ -31,8 +32,10 @@ interface PavoDataContextType {
   addOrUpdateBookingSite: (site: Partial<BookingSite>, imageFiles: File[], onProgress?: (p: number) => void) => Promise<void>;
   deleteBookingSite: (id: number) => Promise<void>;
   addBooking: (booking: Omit<Booking, 'id' | 'createdAt' | 'isRead'>) => Promise<void>;
+  addServiceBooking: (booking: Omit<ServiceBooking, 'id' | 'created_at' | 'is_read'>) => Promise<void>;
   markBookingAsRead: (id: number) => Promise<void>;
   markAllBookingsAsRead: () => Promise<void>;
+  markServiceBookingAsRead: (id: number) => Promise<void>;
   updateSiteSettings: (settings: SiteSettings, files: {[key: string]: File | null}) => Promise<void>;
   addOrder: (order: Order) => void;
   addToCart: (product: Product, quantity?: number) => Promise<void>;
@@ -56,6 +59,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [bookingSites, setBookingSites] = useState<BookingSite[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [serviceBookings, setServiceBookings] = useState<ServiceBooking[]>([]);
   const [siteSettings, setSiteSettings] = useState<SiteSettings>(defaultSiteSettings);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [cartId, setCartId] = useState<string | null>(null);
@@ -301,12 +305,30 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         setBookings(prev => [data[0], ...prev]);
       }
   }, [toast]);
+  
+  const addServiceBooking = useCallback(async (booking: Omit<ServiceBooking, 'id' | 'created_at' | 'is_read'>) => {
+      const newBooking = { ...booking, is_read: false };
+      const { data, error } = await supabase.from('service_bookings').insert(newBooking).select();
+      if (error) {
+          toast({ variant: 'destructive', title: 'Booking failed', description: error.message });
+          throw error;
+      }
+      if (data) {
+        setServiceBookings(prev => [data[0], ...prev]);
+      }
+  }, [toast]);
+
 
   const markBookingAsRead = useCallback(async (id: number) => {
       await supabase.from('bookings').update({ isRead: true }).match({ id });
       setBookings(prev => prev.map(b => b.id === id ? {...b, isRead: true} : b));
   }, []);
   
+  const markServiceBookingAsRead = useCallback(async (id: number) => {
+      await supabase.from('service_bookings').update({ is_read: true }).match({ id });
+      setServiceBookings(prev => prev.map(b => b.id === id ? {...b, is_read: true} : b));
+  }, []);
+
   const markAllBookingsAsRead = useCallback(async () => {
     const unreadIds = bookings.filter(b => !b.isRead).map(b => b.id);
     if(unreadIds.length > 0) {
@@ -392,6 +414,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           productsRes,
           portfolioRes,
           bookingsRes,
+          serviceBookingsRes,
           bookingSitesRes,
           settingsRes,
           ordersRes
@@ -399,6 +422,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           supabase.from('products').select('*').order('name'),
           supabase.from('portfolioItems').select('*').order('id'),
           supabase.from('bookings').select('*').order('createdAt', { ascending: false }),
+          supabase.from('service_bookings').select('*').order('created_at', { ascending: false }),
           supabase.from('bookingSites').select('*').order('name'),
           supabase.from('siteSettings').select('*').eq('id', 1).single(),
           supabase.from('orders').select('*').order('created_at', { ascending: false }),
@@ -409,6 +433,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         if (productsRes.error) throw new Error(`Products fetch failed: ${productsRes.error.message}`);
         if (portfolioRes.error) throw new Error(`Portfolio fetch failed: ${portfolioRes.error.message}`);
         if (bookingsRes.error) throw new Error(`Bookings fetch failed: ${bookingsRes.error.message}`);
+        if (serviceBookingsRes.error) throw new Error(`Service Bookings fetch failed: ${serviceBookingsRes.error.message}`);
         if (bookingSites.error) throw new Error(`Booking Sites fetch failed: ${bookingSitesRes.error.message}`);
         if (settingsRes.error && settingsRes.status !== 406) throw new Error(`Settings fetch failed: ${settingsRes.error.message}`); // 406 = no rows, which is ok on first run
         if (ordersRes.error) throw new Error(`Orders fetch failed: ${ordersRes.error.message}`);
@@ -416,6 +441,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         setDecorProducts(productsRes.data || []);
         setPortfolioItems(portfolioRes.data || []);
         setBookings(bookingsRes.data || []);
+        setServiceBookings(serviceBookingsRes.data || []);
         setBookingSites(bookingSitesRes.data || []);
         setOrders(ordersRes.data || []);
         if(settingsRes.data) setSiteSettings(settingsRes.data);
@@ -452,6 +478,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     bookingSites,
     orders,
     bookings,
+    serviceBookings,
     siteSettings,
     loading,
     error,
@@ -462,8 +489,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     addOrUpdateBookingSite,
     deleteBookingSite,
     addBooking,
+    addServiceBooking,
     markBookingAsRead,
     markAllBookingsAsRead,
+    markServiceBookingAsRead,
     updateSiteSettings,
     addOrder,
     cart,

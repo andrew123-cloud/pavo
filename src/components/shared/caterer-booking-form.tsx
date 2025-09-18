@@ -18,6 +18,7 @@ import { AlertCircle, CheckCircle2, Loader2, Calendar as CalendarIcon } from 'lu
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
+import { usePavoData } from '@/context/data-context';
 
 const catererBookingSchema = z.object({
   customerName: z.string().min(3, "Please enter a valid full name."),
@@ -38,6 +39,7 @@ type FormValues = z.infer<typeof catererBookingSchema>;
 
 export function CatererBookingForm({ siteName }: { siteName: string }) {
     const { toast } = useToast();
+    const { addServiceBooking } = usePavoData();
     const [isSubmitting, setIsSubmitting] = React.useState(false);
     const [isSuccess, setIsSuccess] = React.useState(false);
     const [serverError, setServerError] = React.useState<string | null>(null);
@@ -51,9 +53,9 @@ export function CatererBookingForm({ siteName }: { siteName: string }) {
         setIsSubmitting(true);
         setServerError(null);
 
-        const serviceId = process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID;
+        const serviceId = process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID_2;
         const templateId = process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_ID_CATERER;
-        const publicKey = process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY;
+        const publicKey = process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY_2;
 
         if (!serviceId || !templateId || !publicKey) {
             const errorMsg = "Email configuration for catering bookings is missing.";
@@ -63,20 +65,40 @@ export function CatererBookingForm({ siteName }: { siteName: string }) {
             return;
         }
         
-        const templateParams = {
-            ...data,
-            siteName,
-            eventDate: format(data.eventDate, 'PPP'),
-        };
-
         try {
+            const templateParams = {
+                ...data,
+                siteName,
+                eventDate: format(data.eventDate, 'PPP'),
+            };
+
             await emailjs.send(serviceId, templateId, templateParams, publicKey);
+            
+            await addServiceBooking({
+                site_name: siteName,
+                booking_type: 'Caterer',
+                customer_name: data.customerName,
+                email: data.email,
+                phone: data.phone,
+                details: {
+                    "Event Date": format(data.eventDate, 'PPP'),
+                    "Event Time": data.eventTime,
+                    "Event Location": data.eventLocation,
+                    "Number of Guests": data.guests,
+                    "Menu Preferences": data.menuSelection,
+                    "Service Type": data.serviceType,
+                    "Equipment Needs": data.equipmentNeeds,
+                    "Budget": data.budget,
+                    "Special Requests": data.specialRequests,
+                }
+            });
+
             toast({ title: "Catering Request Sent!", description: `Your request for ${siteName} has been received.` });
             setIsSuccess(true);
             form.reset();
-        } catch (error) {
-            console.error("EmailJS failed to send:", error);
-            const errorMsg = "There was an issue submitting your request. Please try again later.";
+        } catch (error: any) {
+            console.error("Booking failed:", error);
+            const errorMsg = error?.message || "There was an issue submitting your request. Please try again later.";
             setServerError(errorMsg);
             toast({ variant: "destructive", title: "Submission Failed", description: errorMsg });
         } finally {

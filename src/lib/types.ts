@@ -79,6 +79,19 @@ export interface Booking {
   completionDate?: string; // Storing as formatted string
 }
 
+export interface ServiceBooking {
+  id: number;
+  created_at: string;
+  is_read: boolean;
+  site_name: string;
+  booking_type: 'Home' | 'Restaurant' | 'Caterer';
+  customer_name: string;
+  email: string;
+  phone: string;
+  details: Record<string, any>;
+}
+
+
 export interface BookingSite {
   id: number;
   name: string;
