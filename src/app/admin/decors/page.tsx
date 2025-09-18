@@ -75,6 +75,7 @@ export default function DecorsAdmin() {
           category: form.category.value,
           price: Number(form.price.value),
           stock: Number(form.stock.value),
+          aiHint: form.aiHint.value,
       };
 
       const finalImageFiles = imageFiles.filter((f): f is File => f !== null);
@@ -245,6 +246,10 @@ export default function DecorsAdmin() {
                         <div className="grid grid-cols-4 items-center gap-4">
                             <Label htmlFor="stock" className="text-right">Stock</Label>
                             <Input id="stock" name="stock" type="number" defaultValue={editingProduct?.stock} className="col-span-3" required />
+                        </div>
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="aiHint" className="text-right">AI Hint</Label>
+                            <Input id="aiHint" name="aiHint" defaultValue={editingProduct?.aiHint} placeholder="e.g. linen pillow" className="col-span-3" />
                         </div>
                          <div className="grid grid-cols-4 items-start gap-4">
                             <Label className="text-right pt-2">Images</Label>

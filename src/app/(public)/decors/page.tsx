@@ -11,6 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useState, useEffect } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { Product } from '@/lib/types';
+import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 
 export default function PavoDecorsHome() {
   const { decorProducts, addToCart, siteSettings, loading } = usePavoData();
@@ -119,34 +120,59 @@ export default function PavoDecorsHome() {
                     className="overflow-hidden transition-all duration-300 ease-in-out hover:shadow-2xl hover:-translate-y-2 bg-transparent border-0 flex flex-col"
                 >
                     <CardContent className="p-0 flex-grow">
-                    <div className="group">
-                        <div className="relative h-96 w-full overflow-hidden rounded-lg">
-                        <img
-                            src={product.image_urls?.[0] && typeof product.image_urls[0] === 'string' && product.image_urls[0].trim() ? product.image_urls[0] : 'https://placehold.co/400x400.png?text=Image+Not+Available'}
-                            alt={product.name}
-                            className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 ease-in-out group-hover:scale-105"
-                            data-ai-hint={product.aiHint}
-                        />
-                        {product.stock > 0 ? (
-                            <Badge className="absolute left-3 top-3 bg-primary/80 text-primary-foreground backdrop-blur-sm">In Stock</Badge>
-                        ): (
-                            <Badge variant="destructive" className="absolute left-3 top-3">Out of Stock</Badge>
-                        )}
+                        <div className="group relative">
+                            <div className="relative h-96 w-full overflow-hidden rounded-lg">
+                                {(product.image_urls?.length || 0) > 0 ? (
+                                <Carousel className="w-full h-full">
+                                    <CarouselContent>
+                                        {product.image_urls.map((url, index) => (
+                                            <CarouselItem key={index}>
+                                                <div className="relative h-96 w-full">
+                                                    <img
+                                                        src={typeof url === 'string' && url.trim() ? url : 'https://placehold.co/400x400.png?text=Image+Not+Available'}
+                                                        alt={`${product.name} image ${index + 1}`}
+                                                        className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 ease-in-out group-hover:scale-105"
+                                                        data-ai-hint={product.aiHint}
+                                                    />
+                                                </div>
+                                            </CarouselItem>
+                                        ))}
+                                    </CarouselContent>
+                                    {product.image_urls.length > 1 && (
+                                        <>
+                                            <CarouselPrevious className="absolute left-2 top-1/2 -translate-y-1/2 z-10 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                            <CarouselNext className="absolute right-2 top-1/2 -translate-y-1/2 z-10 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                        </>
+                                    )}
+                                </Carousel>
+                                ) : (
+                                <img
+                                    src={'https://placehold.co/400x400.png?text=Image+Not+Available'}
+                                    alt={product.name}
+                                    className="absolute inset-0 w-full h-full object-cover"
+                                    data-ai-hint={product.aiHint}
+                                />
+                                )}
+                                {product.stock > 0 ? (
+                                    <Badge className="absolute left-3 top-3 bg-primary/80 text-primary-foreground backdrop-blur-sm">In Stock</Badge>
+                                ): (
+                                    <Badge variant="destructive" className="absolute left-3 top-3">Out of Stock</Badge>
+                                )}
+                            </div>
+                            <div className="p-4 text-center">
+                                <h3 className="mt-2 font-headline font-semibold text-xl text-foreground">
+                                    {product.name}
+                                </h3>
+                                <p className="text-lg text-muted-foreground">
+                                    {product.price.toLocaleString()} TZS
+                                </p>
+                            </div>
                         </div>
-                        <div className="p-4 text-center">
-                        <h3 className="mt-2 font-headline font-semibold text-xl text-foreground">
-                            {product.name}
-                        </h3>
-                        <p className="text-lg text-muted-foreground">
-                            {product.price.toLocaleString()} TZS
-                        </p>
-                        </div>
-                    </div>
                     </CardContent>
                     <CardFooter className="flex justify-center p-4 pt-0">
-                    <Button variant="secondary" size="lg" className="w-full" disabled={product.stock === 0} onClick={() => handleAddToCart(product)}>
-                        Add to Cart
-                    </Button>
+                        <Button variant="secondary" size="lg" className="w-full" disabled={product.stock === 0} onClick={() => handleAddToCart(product)}>
+                            Add to Cart
+                        </Button>
                     </CardFooter>
                 </Card>
                 ))

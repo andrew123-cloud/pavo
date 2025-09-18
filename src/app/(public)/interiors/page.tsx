@@ -213,49 +213,51 @@ export default function PavoInteriorsHome() {
                     <DialogTitle className="font-headline text-3xl">{selectedProject.title}</DialogTitle>
                     <DialogDescription>{selectedProject.location}</DialogDescription>
                  </DialogHeader>
-                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
-                    {Array.isArray(selectedProject.beforeImageUrls) && selectedProject.beforeImageUrls.length > 0 && (
-                      <div>
-                          <h3 className="font-semibold text-lg mb-2">Before</h3>
-                          <Carousel className="w-full rounded-lg overflow-hidden">
-                              <CarouselContent>
-                                  {selectedProject.beforeImageUrls.map((url, i) => (
-                                      <CarouselItem key={i}>
-                                          <div className="relative h-80 w-full">
-                                              <img src={typeof url === 'string' && url.trim() ? url : 'https://placehold.co/400x320/png?text=No+Image'} alt={`Before view ${i+1} of ${selectedProject.title}`} className="absolute inset-0 w-full h-full object-cover" data-ai-hint="cluttered room"/>
-                                          </div>
-                                      </CarouselItem>
-                                  ))}
-                              </CarouselContent>
-                               {selectedProject.beforeImageUrls.length > 1 && <>
-                                  <CarouselPrevious className="absolute left-2 top-1/2 -translate-y-1/2 z-10" />
-                                  <CarouselNext className="absolute right-2 top-1/2 -translate-y-1/2 z-10" />
-                              </>}
-                          </Carousel>
-                      </div>
-                    )}
-                     <div className={!(Array.isArray(selectedProject.beforeImageUrls) && selectedProject.beforeImageUrls.length > 0) ? 'md:col-span-2' : ''}>
-                        <h3 className="font-semibold text-lg mb-2">After</h3>
-                          <Carousel className="w-full rounded-lg overflow-hidden">
-                              <CarouselContent>
-                                  {selectedProject.imageUrls.map((url, i) => (
-                                      <CarouselItem key={i}>
-                                          <div className="relative h-80 w-full">
-                                              <img src={typeof url === 'string' && url.trim() ? url : 'https://placehold.co/400x320/png?text=No+Image'} alt={`After view ${i+1} of ${selectedProject.title}`} className="absolute inset-0 w-full h-full object-cover" data-ai-hint={selectedProject.aiHint}/>
-                                          </div>
-                                      </CarouselItem>
-                                  ))}
-                              </CarouselContent>
-                               {selectedProject.imageUrls.length > 1 && <>
-                                  <CarouselPrevious className="absolute left-2 top-1/2 -translate-y-1/2 z-10" />
-                                  <CarouselNext className="absolute right-2 top-1/2 -translate-y-1/2 z-10" />
-                              </>}
-                          </Carousel>
+                 <div className="max-h-[80vh] overflow-y-auto pr-4 mt-4">
+                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {Array.isArray(selectedProject.beforeImageUrls) && selectedProject.beforeImageUrls.length > 0 && (
+                          <div>
+                              <h3 className="font-semibold text-lg mb-2">Before</h3>
+                              <Carousel className="w-full rounded-lg overflow-hidden">
+                                  <CarouselContent>
+                                      {selectedProject.beforeImageUrls.map((url, i) => (
+                                          <CarouselItem key={i}>
+                                              <div className="relative h-80 w-full">
+                                                  <img src={typeof url === 'string' && url.trim() ? url : 'https://placehold.co/400x320/png?text=No+Image'} alt={`Before view ${i+1} of ${selectedProject.title}`} className="absolute inset-0 w-full h-full object-cover" data-ai-hint="cluttered room"/>
+                                              </div>
+                                          </CarouselItem>
+                                      ))}
+                                  </CarouselContent>
+                                   {selectedProject.beforeImageUrls.length > 1 && <>
+                                      <CarouselPrevious className="absolute left-2 top-1/2 -translate-y-1/2 z-10" />
+                                      <CarouselNext className="absolute right-2 top-1/2 -translate-y-1/2 z-10" />
+                                  </>}
+                              </Carousel>
+                          </div>
+                        )}
+                         <div className={!(Array.isArray(selectedProject.beforeImageUrls) && selectedProject.beforeImageUrls.length > 0) ? 'md:col-span-2' : ''}>
+                            <h3 className="font-semibold text-lg mb-2">After</h3>
+                              <Carousel className="w-full rounded-lg overflow-hidden">
+                                  <CarouselContent>
+                                      {selectedProject.imageUrls.map((url, i) => (
+                                          <CarouselItem key={i}>
+                                              <div className="relative h-80 w-full">
+                                                  <img src={typeof url === 'string' && url.trim() ? url : 'https://placehold.co/400x320/png?text=No+Image'} alt={`After view ${i+1} of ${selectedProject.title}`} className="absolute inset-0 w-full h-full object-cover" data-ai-hint={selectedProject.aiHint}/>
+                                              </div>
+                                          </CarouselItem>
+                                      ))}
+                                  </CarouselContent>
+                                   {selectedProject.imageUrls.length > 1 && <>
+                                      <CarouselPrevious className="absolute left-2 top-1/2 -translate-y-1/2 z-10" />
+                                      <CarouselNext className="absolute right-2 top-1/2 -translate-y-1/2 z-10" />
+                                  </>}
+                              </Carousel>
+                        </div>
+                     </div>
+                    <div className="mt-6">
+                        <h3 className="font-semibold text-lg mb-2">About The Project</h3>
+                        <p className="text-muted-foreground">{selectedProject.description}</p>
                     </div>
-                 </div>
-                <div className="mt-4">
-                    <h3 className="font-semibold text-lg mb-2">About The Project</h3>
-                    <p className="text-muted-foreground">{selectedProject.description}</p>
                 </div>
             </DialogContent>
         </Dialog>

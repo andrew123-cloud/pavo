@@ -53,9 +53,9 @@ export function CatererBookingForm({ siteName }: { siteName: string }) {
         setIsSubmitting(true);
         setServerError(null);
 
-        const serviceId = process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID_2;
+        const serviceId = process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID_ALT;
         const templateId = process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_ID_CATERER;
-        const publicKey = process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY_2;
+        const publicKey = process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY_ALT;
 
         if (!serviceId || !templateId || !publicKey) {
             const errorMsg = "Email configuration for catering bookings is missing.";

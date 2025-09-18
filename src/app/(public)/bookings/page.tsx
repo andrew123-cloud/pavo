@@ -6,6 +6,7 @@ import {
   Home,
   UtensilsCrossed,
   ConciergeBell,
+  Eye,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -76,15 +77,53 @@ const BookingSiteCard = ({ site }: { site: BookingSite }) => {
                 </div>
                 <div className="p-4 text-left">
                     <h3 className="mt-2 font-headline font-semibold text-xl text-foreground">{site.name}</h3>
-                    <p className="text-sm text-muted-foreground mt-1">{site.description}</p>
+                    <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{site.description}</p>
                     {site.priceInfo && <p className="text-md font-semibold text-primary mt-2">{site.priceInfo}</p>}
                 </div>
             </div>
         </CardContent>
-        <CardFooter className="p-4 pt-0">
+        <CardFooter className="p-4 pt-0 grid grid-cols-2 gap-2">
              <Dialog>
                 <DialogTrigger asChild>
-                    <Button variant="secondary" size="lg" className="w-full">Book Now</Button>
+                    <Button variant="ghost" className="w-full"><Eye className="mr-2"/> View Details</Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-3xl">
+                    <DialogHeader>
+                        <DialogTitle className="font-headline text-3xl">{site.name}</DialogTitle>
+                         {site.location && <DialogDescription>{site.location}</DialogDescription>}
+                    </DialogHeader>
+                    <div className="py-4 max-h-[80vh] overflow-y-auto pr-2">
+                        <Carousel className="w-full mb-6">
+                            <CarouselContent>
+                                {site.imageUrls.map((url, index) => (
+                                    <CarouselItem key={index}>
+                                        <div className="relative h-96 w-full">
+                                            <img
+                                                src={typeof url === 'string' && url.trim() ? url : 'https://placehold.co/600x400.png?text=Image+Not+Available'}
+                                                alt={`${site.name} image ${index + 1}`}
+                                                className="absolute inset-0 w-full h-full object-cover rounded-lg"
+                                                data-ai-hint={site.aiHint}
+                                            />
+                                        </div>
+                                    </CarouselItem>
+                                ))}
+                            </CarouselContent>
+                            {site.imageUrls.length > 1 && (
+                                <>
+                                    <CarouselPrevious className="absolute left-2 top-1/2 -translate-y-1/2 z-10" />
+                                    <CarouselNext className="absolute right-2 top-1/2 -translate-y-1/2 z-10" />
+                                </>
+                            )}
+                        </Carousel>
+                        <p className="text-muted-foreground">{site.description}</p>
+                         {site.priceInfo && <p className="text-lg font-semibold text-primary mt-4">{site.priceInfo}</p>}
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+             <Dialog>
+                <DialogTrigger asChild>
+                    <Button variant="secondary" className="w-full">Book Now</Button>
                 </DialogTrigger>
                 <DialogContent className="max-w-2xl">
                     <DialogHeader>
@@ -195,5 +234,3 @@ export default function PavoBookingsPage() {
     </div>
   );
 }
-
-    
