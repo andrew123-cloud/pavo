@@ -2,8 +2,7 @@
 'use client';
 
 import React from 'react';
-import { useActionState } from 'react';
-import { useFormStatus } from 'react-dom';
+import { useFormState, useFormStatus } from 'react-dom';
 import { getPersonalizedRecommendations } from '@/app/(public)/recommendations/actions';
 import { Button } from '@/components/ui/button';
 import {
@@ -37,7 +36,7 @@ function SubmitButton() {
 
 export default function RecommendationsPage() {
   const initialState = { message: null, errors: {}, data: null };
-  const [state, dispatch] = useActionState(
+  const [state, dispatch] = useFormState(
     getPersonalizedRecommendations,
     initialState
   );
