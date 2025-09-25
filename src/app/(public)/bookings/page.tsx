@@ -1,4 +1,3 @@
-
 // src/app/(public)/bookings/page.tsx
 'use client';
 import Image from 'next/image';
@@ -38,51 +37,33 @@ const BookingSiteCard = ({ site }: { site: BookingSite }) => {
     }
     
     return (
-    <Card className="overflow-hidden transition-all duration-300 ease-in-out hover:shadow-2xl hover:-translate-y-2 bg-secondary/50 border-0 flex flex-col">
+    <Card className="overflow-hidden transition-all duration-300 ease-in-out hover:shadow-2xl hover:-translate-y-2 bg-secondary/30 border-0 flex flex-col group">
         <CardContent className="p-0 flex-grow">
-            <div className="group">
-                <div className="relative h-64 w-full overflow-hidden">
-                    {(site.imageUrls?.length || 0) > 0 ? (
-                      <Carousel className="w-full h-full">
-                          <CarouselContent>
-                              {site.imageUrls.map((url, index) => (
-                                  <CarouselItem key={index}>
-                                      <div className="relative h-64 w-full">
-                                          <img
-                                              src={typeof url === 'string' && url.trim() ? url : 'https://placehold.co/400x250.png?text=Image+Not+Available'}
-                                              alt={`${site.name} image ${index + 1}`}
-                                              className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 ease-in-out group-hover:scale-105"
-                                              data-ai-hint={site.aiHint}
-                                          />
-                                      </div>
-                                  </CarouselItem>
-                              ))}
-                          </CarouselContent>
-                          {site.imageUrls.length > 1 && (
-                              <>
-                                  <CarouselPrevious className="absolute left-2 top-1/2 -translate-y-1/2 z-10" />
-                                  <CarouselNext className="absolute right-2 top-1/2 -translate-y-1/2 z-10" />
-                              </>
-                          )}
-                      </Carousel>
-                    ) : (
-                       <img
-                          src={'https://placehold.co/400x250.png?text=Image+Not+Available'}
-                          alt={site.name}
-                          className="absolute inset-0 w-full h-full object-cover"
-                          data-ai-hint={site.aiHint}
-                      />
-                    )}
-                    {site.location && <Badge className="absolute left-3 top-3 bg-primary/80 text-primary-foreground backdrop-blur-sm">{site.location}</Badge>}
-                </div>
-                <div className="p-4 text-left">
-                    <h3 className="mt-2 font-headline font-semibold text-xl text-foreground">{site.name}</h3>
-                    <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{site.description}</p>
-                    {site.priceInfo && <p className="text-md font-semibold text-primary mt-2">{site.priceInfo}</p>}
-                </div>
+            <div className="relative h-80 w-full overflow-hidden">
+                {(site.imageUrls?.length || 0) > 0 ? (
+                  <img
+                      src={typeof site.imageUrls[0] === 'string' && site.imageUrls[0].trim() ? site.imageUrls[0] : 'https://placehold.co/400x320.png?text=Image+Not+Available'}
+                      alt={site.name}
+                      className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 ease-in-out group-hover:scale-105"
+                      data-ai-hint={site.aiHint}
+                  />
+                ) : (
+                   <img
+                      src={'https://placehold.co/400x320.png?text=Image+Not+Available'}
+                      alt={site.name}
+                      className="absolute inset-0 w-full h-full object-cover"
+                      data-ai-hint={site.aiHint}
+                  />
+                )}
+                {site.location && <Badge className="absolute left-3 top-3 bg-primary/80 text-primary-foreground backdrop-blur-sm">{site.location}</Badge>}
+            </div>
+            <div className="p-6 text-left">
+                <h3 className="font-headline font-semibold text-xl text-foreground">{site.name}</h3>
+                <p className="text-sm text-muted-foreground mt-2 line-clamp-2">{site.description}</p>
+                {site.priceInfo && <p className="text-md font-semibold text-primary mt-2">{site.priceInfo}</p>}
             </div>
         </CardContent>
-        <CardFooter className="p-4 pt-0 grid grid-cols-2 gap-2">
+        <CardFooter className="p-6 pt-0 grid grid-cols-2 gap-2">
              <Dialog>
                 <DialogTrigger asChild>
                     <Button variant="ghost" className="w-full"><Eye className="mr-2"/> View Details</Button>
@@ -123,7 +104,7 @@ const BookingSiteCard = ({ site }: { site: BookingSite }) => {
 
              <Dialog>
                 <DialogTrigger asChild>
-                    <Button variant="secondary" className="w-full">Book Now</Button>
+                    <Button className="w-full">Book Now</Button>
                 </DialogTrigger>
                 <DialogContent className="max-w-2xl">
                     <DialogHeader>
@@ -151,7 +132,7 @@ export default function PavoBookingsPage() {
     if (heroImages && heroImages.length > 1) {
       const interval = setInterval(() => {
         setCurrentImageIndex(prevIndex => (prevIndex + 1) % heroImages.length);
-      }, 5000); // Change image every 5 seconds
+      }, 5000);
       return () => clearInterval(interval);
     }
   }, [heroImages]);
@@ -164,7 +145,7 @@ export default function PavoBookingsPage() {
     if (loading) {
       return (
         <div className="mt-12 grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
-          {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-96 w-full" />)}
+          {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-[450px] w-full" />)}
         </div>
       )
     }
@@ -183,7 +164,7 @@ export default function PavoBookingsPage() {
   };
 
   return (
-    <div className="flex flex-col dark bg-background text-foreground">
+    <div className="flex flex-col bg-background text-foreground">
       <section className="relative h-[70vh] min-h-[450px] w-full">
         {heroImages && heroImages.length > 0 && heroImages.map((src, index) => (
           <Image
@@ -197,8 +178,8 @@ export default function PavoBookingsPage() {
           />
         ))}
         <div className="absolute inset-0 bg-gradient-to-t from-background via-background/80 to-transparent" />
-        <div className="container relative z-10 mx-auto flex h-full flex-col items-center justify-center px-4 text-center">
-          <Badge variant="secondary" className="mb-4">
+        <div className="container relative z-10 mx-auto flex h-full flex-col items-center justify-end px-4 text-center pb-20">
+          <Badge variant="outline" className="mb-4 bg-background/50 backdrop-blur">
             Pavo Bookings
           </Badge>
           <h1 className="font-headline text-5xl font-bold tracking-tight text-foreground md:text-7xl">
@@ -210,10 +191,10 @@ export default function PavoBookingsPage() {
         </div>
       </section>
 
-      <section className="py-20 md:py-24 -mt-24 relative z-10">
+      <section className="py-20 md:py-24 relative z-10">
         <div className="container mx-auto px-4">
           <Tabs defaultValue="homes" className="w-full">
-            <TabsList className="grid w-full grid-cols-3 h-16">
+            <TabsList className="grid w-full grid-cols-3 h-16 bg-background">
               <TabsTrigger value="homes" className="h-full text-lg"><Home className="mr-2" /> Homes</TabsTrigger>
               <TabsTrigger value="restaurants" className="h-full text-lg"><UtensilsCrossed className="mr-2" /> Restaurants</TabsTrigger>
               <TabsTrigger value="catering" className="h-full text-lg"><ConciergeBell className="mr-2" /> Catering</TabsTrigger>

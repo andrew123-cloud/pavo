@@ -1,4 +1,3 @@
-
 // src/app/page.tsx
 'use client';
 import { useEffect, useState } from 'react';
@@ -15,7 +14,6 @@ import Footer from '@/components/shared/footer';
 
 
 export default function PavoSuiteHome() {
-  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   const { siteSettings, loading } = usePavoData();
   const { brandDescriptions, founder, heroImages } = siteSettings;
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
@@ -23,14 +21,6 @@ export default function PavoSuiteHome() {
 
   const suiteHeroImages = (heroImages?.suite?.length || 0) > 0 ? heroImages.suite : ['https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=1920&h=1080&auto=format&fit=crop'];
   const founderImages = (founder?.imageUrls?.length || 0) > 0 ? founder.imageUrls : ['/palvin-portrait.jpg'];
-
-  useEffect(() => {
-    const handleMouseMove = (event: MouseEvent) => {
-      setMousePosition({ x: event.clientX, y: event.clientY });
-    };
-    window.addEventListener('mousemove', handleMouseMove);
-    return () => window.removeEventListener('mousemove', handleMouseMove);
-  }, []);
 
   useEffect(() => {
     if (suiteHeroImages.length > 1) {
@@ -78,12 +68,6 @@ export default function PavoSuiteHome() {
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground overflow-hidden">
        <Header />
-      <div
-        className="pointer-events-none fixed inset-0 z-30 transition duration-300"
-        style={{
-          background: `radial-gradient(600px at ${mousePosition.x}px ${mousePosition.y}px, rgba(29, 78, 216, 0.15), transparent 80%)`,
-        }}
-      />
       <main className="flex-grow">
         <section className="relative h-screen w-full">
             {suiteHeroImages.map((src, index) => (
@@ -101,13 +85,13 @@ export default function PavoSuiteHome() {
 
           <div className="relative z-10 flex h-full flex-col items-center justify-center px-4 text-center">
             <PavoLogo className="text-4xl" />
-            <h1 className="mt-6 font-serif text-5xl font-bold tracking-tight text-transparent bg-clip-text bg-gradient-to-br from-white to-gray-400 md:text-7xl">
+            <h1 className="mt-6 font-serif text-5xl font-bold tracking-tight text-foreground md:text-7xl">
               Design the Future of Living
             </h1>
             <p className="mt-6 max-w-3xl text-lg text-foreground/70 md:text-xl">
               Pavo is a suite of brands dedicated to inspired living. We craft spaces, curate decor, and create unforgettable memories, guided by a passion for beauty, elegance, and innovation.
             </p>
-            <Button asChild size="lg" className="mt-8 group bg-primary/90 hover:bg-primary text-primary-foreground">
+            <Button asChild size="lg" className="mt-8 group">
               <Link href="#brands">
                 Explore The Suite <MoveRight className="ml-2 transition-transform duration-300 group-hover:translate-x-1" />
               </Link>
@@ -129,7 +113,7 @@ export default function PavoSuiteHome() {
               {pavoBrands.map((brand) => (
                 <Card
                   key={brand.name}
-                  className="group relative overflow-hidden rounded-xl border border-white/10 bg-black/30 backdrop-blur-xl transition-all duration-300 hover:border-primary/50 hover:bg-primary/5 hover:-translate-y-2"
+                  className="group relative overflow-hidden rounded-xl border-transparent bg-secondary/30 backdrop-blur-xl transition-all duration-300 hover:border-primary/20 hover:bg-primary/5 hover:-translate-y-2"
                 >
                   <div className="p-8 flex flex-col items-center text-center h-full">
                     <div className="flex h-20 w-20 items-center justify-center rounded-full bg-primary/10 border border-primary/20 text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground group-hover:scale-110 duration-300">
@@ -142,7 +126,7 @@ export default function PavoSuiteHome() {
                       <p>{brand.description}</p>
                     </CardContent>
                     <div className="mt-6">
-                       <Button asChild variant="outline" className="bg-transparent border-white/20 hover:bg-primary/10 hover:text-primary">
+                       <Button asChild variant="outline">
                         <Link href={brand.href}>
                           {brand.cta} <ArrowRight className="ml-2 h-4 w-4" />
                         </Link>

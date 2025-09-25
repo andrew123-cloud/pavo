@@ -1,4 +1,3 @@
-
 // src/components/shared/booking-form.tsx
 'use client';
 
@@ -70,7 +69,7 @@ export function BookingForm() {
         setServerError(null);
 
         const serviceId = process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID;
-        const templateId = process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_ID;
+        const templateId = process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_ID_INTERIORS;
         const publicKey = process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY;
 
         if (!serviceId || !templateId || !publicKey) {
@@ -123,9 +122,9 @@ export function BookingForm() {
 
   if (isSuccess) {
     return (
-      <Alert className="border-green-500 text-green-700">
-        <CheckCircle2 className="h-4 w-4 text-green-500" />
-        <AlertTitle className="text-green-700 font-bold">Booking Request Sent!</AlertTitle>
+      <Alert className="border-primary/50 text-foreground">
+        <CheckCircle2 className="h-4 w-4 text-primary" />
+        <AlertTitle className="text-primary font-bold">Booking Request Sent!</AlertTitle>
         <AlertDescription>
           Thank you for your interest! We have received your detailed request and will contact you within 2 hours to schedule your consultation. An email confirmation is on its way.
         </AlertDescription>
@@ -134,7 +133,7 @@ export function BookingForm() {
   }
 
   return (
-    <Card className="bg-background/50 border-white/10 p-2 sm:p-6">
+    <Card className="bg-secondary/30 border-border p-2 sm:p-6">
       <CardContent className="p-0">
         <Form {...form}>
             <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">

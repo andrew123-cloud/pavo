@@ -1,4 +1,3 @@
-
 // src/app/(public)/interiors/page.tsx
 'use client';
 import { useState, useEffect } from 'react';
@@ -50,7 +49,7 @@ export default function PavoInteriorsHome() {
 
 
   return (
-    <div className="flex flex-col dark bg-background text-foreground">
+    <div className="flex flex-col bg-background text-foreground">
       <section className="relative h-[80vh] min-h-[500px] w-full">
         {heroImages && heroImages.length > 0 && heroImages.map((src, index) => (
             <Image
@@ -65,7 +64,7 @@ export default function PavoInteriorsHome() {
         ))}
         <div className="absolute inset-0 bg-gradient-to-t from-background via-background/80 to-transparent" />
         <div className="container relative z-10 mx-auto flex h-full flex-col items-center justify-center px-4 text-center">
-          <Badge variant="secondary" className="mb-4">
+          <Badge variant="outline" className="mb-4 bg-background/50 backdrop-blur">
             Pavo Interiors
           </Badge>
           <h1 className="font-headline text-5xl font-bold tracking-tight text-foreground md:text-7xl">
@@ -98,7 +97,7 @@ export default function PavoInteriorsHome() {
           <div className="mt-16 grid gap-8 md:grid-cols-3">
             <Card className="text-center bg-transparent border-0 shadow-none">
               <CardHeader>
-                <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-secondary text-foreground">
+                <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-secondary/50 text-primary">
                   <PencilRuler className="h-10 w-10" />
                 </div>
                 <CardTitle className="mt-6 font-headline text-2xl">
@@ -114,7 +113,7 @@ export default function PavoInteriorsHome() {
             </Card>
             <Card className="text-center bg-transparent border-0 shadow-none">
               <CardHeader>
-                <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-secondary text-foreground">
+                <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-secondary/50 text-primary">
                   <Home className="h-10 w-10" />
                 </div>
                 <CardTitle className="mt-6 font-headline text-2xl">
@@ -130,7 +129,7 @@ export default function PavoInteriorsHome() {
             </Card>
             <Card className="text-center bg-transparent border-0 shadow-none">
               <CardHeader>
-                <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-secondary text-foreground">
+                <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-secondary/50 text-primary">
                   <Brush className="h-10 w-10" />
                 </div>
                 <CardTitle className="mt-6 font-headline text-2xl">
@@ -148,7 +147,7 @@ export default function PavoInteriorsHome() {
         </div>
       </section>
 
-      <section id="portfolio" className="bg-secondary/50 py-20 md:py-32">
+      <section id="portfolio" className="bg-secondary/30 py-20 md:py-32">
         <div className="container mx-auto px-4">
           <div className="text-center">
             <h2 className="font-headline text-4xl font-bold tracking-tight text-foreground md:text-5xl">
@@ -162,7 +161,7 @@ export default function PavoInteriorsHome() {
           <div className="mt-16 grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
              {loading ? (
                 Array.from({ length: 3 }).map((_, index) => (
-                    <Card key={index} className="flex flex-col bg-background border-0 shadow-lg">
+                    <Card key={index} className="flex flex-col bg-background/50 border-0 shadow-lg">
                         <Skeleton className="h-80 w-full" />
                         <CardFooter className="p-4 mt-auto">
                             <Skeleton className="h-10 w-full" />
@@ -173,7 +172,7 @@ export default function PavoInteriorsHome() {
                 portfolioItems.map((item) => (
                 <Card
                     key={item.id}
-                    className="group relative flex flex-col overflow-hidden rounded-lg bg-background border-0 shadow-lg transition-all duration-300 hover:shadow-2xl hover:-translate-y-2"
+                    className="group relative flex flex-col overflow-hidden rounded-lg bg-background/50 border-0 shadow-lg transition-all duration-300 hover:shadow-2xl hover:-translate-y-2"
                 >
                     <div className="relative h-80 w-full overflow-hidden">
                     <img
@@ -190,7 +189,7 @@ export default function PavoInteriorsHome() {
                         <p className="text-white/80">{item.location}</p>
                     </div>
                     </div>
-                    <CardFooter className="p-4 mt-auto bg-background">
+                    <CardFooter className="p-4 mt-auto bg-background/50">
                         <Button variant="outline" className="w-full" onClick={() => setSelectedProject(item)}>
                             View Project
                         </Button>
@@ -273,7 +272,7 @@ export default function PavoInteriorsHome() {
           </div>
           <div className="mt-16 grid gap-8 md:grid-cols-2 lg:grid-cols-3">
             {testimonials.map((testimonial) => (
-              <Card key={testimonial.id} className="bg-secondary/50 border-0">
+              <Card key={testimonial.id} className="bg-secondary/30 border-0">
                 <CardHeader>
                   <MessageSquareQuote className="h-10 w-10 text-primary" />
                 </CardHeader>

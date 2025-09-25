@@ -17,48 +17,48 @@ h6 {
 
 @layer base {
   :root {
-    --background: 240 10% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 240 10% 3.9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 240 10% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 262.1 83.3% 57.8%;
+    --background: 0 0% 100%;
+    --foreground: 224 71.4% 4.1%;
+    --card: 0 0% 100%;
+    --card-foreground: 224 71.4% 4.1%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 224 71.4% 4.1%;
+    --primary: 38 92% 50%;
     --primary-foreground: 210 20% 98%;
-    --secondary: 240 3.7% 15.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 240 3.7% 15.9%;
-    --muted-foreground: 240 5% 64.9%;
-    --accent: 240 3.7% 15.9%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 85.7% 97.3%;
-    --border: 240 3.7% 15.9%;
-    --input: 240 3.7% 15.9%;
-    --ring: 262.1 83.3% 57.8%;
+    --secondary: 220 14.3% 95.9%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 220 14.3% 95.9%;
+    --muted-foreground: 220 8.9% 46.1%;
+    --accent: 220 14.3% 95.9%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 20% 98%;
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 224 71.4% 4.1%;
     --radius: 0.5rem;
   }
 
   .dark {
-    --background: 240 10% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 240 10% 3.9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 240 10% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 262.1 83.3% 57.8%;
+    --background: 220 12% 8%;
+    --foreground: 210 20% 98%;
+    --card: 220 12% 10%;
+    --card-foreground: 210 20% 98%;
+    --popover: 220 12% 8%;
+    --popover-foreground: 210 20% 98%;
+    --primary: 38 92% 50%;
     --primary-foreground: 210 20% 98%;
-    --secondary: 240 3.7% 15.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 240 3.7% 15.9%;
-    --muted-foreground: 240 5% 64.9%;
-    --accent: 240 3.7% 15.9%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 240 3.7% 15.9%;
-    --input: 240 3.7% 15.9%;
-    --ring: 262.1 83.3% 57.8%;
+    --secondary: 220 12% 12%;
+    --secondary-foreground: 210 20% 98%;
+    --muted: 220 12% 12%;
+    --muted-foreground: 210 20% 60%;
+    --accent: 220 12% 15%;
+    --accent-foreground: 210 20% 98%;
+    --destructive: 0 72.2% 50.6%;
+    --destructive-foreground: 210 20% 98%;
+    --border: 220 12% 15%;
+    --input: 220 12% 15%;
+    --ring: 38 92% 50%;
   }
 }
 
@@ -68,78 +68,5 @@ h6 {
   }
   body {
     @apply bg-background text-foreground;
-  }
-}
-
-@layer utilities {
-  .perspective-1000 {
-    perspective: 1000px;
-  }
-  .preserve-3d {
-    transform-style: preserve-3d;
-  }
-  .backface-hidden {
-    backface-visibility: hidden;
-    -webkit-backface-visibility: hidden;
-  }
-
-  .shape {
-    @apply absolute rounded-2xl backface-hidden;
-    animation: float 20s infinite ease-in-out;
-  }
-  .shape-1 {
-    width: 200px;
-    height: 200px;
-    top: 15%;
-    left: 15%;
-    background: linear-gradient(45deg, hsl(var(--primary)), #da62c4);
-    animation-duration: 22s;
-    animation-delay: -5s;
-    transform: rotate3d(1, 1, 0, 0deg);
-  }
-  .shape-2 {
-    width: 150px;
-    height: 150px;
-    top: 25%;
-    right: 20%;
-    background: linear-gradient(45deg, #4f46e5, #a855f7);
-    animation-duration: 25s;
-    animation-delay: -2s;
-    transform: rotate3d(1, 0, 1, 0deg);
-  }
-  .shape-3 {
-    width: 100px;
-    height: 100px;
-    bottom: 20%;
-    left: 30%;
-    background: linear-gradient(45deg, #ec4899, #f97316);
-    animation-duration: 18s;
-    animation-delay: -10s;
-     transform: rotate3d(0, 1, 1, 0deg);
-  }
-   .shape-4 {
-    width: 250px;
-    height: 250px;
-    bottom: 15%;
-    right: 10%;
-    background: linear-gradient(45deg, #8b5cf6, #d946ef);
-    animation-duration: 28s;
-    animation-delay: -7s;
-     transform: rotate3d(1, 1, 1, 0deg);
-  }
-}
-
-@keyframes float {
-  0% {
-    transform: translateY(0px) rotate3d(1, 1, 0, 0deg);
-    opacity: 0.2;
-  }
-  50% {
-    transform: translateY(-80px) rotate3d(1, 1, 0, 180deg);
-    opacity: 0.6;
-  }
-  100% {
-    transform: translateY(0px) rotate3d(1, 1, 0, 360deg);
-    opacity: 0.2;
   }
 }

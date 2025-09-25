@@ -39,7 +39,7 @@ export default function PavoDecorsHome() {
   }
 
   return (
-    <div className="flex flex-col dark bg-background text-foreground">
+    <div className="flex flex-col bg-background text-foreground">
       <section className="relative h-[80vh] min-h-[500px] w-full">
         {heroImages && heroImages.length > 0 && heroImages.map((src, index) => (
           <Image
@@ -54,7 +54,7 @@ export default function PavoDecorsHome() {
         ))}
         <div className="absolute inset-0 bg-gradient-to-t from-background via-background/80 to-transparent" />
         <div className="container relative z-10 mx-auto flex h-full flex-col items-start justify-center px-4 text-left">
-          <Badge variant="secondary" className="mb-4">
+          <Badge variant="outline" className="mb-4 bg-background/50 backdrop-blur">
             Pavo Decors
           </Badge>
           <h1 className="font-headline text-5xl font-bold tracking-tight text-foreground md:text-7xl max-w-2xl">
@@ -89,7 +89,7 @@ export default function PavoDecorsHome() {
         </div>
       </section>
 
-      <section id="featured" className="bg-secondary/50 py-20 md:py-32">
+      <section id="featured" className="bg-secondary/30 py-20 md:py-32">
         <div className="container mx-auto px-4">
           <div className="text-center">
             <h2 className="font-headline text-4xl font-bold tracking-tight text-foreground md:text-5xl">
@@ -187,7 +187,7 @@ export default function PavoDecorsHome() {
 
       <section className="py-20 md:py-32">
         <div className="container mx-auto px-4">
-          <div className="rounded-lg bg-primary/10 p-8 text-center md:p-16">
+          <div className="rounded-lg bg-secondary/30 border border-border p-8 text-center md:p-16">
             <Sparkles className="mx-auto h-12 w-12 text-primary" />
             <h2 className="mt-4 font-headline text-4xl font-bold md:text-5xl">
               Get Personalized Recommendations

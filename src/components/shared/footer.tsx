@@ -1,4 +1,3 @@
-
 import Link from 'next/link';
 import { Facebook, Instagram } from 'lucide-react';
 import PavoLogo from '@/components/pavo-logo';
@@ -19,7 +18,7 @@ const PinterestIcon = (props: React.SVGProps<SVGSVGElement>) => (
 
 export default function Footer() {
   return (
-    <footer className="bg-secondary/50">
+    <footer className="bg-secondary/30 border-t border-border">
       <div className="container mx-auto px-4 py-16">
         <div className="grid gap-12 lg:grid-cols-12">
           <div className="lg:col-span-4">
