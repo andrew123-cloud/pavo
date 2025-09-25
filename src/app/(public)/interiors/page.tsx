@@ -64,7 +64,7 @@ export default function PavoInteriorsHome() {
         ))}
         <div className="absolute inset-0 bg-gradient-to-t from-background via-background/80 to-transparent" />
         <div className="container relative z-10 mx-auto flex h-full flex-col items-center justify-center px-4 text-center">
-          <Badge variant="outline" className="mb-4 bg-background/50 backdrop-blur">
+          <Badge variant="outline" className="mb-4 border-primary/50 text-primary backdrop-blur-sm">
             Pavo Interiors
           </Badge>
           <h1 className="font-headline text-5xl font-bold tracking-tight text-foreground md:text-7xl">
@@ -85,11 +85,11 @@ export default function PavoInteriorsHome() {
 
       <section id="services" className="py-20 md:py-32">
         <div className="container mx-auto px-4">
-          <div className="text-center">
+          <div className="text-center max-w-3xl mx-auto">
             <h2 className="font-headline text-4xl font-bold tracking-tight text-foreground md:text-5xl">
               What We Offer
             </h2>
-            <p className="mt-4 max-w-2xl mx-auto text-lg text-muted-foreground">
+            <p className="mt-4 text-lg text-muted-foreground">
               From concept to completion, we provide a full range of interior
               design services tailored to your needs.
             </p>
@@ -97,7 +97,7 @@ export default function PavoInteriorsHome() {
           <div className="mt-16 grid gap-8 md:grid-cols-3">
             <Card className="text-center bg-transparent border-0 shadow-none">
               <CardHeader>
-                <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-secondary/50 text-primary">
+                <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-secondary text-primary">
                   <PencilRuler className="h-10 w-10" />
                 </div>
                 <CardTitle className="mt-6 font-headline text-2xl">
@@ -113,7 +113,7 @@ export default function PavoInteriorsHome() {
             </Card>
             <Card className="text-center bg-transparent border-0 shadow-none">
               <CardHeader>
-                <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-secondary/50 text-primary">
+                <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-secondary text-primary">
                   <Home className="h-10 w-10" />
                 </div>
                 <CardTitle className="mt-6 font-headline text-2xl">
@@ -129,7 +129,7 @@ export default function PavoInteriorsHome() {
             </Card>
             <Card className="text-center bg-transparent border-0 shadow-none">
               <CardHeader>
-                <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-secondary/50 text-primary">
+                <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-secondary text-primary">
                   <Brush className="h-10 w-10" />
                 </div>
                 <CardTitle className="mt-6 font-headline text-2xl">
@@ -147,13 +147,13 @@ export default function PavoInteriorsHome() {
         </div>
       </section>
 
-      <section id="portfolio" className="bg-secondary/30 py-20 md:py-32">
+      <section id="portfolio" className="bg-secondary py-20 md:py-32">
         <div className="container mx-auto px-4">
-          <div className="text-center">
+          <div className="text-center max-w-3xl mx-auto">
             <h2 className="font-headline text-4xl font-bold tracking-tight text-foreground md:text-5xl">
               Explore Our Portfolio
             </h2>
-            <p className="mt-4 max-w-2xl mx-auto text-lg text-muted-foreground">
+            <p className="mt-4 text-lg text-muted-foreground">
               A glimpse into the beautiful and functional spaces we've created
               for our clients.
             </p>
@@ -161,40 +161,36 @@ export default function PavoInteriorsHome() {
           <div className="mt-16 grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
              {loading ? (
                 Array.from({ length: 3 }).map((_, index) => (
-                    <Card key={index} className="flex flex-col bg-background/50 border-0 shadow-lg">
-                        <Skeleton className="h-80 w-full" />
-                        <CardFooter className="p-4 mt-auto">
-                            <Skeleton className="h-10 w-full" />
-                        </CardFooter>
-                    </Card>
+                    <div key={index} className="space-y-4">
+                        <Skeleton className="h-96 w-full" />
+                        <Skeleton className="h-10 w-full" />
+                    </div>
                 ))
             ) : portfolioItems && portfolioItems.length > 0 ? (
                 portfolioItems.map((item) => (
-                <Card
+                <div
                     key={item.id}
-                    className="group relative flex flex-col overflow-hidden rounded-lg bg-background/50 border-0 shadow-lg transition-all duration-300 hover:shadow-2xl hover:-translate-y-2"
+                    className="group relative flex flex-col overflow-hidden transition-all duration-300"
                 >
-                    <div className="relative h-80 w-full overflow-hidden">
+                    <div className="relative h-96 w-full overflow-hidden">
                     <img
                         src={item.imageUrls?.[0] && typeof item.imageUrls?.[0] === 'string' && item.imageUrls[0].trim() ? item.imageUrls[0] : 'https://placehold.co/400x320.png?text=No+Image'}
                         alt={item.title}
                         className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 ease-in-out group-hover:scale-105"
                         data-ai-hint={item.aiHint}
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
-                    <div className="absolute bottom-0 left-0 p-6">
-                        <h3 className="font-headline text-2xl font-bold text-white">
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+                    </div>
+                    <div className="mt-4">
+                        <h3 className="font-headline text-2xl font-bold text-foreground">
                         {item.title}
                         </h3>
-                        <p className="text-white/80">{item.location}</p>
-                    </div>
-                    </div>
-                    <CardFooter className="p-4 mt-auto bg-background/50">
-                        <Button variant="outline" className="w-full" onClick={() => setSelectedProject(item)}>
-                            View Project
+                        <p className="text-muted-foreground">{item.location}</p>
+                        <Button variant="link" className="p-0 mt-2 text-primary" onClick={() => setSelectedProject(item)}>
+                            View Project <ArrowRight className="ml-2 h-4 w-4" />
                         </Button>
-                    </CardFooter>
-                </Card>
+                    </div>
+                </div>
                 ))
             ) : (
               <div className="col-span-full text-center py-10">
@@ -265,19 +261,17 @@ export default function PavoInteriorsHome() {
 
       <section id="testimonials" className="py-20 md:py-32">
         <div className="container mx-auto px-4">
-          <div className="text-center">
+          <div className="text-center max-w-3xl mx-auto">
             <h2 className="font-headline text-4xl font-bold tracking-tight text-foreground md:text-5xl">
               Words From Our Clients
             </h2>
           </div>
           <div className="mt-16 grid gap-8 md:grid-cols-2 lg:grid-cols-3">
             {testimonials.map((testimonial) => (
-              <Card key={testimonial.id} className="bg-secondary/30 border-0">
-                <CardHeader>
-                  <MessageSquareQuote className="h-10 w-10 text-primary" />
-                </CardHeader>
-                <CardContent>
-                  <p className="text-muted-foreground text-lg">
+              <Card key={testimonial.id} className="bg-secondary border border-border">
+                <CardContent className="p-6">
+                  <MessageSquareQuote className="h-8 w-8 text-primary mb-4" />
+                  <p className="text-muted-foreground text-base">
                     "{testimonial.quote}"
                   </p>
                   <div className="mt-6 flex items-center gap-4">
@@ -306,18 +300,20 @@ export default function PavoInteriorsHome() {
         </div>
       </section>
 
-      <section id="contact" className="py-20 md:py-32 bg-secondary/30">
+      <section id="contact" className="py-20 md:py-32 bg-secondary">
         <div className="container mx-auto px-4">
-           <div className="text-center">
+           <div className="text-center max-w-3xl mx-auto">
             <h2 className="font-headline text-4xl font-bold tracking-tight text-foreground md:text-5xl">
               Start Your Design Journey
             </h2>
-            <p className="mt-4 max-w-2xl mx-auto text-lg text-muted-foreground">
+            <p className="mt-4 text-lg text-muted-foreground">
                 Ready to transform your space? Fill out the form below to book a consultation with our design experts.
             </p>
           </div>
           <div className="mt-12 max-w-2xl mx-auto">
-            <BookingForm />
+            <Card className='bg-background p-6 md:p-8'>
+              <BookingForm />
+            </Card>
           </div>
         </div>
       </section>

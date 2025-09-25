@@ -18,8 +18,8 @@ const PinterestIcon = (props: React.SVGProps<SVGSVGElement>) => (
 
 export default function Footer() {
   return (
-    <footer className="bg-secondary/30 border-t border-border">
-      <div className="container mx-auto px-4 py-16">
+    <footer className="bg-secondary border-t border-border">
+      <div className="container mx-auto px-4 py-20">
         <div className="grid gap-12 lg:grid-cols-12">
           <div className="lg:col-span-4">
             <PavoLogo />
@@ -33,26 +33,26 @@ export default function Footer() {
                 aria-label="Facebook"
                 className="text-muted-foreground transition-colors hover:text-primary"
               >
-                <Facebook className="h-6 w-6" />
+                <Facebook className="h-5 w-5" />
               </Link>
               <Link
                 href="#"
                 aria-label="Instagram"
                 className="text-muted-foreground transition-colors hover:text-primary"
               >
-                <Instagram className="h-6 w-6" />
+                <Instagram className="h-5 w-5" />
               </Link>
               <Link
                 href="#"
                 aria-label="Pinterest"
                 className="text-muted-foreground transition-colors hover:text-primary"
               >
-                <PinterestIcon className="h-6 w-6" />
+                <PinterestIcon className="h-5 w-5" />
               </Link>
             </div>
           </div>
           <div className="lg:col-span-2">
-            <h3 className="font-headline font-semibold text-foreground text-lg">
+            <h3 className="font-bold text-foreground text-sm uppercase tracking-wider">
               Sites
             </h3>
             <ul className="mt-4 space-y-3">
@@ -74,7 +74,7 @@ export default function Footer() {
             </ul>
           </div>
           <div className="lg:col-span-2">
-            <h3 className="font-headline font-semibold text-foreground text-lg">
+            <h3 className="font-bold text-foreground text-sm uppercase tracking-wider">
               Company
             </h3>
             <ul className="mt-4 space-y-3">
@@ -101,8 +101,8 @@ export default function Footer() {
             </ul>
           </div>
           <div className="lg:col-span-4">
-            <h3 className="font-headline font-semibold text-foreground text-lg">
-              Subscribe to our newsletter
+            <h3 className="font-bold text-foreground text-sm uppercase tracking-wider">
+              Subscribe
             </h3>
             <p className="mt-2 text-muted-foreground">
               Get the latest news, design tips, and special offers.
@@ -112,13 +112,13 @@ export default function Footer() {
                 type="email"
                 placeholder="Enter your email"
                 aria-label="Email for newsletter"
-                className="bg-background/50 h-12"
+                className="bg-background h-12"
               />
               <Button type="submit" size="lg">Subscribe</Button>
             </form>
           </div>
         </div>
-        <div className="mt-16 border-t border-border pt-8 text-center text-sm text-muted-foreground">
+        <div className="mt-20 border-t border-border pt-8 text-center text-sm text-muted-foreground">
           <p>&copy; {new Date().getFullYear()} Pavo Suite. All Rights Reserved.</p>
         </div>
       </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Menu, X, ShoppingCart } from 'lucide-react';
@@ -19,8 +19,17 @@ const navLinks = [
 
 export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
   const pathname = usePathname();
   const { cartCount } = usePavoData();
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 10);
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   const getActiveSite = (path: string) => {
     if (path.startsWith('/interiors')) return '/interiors';
@@ -44,10 +53,8 @@ export default function Header() {
     <Link
       href={href}
       className={cn(
-        'relative text-lg font-medium transition-colors hover:text-primary',
-        activeSite === href ? 'text-primary' : 'text-foreground/70',
-        'after:absolute after:bottom-[-4px] after:left-0 after:h-[2px] after:w-0 after:bg-primary after:transition-all after:duration-300',
-        activeSite === href ? 'after:w-full' : 'hover:after:w-full'
+        'relative text-sm font-medium uppercase tracking-wider transition-colors hover:text-primary',
+        activeSite === href ? 'text-primary' : 'text-foreground/80',
       )}
       onClick={() => setIsMenuOpen(false)}
     >
@@ -56,7 +63,10 @@ export default function Header() {
   );
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <header className={cn(
+      "fixed top-0 z-50 w-full transition-all duration-300",
+      isScrolled ? "bg-background/80 backdrop-blur-sm border-b border-border/10" : "bg-transparent border-b border-transparent"
+    )}>
       <div className="container mx-auto flex h-20 items-center justify-between px-4">
         <PavoLogo />
         <nav className="hidden items-center space-x-8 md:flex">
@@ -66,12 +76,12 @@ export default function Header() {
             </NavLink>
           ))}
         </nav>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2">
           <Button asChild variant="ghost" size="icon" className="relative">
             <Link href="/cart">
-              <ShoppingCart className="h-6 w-6" />
+              <ShoppingCart className="h-5 w-5" />
               {cartCount > 0 && (
-                <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground">
+                <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
                   {cartCount}
                 </span>
               )}
@@ -91,12 +101,20 @@ export default function Header() {
         </div>
       </div>
       {isMenuOpen && (
-        <div className="md:hidden">
-          <div className="container mx-auto flex flex-col space-y-4 px-4 pb-4">
+        <div className="md:hidden bg-background border-t border-border">
+          <div className="container mx-auto flex flex-col space-y-4 px-4 pb-4 pt-4">
             {navLinks.map((link) => (
-              <NavLink key={link.href} href={link.href}>
+              <Link
+                key={link.href}
+                href={link.href}
+                className={cn(
+                  'block py-2 text-center text-lg font-medium transition-colors hover:text-primary',
+                  activeSite === link.href ? 'text-primary' : 'text-foreground/80'
+                )}
+                onClick={() => setIsMenuOpen(false)}
+              >
                 {link.label}
-              </NavLink>
+              </Link>
             ))}
           </div>
         </div>

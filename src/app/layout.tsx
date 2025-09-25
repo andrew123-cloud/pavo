@@ -1,19 +1,20 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
-import { Inter, Playfair_Display } from 'next/font/google';
+import { Alegreya } from 'next/font/google';
 import { cn } from '@/lib/utils';
 import { AuthProvider } from '@/context/auth-context';
 import { DataProvider } from '@/context/data-context';
 
-const fontSans = Inter({
+const fontSans = Alegreya({
   subsets: ['latin'],
   variable: '--font-sans',
 });
 
-const fontSerif = Playfair_Display({
+const fontSerif = Alegreya({
   subsets: ['latin'],
   variable: '--font-serif',
+  weight: ['400', '700', '900'],
 });
 
 export const metadata: Metadata = {
@@ -31,7 +32,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning>
       <body
         className={cn(
           'min-h-screen bg-background font-sans antialiased',
