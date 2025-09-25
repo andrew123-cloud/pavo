@@ -47,12 +47,12 @@ export default function PavoDecorsHome() {
             src={typeof src === 'string' && src.trim() ? src : 'https://placehold.co/1920x1080.png?text=Pavo+Decors'}
             alt="A stylishly arranged collection of home decor items"
             fill
-            className={`object-cover transition-opacity duration-1000 ease-in-out ${index === currentImageIndex ? 'opacity-30' : 'opacity-0'}`}
+            className={`object-cover transition-opacity duration-1000 ease-in-out ${index === currentImageIndex ? 'opacity-100' : 'opacity-0'}`}
             data-ai-hint="home decor collection"
             priority={index === 0}
           />
         ))}
-        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/80 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-background/90 to-transparent" />
         <div className="container relative z-10 mx-auto flex h-full flex-col items-start justify-center px-4 text-left">
           <Badge variant="outline" className="mb-4 bg-background/50 backdrop-blur">
             Pavo Decors

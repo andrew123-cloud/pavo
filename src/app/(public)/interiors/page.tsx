@@ -57,12 +57,12 @@ export default function PavoInteriorsHome() {
                 src={typeof src === 'string' && src.trim() ? src : 'https://placehold.co/1920x1080.png?text=Pavo+Interiors'}
                 alt="Elegant living room designed by Pavo Interiors"
                 fill
-                className={`object-cover transition-opacity duration-1000 ease-in-out ${index === currentImageIndex ? 'opacity-30' : 'opacity-0'}`}
+                className={`object-cover transition-opacity duration-1000 ease-in-out ${index === currentImageIndex ? 'opacity-100' : 'opacity-0'}`}
                 data-ai-hint="elegant living room"
                 priority={index === 0}
             />
         ))}
-        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/80 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-background/90 to-transparent" />
         <div className="container relative z-10 mx-auto flex h-full flex-col items-center justify-center px-4 text-center">
           <Badge variant="outline" className="mb-4 border-primary/50 text-primary backdrop-blur-sm">
             Pavo Interiors

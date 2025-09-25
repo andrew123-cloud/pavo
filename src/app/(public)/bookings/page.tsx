@@ -172,12 +172,12 @@ export default function PavoBookingsPage() {
             src={typeof src === 'string' && src.trim() ? src : 'https://placehold.co/1920x1080.png?text=Pavo+Homes'}
             alt="A beautiful and aesthetic venue in Tanzania"
             fill
-            className={`object-cover transition-opacity duration-1000 ease-in-out ${index === currentImageIndex ? 'opacity-30' : 'opacity-0'}`}
+            className={`object-cover transition-opacity duration-1000 ease-in-out ${index === currentImageIndex ? 'opacity-100' : 'opacity-0'}`}
             data-ai-hint="tanzania venue"
             priority={index === 0}
           />
         ))}
-        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/80 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-background/90 to-transparent" />
         <div className="container relative z-10 mx-auto flex h-full flex-col items-center justify-end px-4 text-center pb-20">
           <Badge variant="outline" className="mb-4 bg-background/50 backdrop-blur">
             Pavo Bookings
