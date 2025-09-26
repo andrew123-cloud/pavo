@@ -77,7 +77,7 @@ export default function PavoSuiteHome() {
                     alt="Elegant Pavo branding background"
                     fill
                     className={cn(
-                      'object-cover transition-opacity duration-1000 ease-in-out',
+                      'object-cover transition-opacity duration-1000 ease-in-out opacity-30',
                       index === currentImageIndex ? 'opacity-100' : 'opacity-0'
                     )}
                     priority={index === 0}
@@ -87,10 +87,10 @@ export default function PavoSuiteHome() {
             <div className="absolute inset-0 bg-background/50" />
 
           <div className="relative z-10 flex flex-col items-center justify-center px-4 text-center text-foreground">
-            <h1 className="font-serif text-5xl font-black tracking-tighter text-background md:text-8xl">
+            <h1 className="font-serif text-5xl font-black tracking-tighter text-white md:text-8xl">
               Design the Future of Living
             </h1>
-            <p className="mt-6 max-w-2xl text-lg text-background/80 md:text-xl">
+            <p className="mt-6 max-w-3xl text-xl text-background/80 md:text-2xl">
               Pavo is a suite of brands dedicated to inspired living. We craft spaces, curate decor, and create unforgettable memories, guided by a passion for beauty, elegance, and innovation.
             </p>
             <Button asChild size="lg" className="mt-8 group" variant="outline">
@@ -125,7 +125,7 @@ export default function PavoSuiteHome() {
                       {brand.name}
                     </CardTitle>
                     <CardContent className="mt-4 flex-grow p-0 text-muted-foreground">
-                      <p>{brand.description}</p>
+                      <p className="text-lg">{brand.description}</p>
                     </CardContent>
                     <div className="mt-8">
                        <Button asChild variant="link" className="p-0 text-primary">
